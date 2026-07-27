@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MD / JSON 实时预览</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">{ }</span>
+      <span class="title">文件查看器</span>
+    </div>
+    <div class="root-bar">
+      <input id="rootInput" list="recentRoots" placeholder="选择要实时监听的项目文件夹…" spellcheck="false" />
+      <datalist id="recentRoots"></datalist>
+      <button id="browseBtn" title="浏览选择目录">选择文件夹</button>
+      <button id="applyRootBtn">打开</button>
+    </div>
+    <div class="status">
+      <span id="liveDot" class="dot"></span>
+      <span id="liveText">连接中…</span>
+    </div>
+  </header>
+
+  <div id="main">
+    <aside id="sidebar">
+      <div class="sidebar-head">
+        <input id="filterInput" type="text" placeholder="过滤文件名…" />
+        <button id="refreshBtn" title="刷新文件树">⟳</button>
+      </div>
+      <div id="fileTree" class="tree"></div>
+    </aside>
+
+    <div id="splitter" class="splitter" title="拖拽调整宽度"></div>
+
+    <section id="content">
+      <div id="fileHeader" class="file-header hidden">
+        <span id="fileName" class="file-name"></span>
+        <span id="fileMeta" class="file-meta"></span>
+        <span id="updatedBadge" class="badge hidden">已更新</span>
+      </div>
+      <div id="viewer" class="viewer">
+        <div class="empty-hint">
+          <p>← 从左侧选择一个 <code>.md</code> 或 <code>.json</code> 文件</p>
+          <p class="sub">文件修改后会自动刷新</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="pickerModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span>选择监听目录</span>
+        <button id="pickerClose" title="关闭">✕</button>
+      </div>
+      <div class="picker-crumb" id="pickerCrumb"></div>
+      <div class="picker-list" id="pickerList"></div>
+      <div class="modal-foot">
+        <span id="pickerCurrent" class="picker-current" title=""></span>
+        <button id="pickerSelect" class="primary">选择此目录</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/vendor/marked.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -23,6 +23,7 @@ body {
 
 .titlebar {
   -webkit-app-region: drag;
+  position: relative;
   display: flex;
   align-items: center;
   width: 100%;
@@ -54,16 +55,48 @@ body {
   letter-spacing: 0.1px;
 }
 
-.page-title {
-  flex: 1;
-  min-width: 0;
-  margin: 0 14px;
-  overflow: hidden;
-  color: var(--muted);
+.tab-strip {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  display: flex;
+  height: 30px;
+  padding: 3px;
+  background: #ececec;
+  border-radius: 9px;
+  transform: translateX(-50%);
+}
+
+.workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 86px;
+  padding: 0 12px;
+  color: #777;
+  font: inherit;
   font-size: 12px;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+}
+
+.workspace-tab:hover {
+  color: #222;
+}
+
+.workspace-tab.active {
+  color: #171717;
+  font-weight: 600;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+
+.tab-icon {
+  font-family: Consolas, monospace;
+  font-size: 12px;
 }
 
 .quota-pill {
@@ -80,6 +113,7 @@ body {
   border-radius: 999px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
   line-height: 1;
+  margin-left: auto;
 }
 
 .quota-pill:hover,

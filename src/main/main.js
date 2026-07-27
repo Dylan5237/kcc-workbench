@@ -2,6 +2,7 @@ import {
   app,
   BaseWindow,
   BrowserWindow,
+  clipboard,
   dialog,
   WebContentsView,
   ipcMain,
@@ -11,6 +12,7 @@ import {
   shell
 } from 'electron'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promises as fs } from 'node:fs'
 import { QuotaService } from './quota-service.js'
@@ -19,6 +21,8 @@ import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
 import { LocalKimiService } from './local-kimi-service.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const require = createRequire(import.meta.url)
+const { startServer: startViewerServer } = require('../viewer/server.cjs')
 const rendererRoot = path.resolve(__dirname, '../renderer')
 const TITLEBAR_HEIGHT = 44
 const POPUP_WIDTH = 382
@@ -41,7 +45,10 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow = null
 let shellView = null
 let kimiView = null
+let viewerView = null
 let quotaView = null
+let viewerServer = null
+let activeTab = 'kimi'
 let quotaVisible = false
 let quotaPreferredHeight = 620
 let quotaService = null
@@ -93,6 +100,10 @@ app.whenReady().then(async () => {
     homePath: app.getPath('home'),
     logPath: path.join(app.getPath('userData'), 'kimi-web.log')
   })
+  viewerServer = await startViewerServer({
+    port: 0,
+    configDir: app.getPath('userData')
+  })
   configureRemoteSession()
   await createMainWindow()
 }).catch(async error => {
@@ -124,6 +135,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quotaService?.dispose()
   localKimiService?.stop()
+  viewerServer?.close()
 })
 
 async function registerAppProtocol() {
@@ -189,6 +201,7 @@ async function createMainWindow() {
   wireIpc()
   await shellView.webContents.loadURL('app://shell/shell.html')
   createKimiView()
+  createViewerView()
   createQuotaView()
   layoutViews()
 
@@ -218,7 +231,7 @@ async function createMainWindow() {
     if (loginWindow && !loginWindow.isDestroyed()) {
       loginWindow.close()
     }
-    for (const view of [shellView, kimiView, quotaView]) {
+    for (const view of [shellView, kimiView, viewerView, quotaView]) {
       if (view && !view.webContents.isDestroyed()) {
         view.webContents.close()
       }
@@ -226,6 +239,7 @@ async function createMainWindow() {
     shellView = null
     quotaView = null
     kimiView = null
+    viewerView = null
     mainWindow = null
   })
 
@@ -292,6 +306,30 @@ function createKimiView() {
   }
 }
 
+function createViewerView() {
+  viewerView = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/viewer.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true
+    }
+  })
+  viewerView.setBackgroundColor('#ffffff')
+  viewerView.webContents.on('focus', closeQuotaPopup)
+  viewerView.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  viewerView.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith(`http://127.0.0.1:${viewerServer.port}/`)) return
+    event.preventDefault()
+    if (isSafeExternalUrl(url)) shell.openExternal(url)
+  })
+  viewerView.webContents.loadURL(`http://127.0.0.1:${viewerServer.port}/`)
+}
+
 function createQuotaView() {
   quotaView = new WebContentsView({
     webPreferences: {
@@ -307,7 +345,7 @@ function createQuotaView() {
 }
 
 function layoutViews() {
-  if (!mainWindow || !shellView || !kimiView) return
+  if (!mainWindow || !shellView || !kimiView || !viewerView) return
   const [width, height] = mainWindow.getContentSize()
   shellView.setBounds({
     x: 0,
@@ -315,12 +353,14 @@ function layoutViews() {
     width,
     height: TITLEBAR_HEIGHT
   })
-  kimiView.setBounds({
+  const contentBounds = {
     x: 0,
     y: TITLEBAR_HEIGHT,
     width,
     height: Math.max(0, height - TITLEBAR_HEIGHT)
-  })
+  }
+  kimiView.setBounds(contentBounds)
+  viewerView.setBounds(contentBounds)
 
   if (quotaView) {
     const availableHeight = Math.max(360, height - TITLEBAR_HEIGHT)
@@ -331,6 +371,30 @@ function layoutViews() {
       height: Math.min(quotaPreferredHeight, availableHeight)
     })
   }
+}
+
+async function switchTab(nextTab) {
+  if (!mainWindow || !shellView || !kimiView || !viewerView) return
+  if (!['kimi', 'viewer'].includes(nextTab) || nextTab === activeTab) return
+  closeQuotaPopup()
+
+  const previousView = activeTab === 'viewer' ? viewerView : kimiView
+  const nextView = nextTab === 'viewer' ? viewerView : kimiView
+  mainWindow.contentView.removeChildView(previousView)
+  mainWindow.contentView.addChildView(nextView)
+  activeTab = nextTab
+
+  if (activeTab === 'viewer') {
+    const projectDirectory = await detectKimiProjectDirectory()
+    if (projectDirectory) viewerServer.setRoot(projectDirectory)
+  }
+
+  layoutViews()
+  nextView.webContents.focus()
+  shellView.webContents.send('shell:tab-changed', {
+    activeTab,
+    viewerRoot: viewerServer.root
+  })
 }
 
 function toggleQuotaPopup() {
@@ -357,6 +421,7 @@ function closeQuotaPopup() {
 
 function wireIpc() {
   ipcMain.removeHandler('shell:get-state')
+  ipcMain.removeHandler('shell:set-tab')
   ipcMain.removeHandler('shell:toggle-quota')
   ipcMain.removeHandler('nav:back')
   ipcMain.removeHandler('nav:forward')
@@ -365,13 +430,21 @@ function wireIpc() {
   ipcMain.removeHandler('quota:refresh')
   ipcMain.removeHandler('quota:close')
   ipcMain.removeHandler('quota:set-preferred-height')
+  ipcMain.removeHandler('viewer:select-directory')
+  ipcMain.removeHandler('viewer:copy-files')
 
   ipcMain.handle('shell:get-state', event => {
     requireSender(event, shellView.webContents)
     return {
       quota: quotaService.getState(),
-      navigation: navigationState()
+      navigation: navigationState(),
+      activeTab,
+      viewerRoot: viewerServer.root
     }
+  })
+  ipcMain.handle('shell:set-tab', (event, nextTab) => {
+    requireSender(event, shellView.webContents)
+    return switchTab(nextTab)
   })
   ipcMain.handle('shell:toggle-quota', event => {
     requireSender(event, shellView.webContents)
@@ -413,6 +486,28 @@ function wireIpc() {
     quotaPreferredHeight = Math.max(360, Math.min(1200, Math.ceil(height)))
     layoutViews()
   })
+  ipcMain.handle('viewer:select-directory', async event => {
+    requireSender(event, viewerView.webContents)
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择要监听的项目文件夹',
+      properties: ['openDirectory']
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
+  ipcMain.handle('viewer:copy-files', (event, paths) => {
+    requireSender(event, viewerView.webContents)
+    if (!Array.isArray(paths) || paths.length === 0) {
+      throw new Error('没有可复制的文件')
+    }
+    const safePaths = paths
+      .map(value => path.resolve(String(value)))
+      .filter(value => value === viewerServer.root || value.startsWith(`${viewerServer.root}${path.sep}`))
+    if (safePaths.length !== paths.length) {
+      throw new Error('文件不在当前项目目录中')
+    }
+    clipboard.writeBuffer('CF_HDROP', buildHDropBuffer(safePaths))
+    return true
+  })
 }
 
 function requireSender(event, expectedWebContents) {
@@ -444,6 +539,102 @@ function navigationState() {
     title: kimiView.webContents.getTitle() || 'Kimi',
     url: kimiView.webContents.getURL()
   }
+}
+
+async function detectKimiProjectDirectory() {
+  if (!kimiView || kimiView.webContents.isDestroyed()) return null
+  try {
+    const context = await kimiView.webContents.executeJavaScript(`
+      (() => {
+        const results = []
+        const sessionIds = []
+        const pathPattern = /[A-Za-z]:[\\\\/][^<>"|?*\\r\\n]+/g
+        const sessionPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/ig
+        const collectSessionIds = value => {
+          if (typeof value !== 'string') return
+          for (const match of value.match(sessionPattern) || []) {
+            if (!sessionIds.includes(match)) sessionIds.push(match)
+          }
+        }
+        const collect = (value, score) => {
+          if (typeof value !== 'string') return
+          collectSessionIds(value)
+          for (const match of value.match(pathPattern) || []) {
+            results.push({
+              path: match.replace(/[\\s,;:)}\\]]+$/, ''),
+              score
+            })
+          }
+        }
+        for (const node of document.querySelectorAll(
+          '[aria-current="true"], [aria-selected="true"], [data-state="active"], .active'
+        )) {
+          collect(node.textContent, 100)
+          for (const attribute of node.attributes || []) collect(attribute.value, 110)
+        }
+        for (const node of document.querySelectorAll('[data-path], [data-cwd], [data-workspace]')) {
+          for (const attribute of node.attributes || []) collect(attribute.value, 90)
+        }
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index)
+          const score = /cwd|project|workspace|directory|path/i.test(key) ? 80 : 40
+          collect(localStorage.getItem(key), score)
+        }
+        for (let index = 0; index < sessionStorage.length; index += 1) {
+          const key = sessionStorage.key(index)
+          const score = /cwd|project|workspace|directory|path/i.test(key) ? 75 : 35
+          collect(sessionStorage.getItem(key), score)
+        }
+        collectSessionIds(location.href)
+        collect(document.body?.innerText, 10)
+        return {
+          sessionIds,
+          paths: results.sort((left, right) => right.score - left.score)
+        }
+      })()
+    `, true)
+
+    for (const sessionId of context.sessionIds) {
+      const response = await net.fetch(
+        `${localKimiService.url}api/sessions/${encodeURIComponent(sessionId)}`
+      )
+      if (!response.ok) continue
+      const sessionInfo = await response.json()
+      const workDirectory = await existingDirectory(sessionInfo?.work_dir)
+      if (workDirectory) return workDirectory
+    }
+
+    for (const candidate of context.paths) {
+      const value = path.normalize(candidate.path)
+      if (/\bAppData\b/i.test(value)) continue
+      const directory = await existingDirectory(value)
+      if (directory) return directory
+    }
+  } catch (error) {
+    console.warn('Unable to detect the current Kimi project directory:', error)
+  }
+  return null
+}
+
+async function existingDirectory(value) {
+  if (!value || typeof value !== 'string') return null
+  try {
+    const stat = await fs.stat(value)
+    if (stat.isDirectory()) return path.normalize(value)
+    if (stat.isFile()) return path.dirname(path.normalize(value))
+  } catch {
+    // Candidate can be stale, truncated, or only visible text.
+  }
+  return null
+}
+
+function buildHDropBuffer(paths) {
+  const fileList = `${paths.map(value => path.resolve(value)).join('\0')}\0\0`
+  const pathBuffer = Buffer.from(fileList, 'utf16le')
+  const header = Buffer.alloc(20)
+  header.writeUInt32LE(20, 0)
+  header.writeUInt32LE(1, 16)
+  return Buffer.concat([header, pathBuffer])
 }
 
 function broadcastQuotaState(state) {

@@ -22,7 +22,16 @@
       <span class="brand-name">Kimi Desktop</span>
     </div>
 
-    <div id="pageTitle" class="page-title">Kimi</div>
+    <nav class="tab-strip" aria-label="主工作区">
+      <button class="workspace-tab active" type="button" data-tab="kimi">
+        <span class="tab-icon">⌂</span>
+        <span>首页</span>
+      </button>
+      <button class="workspace-tab" type="button" data-tab="viewer">
+        <span class="tab-icon">{ }</span>
+        <span>文件查看器</span>
+      </button>
+    </nav>
 
     <button id="quotaButton" class="quota-pill" type="button" aria-expanded="false">
       <span id="quotaStatusDot" class="status-dot status-insufficient"></span>

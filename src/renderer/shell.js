@@ -1,23 +1,30 @@
 const quotaButton = document.querySelector('#quotaButton')
 const quotaPercent = document.querySelector('#quotaPercent')
 const quotaStatusDot = document.querySelector('#quotaStatusDot')
-const pageTitle = document.querySelector('#pageTitle')
+const workspaceTabs = [...document.querySelectorAll('.workspace-tab')]
 
 quotaButton.addEventListener('click', () => window.desktopShell.toggleQuota())
+for (const tab of workspaceTabs) {
+  tab.addEventListener('click', () => window.desktopShell.setTab(tab.dataset.tab))
+}
 
-window.desktopShell.onNavigationState(renderNavigation)
 window.desktopShell.onQuotaState(renderQuota)
+window.desktopShell.onTabChanged(state => renderActiveTab(state.activeTab))
 window.desktopShell.onQuotaVisibility(visible => {
   quotaButton.setAttribute('aria-expanded', String(Boolean(visible)))
 })
 
 window.desktopShell.getState().then(state => {
-  renderNavigation(state.navigation)
+  renderActiveTab(state.activeTab)
   renderQuota(state.quota)
 })
 
-function renderNavigation(state) {
-  pageTitle.textContent = compactTitle(state?.title)
+function renderActiveTab(activeTab) {
+  for (const tab of workspaceTabs) {
+    const active = tab.dataset.tab === activeTab
+    tab.classList.toggle('active', active)
+    tab.setAttribute('aria-current', active ? 'page' : 'false')
+  }
 }
 
 function renderQuota(state) {
@@ -32,11 +39,6 @@ function renderQuota(state) {
       : state?.forecast?.status ?? 'insufficient'
   quotaStatusDot.className = `status-dot status-${status}`
   quotaButton.title = state?.forecast?.message || '点击查看额度'
-}
-
-function compactTitle(value) {
-  if (!value || value.includes('Kimi AI 官网')) return 'Kimi'
-  return value.length > 42 ? `${value.slice(0, 42)}…` : value
 }
 
 function formatNumber(value) {

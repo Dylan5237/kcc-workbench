@@ -41,5 +41,8 @@
       ],
       "artifactName": "Kimi-Desktop-${version}-${arch}.${ext}"
     }
+  },
+  "dependencies": {
+    "marked": "^12.0.2"
   }
 }
