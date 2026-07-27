@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src 'unsafe-inline'"
+  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kimi Code 启动失败</title>
+  <style>
+    body {
+      display: grid;
+      min-height: 100vh;
+      margin: 0;
+      color: #1d1d1f;
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      background: #fff;
+      place-items: center;
+    }
+    main { max-width: 520px; padding: 32px; text-align: center; }
+    h1 { margin: 0; font-size: 18px; }
+    p { color: #6d6d6d; font-size: 13px; line-height: 1.7; }
+    code {
+      padding: 3px 6px;
+      color: #343434;
+      background: #f2f2f2;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Kimi Code Web 启动失败</h1>
+    <p>请确认本机可以运行 <code>kimi web</code>，然后点击标题栏的刷新按钮重试。</p>
+    <p>详细日志位于应用数据目录的 <code>kimi-web.log</code>。</p>
+  </main>
+</body>
+</html>

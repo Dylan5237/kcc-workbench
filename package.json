@@ -1,0 +1,45 @@
+{
+  "name": "kimi-desktop-wrapper",
+  "version": "1.0.0",
+  "description": "Kimi Code local Web UI wrapper with manual quota tracking and local burn-rate forecasting",
+  "main": "src/main/main.js",
+  "type": "module",
+  "author": "howyo",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "demo": "electron . --demo",
+    "test": "node --test",
+    "build": "electron-builder --win --dir",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.local.kimidesktop",
+    "productName": "Kimi Desktop",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "README.md"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Kimi-Desktop-${version}-${arch}.${ext}"
+    }
+  }
+}

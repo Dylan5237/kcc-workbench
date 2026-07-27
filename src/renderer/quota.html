@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self' app:; script-src 'self' app:; style-src 'self' app:; img-src 'self' app: data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kimi 额度</title>
+  <link rel="stylesheet" href="quota.css">
+</head>
+<body>
+  <main class="popover">
+    <header class="panel-header">
+      <div>
+        <h1>Kimi 额度</h1>
+        <div class="sync-meta">
+          <span id="headerStatus" class="status-dot"></span>
+          <span id="updatedAt">尚未同步</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="refreshButton" class="refresh-button" type="button">更新信息 <span>↻</span></button>
+        <button id="closeButton" class="close-button" type="button" aria-label="关闭">×</button>
+      </div>
+    </header>
+
+    <section class="quota-card total-card">
+      <div class="allegro-brand" aria-label="Allegro">
+        <span class="allegro-clef" aria-hidden="true">𝄞</span>
+        <span class="allegro-word">Allegro</span>
+      </div>
+      <div class="card-heading">
+        <h2>总额度</h2>
+        <strong id="totalPercent">--</strong>
+      </div>
+      <div class="progress-track stacked">
+        <span id="kimiBar" class="bar-kimi"></span>
+        <span id="codeBar" class="bar-code"></span>
+      </div>
+      <div class="legend-grid">
+        <div><span class="legend-mark kimi"></span><span id="kimiPercent">Kimi --</span></div>
+        <div><span class="legend-mark code"></span><span id="codePercent">Code --</span></div>
+      </div>
+      <div id="totalReset" class="reset-text">--</div>
+    </section>
+
+    <section class="quota-card compact-card">
+      <div class="card-heading">
+        <div>
+          <h2>5 小时用量</h2>
+          <span id="fivePercent" class="metric-label">Code --</span>
+        </div>
+        <span id="fiveReset" class="reset-text">--</span>
+      </div>
+      <div class="progress-track">
+        <span id="fiveBar" class="bar-code"></span>
+      </div>
+    </section>
+
+    <section class="quota-card compact-card">
+      <div class="card-heading">
+        <div>
+          <h2>7 天用量</h2>
+          <span id="sevenPercent" class="metric-label">Code --</span>
+        </div>
+        <span id="sevenReset" class="reset-text">--</span>
+      </div>
+      <div class="progress-track">
+        <span id="sevenBar" class="bar-code"></span>
+      </div>
+    </section>
+
+    <section class="autopilot-card">
+      <div class="autopilot-title">
+        <div>
+          <span class="spark">✦</span>
+          <h2>额度节奏</h2>
+          <span class="beta">BETA</span>
+        </div>
+        <span id="forecastBadge" class="forecast-badge">样本不足</span>
+      </div>
+      <p id="forecastSummary" class="forecast-summary">再同步一次后生成燃尽预测。</p>
+      <div id="forecastDetails" class="forecast-details"></div>
+    </section>
+
+    <div id="errorPanel" class="error-panel" hidden></div>
+    <footer>仅在点击更新时同步额度 · 预测全部在本地完成</footer>
+  </main>
+  <script src="quota.js"></script>
+</body>
+</html>

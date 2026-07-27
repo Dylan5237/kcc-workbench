@@ -1,0 +1,150 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --titlebar-height: 44px;
+  --border: #e5e5e5;
+  --text: #1d1d1f;
+  --muted: #757575;
+  --blue: #377cf6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.titlebar {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--titlebar-height);
+  padding: 0 150px 0 14px;
+  color: var(--text);
+  background: #fafafa;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 132px;
+}
+
+.brand-mark {
+  display: block;
+  width: 27px;
+  height: 27px;
+  border-radius: 7px;
+}
+
+.brand-name {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.1px;
+}
+
+.page-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0 14px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quota-pill {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  color: #292929;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #d8d8d8;
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  line-height: 1;
+}
+
+.quota-pill:hover,
+.quota-pill[aria-expanded="true"] {
+  background: #f3f5f8;
+  border-color: #bfc7d2;
+}
+
+.quota-label {
+  display: inline-flex;
+  align-items: center;
+  color: #666;
+  font-size: 12px;
+  line-height: 1;
+}
+
+#quotaPercent {
+  display: inline-flex;
+  align-items: center;
+  min-width: 32px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.chevron {
+  width: 6px;
+  height: 6px;
+  margin: -3px 1px 0 2px;
+  font-size: 0;
+  border-right: 1.5px solid #747474;
+  border-bottom: 1.5px solid #747474;
+  transform: rotate(45deg);
+}
+
+.status-dot {
+  display: block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a2a2a2;
+}
+
+.status-safe,
+.status-stable {
+  background: #2fb35c;
+}
+
+.status-warning {
+  background: #e5a12b;
+}
+
+.status-critical,
+.status-error {
+  background: #dc4c40;
+}
+
+.status-syncing {
+  background: var(--blue);
+  box-shadow: 0 0 0 3px rgb(55 124 246 / 16%);
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src 'unsafe-inline'"
+  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>正在启动 Kimi Code</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      display: grid;
+      min-height: 100vh;
+      margin: 0;
+      color: #1d1d1f;
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      background: #fff;
+      place-items: center;
+    }
+    main { text-align: center; }
+    .mark {
+      width: 34px;
+      height: 34px;
+      margin: 0 auto 18px;
+      border: 4px solid #e5e5e5;
+      border-top-color: #377cf6;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    p { margin: 9px 0 0; color: #777; font-size: 13px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark" aria-hidden="true"></div>
+    <h1>正在启动 Kimi Code Web</h1>
+    <p>本地地址：127.0.0.1:5494</p>
+  </main>
+</body>
+</html>
