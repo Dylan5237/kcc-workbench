@@ -1,6 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
+const { createLineDiff } = require('./diff.cjs')
 
 const MAX_SESSIONS = 20
 const MAX_CHECKPOINTS = 40
@@ -176,10 +177,16 @@ function coalesceChanges(changes) {
       byPath.set(change.path, { ...change })
       continue
     }
+    const beforeContent = existing.beforeContent
+    const afterContent = change.afterContent
+    const diff = createLineDiff(beforeContent, afterContent)
     byPath.set(change.path, {
       ...change,
-      beforeContent: existing.beforeContent,
-      type: deriveChangeType(existing.beforeContent, change.afterContent)
+      beforeContent,
+      afterContent,
+      diff: diff.lines,
+      stats: diff.stats,
+      type: deriveChangeType(beforeContent, afterContent)
     })
   }
   return [...byPath.values()].filter(change => change.beforeContent !== change.afterContent)

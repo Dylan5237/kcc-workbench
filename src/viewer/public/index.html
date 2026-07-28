@@ -7,7 +7,7 @@
     content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'self'; base-uri 'none'; form-action 'none'"
   />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MD / JSON 实时预览</title>
+  <title>文件查看器与任务时间机</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -33,6 +33,7 @@
       <div class="sidebar-tabs">
         <button class="active" data-sidebar-mode="files">文件</button>
         <button data-sidebar-mode="artifacts">本轮产物 <span id="artifactCount">0</span></button>
+        <button data-sidebar-mode="time-machine">时间机器 <span id="checkpointCount">0</span></button>
       </div>
       <div class="sidebar-head">
         <input id="filterInput" type="text" placeholder="过滤文件名…" />
@@ -40,6 +41,7 @@
       </div>
       <div id="fileTree" class="tree"></div>
       <div id="artifactList" class="artifact-list hidden"></div>
+      <div id="timeMachineList" class="time-machine-list hidden"></div>
     </aside>
 
     <div id="splitter" class="splitter" title="拖拽调整宽度"></div>
@@ -59,6 +61,32 @@
     </section>
   </div>
 
+  <div id="forkModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="forkTitle">
+    <form id="forkForm" class="modal-box fork-modal-box">
+      <div class="modal-head">
+        <span id="forkTitle">从此时间点继续</span>
+        <button id="forkClose" type="button" title="关闭" aria-label="关闭">✕</button>
+      </div>
+      <div class="fork-body">
+        <div class="fork-safety">
+          <strong>创建隔离 Git worktree</strong>
+          <span>当前项目和分支不会被覆盖；系统会在新目录恢复这个时间点。</span>
+        </div>
+        <label for="forkBranch">新分支名称</label>
+        <input id="forkBranch" required spellcheck="false" />
+        <small>支持字母、数字、点、横线、下划线和斜杠。</small>
+        <label for="forkTarget">目标目录（可选）</label>
+        <input id="forkTarget" spellcheck="false" placeholder="留空则创建在当前仓库旁边" />
+        <div id="forkError" class="fork-error hidden" role="alert"></div>
+      </div>
+      <div class="modal-foot">
+        <span class="picker-current">仅在确认后执行 Git 操作</span>
+        <button id="forkCancel" type="button">取消</button>
+        <button id="forkSubmit" class="primary" type="submit">创建并恢复</button>
+      </div>
+    </form>
+  </div>
+
   <div id="pickerModal" class="modal hidden">
     <div class="modal-box">
       <div class="modal-head">
@@ -74,7 +102,7 @@
     </div>
   </div>
 
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/mermaid.min.js"></script>

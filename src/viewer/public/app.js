@@ -24,12 +24,24 @@
   const artifactListEl = document.getElementById('artifactList');
   const artifactCountEl = document.getElementById('artifactCount');
   const sidebarTabs = [...document.querySelectorAll('[data-sidebar-mode]')];
+  const timeMachineListEl = document.getElementById('timeMachineList');
+  const checkpointCountEl = document.getElementById('checkpointCount');
+  const forkModal = document.getElementById('forkModal');
+  const forkForm = document.getElementById('forkForm');
+  const forkBranch = document.getElementById('forkBranch');
+  const forkTarget = document.getElementById('forkTarget');
+  const forkError = document.getElementById('forkError');
+  const forkSubmit = document.getElementById('forkSubmit');
+  const forkClose = document.getElementById('forkClose');
+  const forkCancel = document.getElementById('forkCancel');
 
   let treeData = null;
   let currentPath = null; // 当前打开的文件相对路径
   let currentRoot = ''; // 当前监听根目录(绝对路径)
   let mermaidSequence = 0;
   let artifactSession = null;
+  let timeMachineState = null;
+  let pendingForkCheckpoint = null;
   const collapsed = new Set(); // 折叠的目录
 
   marked.setOptions({ breaks: true, gfm: true });
@@ -169,6 +181,195 @@
       await navigator.clipboard.writeText(absolutePath);
       toast('已复制文件路径');
     });
+  }
+
+  async function loadTimeMachine() {
+    const response = await fetch('/api/time-machine');
+    timeMachineState = await response.json();
+    renderTimeMachine();
+  }
+
+  function renderTimeMachine() {
+    const checkpoints = timeMachineState?.checkpoints || [];
+    checkpointCountEl.textContent = String(checkpoints.length);
+    if (!checkpoints.length) {
+      timeMachineListEl.innerHTML = `
+        <div class="artifact-empty">
+          <strong>尚无可回放时间点</strong>
+          <span>${escapeHtml(timeMachineState?.session?.label || '当前工作区')}</span>
+          <small>修改产物后，系统会自动合并短时间内的连续变化并保存检查点。</small>
+        </div>`;
+      return;
+    }
+    timeMachineListEl.innerHTML = `
+      <div class="time-machine-intro">
+        <strong>${escapeHtml(timeMachineState.session?.label || '当前任务')}</strong>
+        <span>可回放 · 可比较 · 隔离分叉</span>
+      </div>
+      <div class="timeline">
+        ${checkpoints.map((checkpoint, index) => `
+          <button class="checkpoint-item" data-checkpoint-id="${checkpoint.id}">
+            <span class="timeline-rail"><i></i>${index === checkpoints.length - 1 ? '' : '<b></b>'}</span>
+            <span class="checkpoint-main">
+              <strong>${escapeHtml(checkpoint.title)}</strong>
+              <small>${new Date(checkpoint.timestamp).toLocaleString('zh-CN')} · ${checkpoint.changeCount} 个文件</small>
+              <span class="checkpoint-files">${checkpoint.files.slice(0, 3).map(file =>
+                `<em>${escapeHtml(file.name)}</em>`).join('')}${checkpoint.files.length > 3 ? `<em>+${checkpoint.files.length - 3}</em>` : ''}</span>
+            </span>
+            <span class="git-state ${checkpoint.git.available ? 'ready' : ''}" title="${escapeHtml(checkpoint.git.error || '')}">
+              ${checkpoint.git.available ? 'Git' : '本地'}
+            </span>
+          </button>`).join('')}
+      </div>`;
+    timeMachineListEl.querySelectorAll('.checkpoint-item').forEach(button => {
+      button.onclick = () => openCheckpoint(button.dataset.checkpointId);
+    });
+  }
+
+  async function openCheckpoint(checkpointId) {
+    const response = await fetch(`/api/time-machine/checkpoint?id=${encodeURIComponent(checkpointId)}`);
+    const checkpoint = await response.json();
+    if (!response.ok) {
+      toast(checkpoint.error || '无法读取时间点', true);
+      return;
+    }
+    currentPath = null;
+    renderTree();
+    fileHeaderEl.classList.remove('hidden');
+    fileNameEl.textContent = checkpoint.title;
+    fileMetaEl.textContent = `${new Date(checkpoint.timestamp).toLocaleString('zh-CN')} · ${checkpoint.changes.length} 个文件`;
+    renderCheckpoint(checkpoint, 0, 'diff');
+  }
+
+  function renderCheckpoint(checkpoint, selectedIndex, mode) {
+    const change = checkpoint.changes[selectedIndex];
+    const gitLabel = checkpoint.git?.available
+      ? `${checkpoint.git.branch} · ${String(checkpoint.git.head).slice(0, 8)}`
+      : '非 Git 快照';
+    viewerEl.innerHTML = `
+      <div class="checkpoint-detail">
+        <div class="checkpoint-toolbar">
+          <div>
+            <strong>${escapeHtml(checkpoint.title)}</strong>
+            <span>${escapeHtml(gitLabel)}</span>
+          </div>
+          ${checkpoint.git?.available ? '<button data-action="fork">从这里继续</button>' : '<span class="fork-disabled">当前项目无法创建 Git 分叉</span>'}
+        </div>
+        <div class="checkpoint-file-tabs">
+          ${checkpoint.changes.map((item, index) => `
+            <button data-change-index="${index}" class="${index === selectedIndex ? 'active' : ''}">
+              <span class="artifact-type ${item.type}">${artifactTypeLabel(item.type)}</span>
+              ${escapeHtml(item.path)}
+            </button>`).join('')}
+        </div>
+        <div class="snapshot-modes">
+          <button data-snapshot-mode="diff" class="${mode === 'diff' ? 'active' : ''}">变更对比</button>
+          <button data-snapshot-mode="snapshot" class="${mode === 'snapshot' ? 'active' : ''}">此时内容</button>
+        </div>
+        <div id="checkpointBody"></div>
+      </div>`;
+    viewerEl.querySelector('[data-action="fork"]')?.addEventListener('click', () => openForkModal(checkpoint));
+    viewerEl.querySelectorAll('[data-change-index]').forEach(button => {
+      button.onclick = () => renderCheckpoint(checkpoint, Number(button.dataset.changeIndex), mode);
+    });
+    viewerEl.querySelectorAll('[data-snapshot-mode]').forEach(button => {
+      button.onclick = () => renderCheckpoint(checkpoint, selectedIndex, button.dataset.snapshotMode);
+    });
+    if (mode === 'snapshot') renderCheckpointSnapshot(change);
+    else renderCheckpointDiff(change);
+  }
+
+  function renderCheckpointDiff(change) {
+    const body = document.getElementById('checkpointBody');
+    body.innerHTML = `
+      <div class="diff-summary">
+        <span>${escapeHtml(change.path)}</span>
+        <b>+${change.stats.added}</b><i>−${change.stats.removed}</i>
+      </div>
+      <div class="diff-view">${change.diff.map((line, index) => `
+        <div class="diff-line ${line.type}">
+          <span class="diff-number">${index + 1}</span>
+          <span class="diff-mark">${line.type === 'add' ? '+' : (line.type === 'remove' ? '−' : ' ')}</span>
+          <code>${escapeHtml(line.text) || ' '}</code>
+        </div>`).join('')}</div>`;
+  }
+
+  async function renderCheckpointSnapshot(change) {
+    const body = document.getElementById('checkpointBody');
+    const content = change.afterContent || change.beforeContent || '';
+    if (change.type === 'deleted') {
+      body.insertAdjacentHTML('beforeend', '<div class="snapshot-note">该文件在此时间点被删除，以下显示删除前内容。</div>');
+    }
+    if (change.ext === '.md') {
+      const markdownBody = document.createElement('div');
+      markdownBody.className = 'markdown-body snapshot-document';
+      markdownBody.innerHTML = sanitizeMarkdown(marked.parse(content));
+      body.appendChild(markdownBody);
+      await renderMermaidBlocks(markdownBody);
+      return;
+    }
+    if (change.ext === '.json') {
+      try {
+        body.innerHTML += `<div class="json-view snapshot-document">${highlightJson(JSON.stringify(JSON.parse(content), null, 2))}</div>`;
+      } catch {
+        body.innerHTML += `<div class="json-view snapshot-document">${escapeHtml(content)}</div>`;
+      }
+      return;
+    }
+    const frame = document.createElement('iframe');
+    frame.className = 'html-preview snapshot-document';
+    frame.title = `${change.name} 历史快照`;
+    frame.setAttribute('sandbox', '');
+    const directory = change.path.includes('/') ? change.path.slice(0, change.path.lastIndexOf('/') + 1) : '';
+    const safeSource = content.replace(/<base\b[^>]*>/gi, '');
+    frame.srcdoc = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' http://127.0.0.1:*; img-src http://127.0.0.1:* data:; font-src http://127.0.0.1:*; script-src 'none'; form-action 'none'"><base href="/api/html-asset/${directory.split('/').filter(Boolean).map(encodeURIComponent).join('/')}${directory ? '/' : ''}">${safeSource}`;
+    body.appendChild(frame);
+  }
+
+  function openForkModal(checkpoint) {
+    pendingForkCheckpoint = checkpoint;
+    const stamp = new Date(checkpoint.timestamp);
+    const pad = value => String(value).padStart(2, '0');
+    forkBranch.value = `kimi-time/${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}`;
+    forkTarget.value = '';
+    forkError.classList.add('hidden');
+    forkError.textContent = '';
+    forkModal.classList.remove('hidden');
+    setTimeout(() => forkBranch.focus(), 0);
+  }
+
+  function closeForkModal() {
+    pendingForkCheckpoint = null;
+    forkModal.classList.add('hidden');
+  }
+
+  async function submitFork(event) {
+    event.preventDefault();
+    if (!pendingForkCheckpoint) return;
+    forkSubmit.disabled = true;
+    forkSubmit.textContent = '创建中…';
+    forkError.classList.add('hidden');
+    try {
+      const response = await fetch('/api/time-machine/fork', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checkpointId: pendingForkCheckpoint.id,
+          branchName: forkBranch.value.trim(),
+          targetPath: forkTarget.value.trim()
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '创建失败');
+      closeForkModal();
+      toast(`已创建 ${result.branch}：${result.target}`);
+    } catch (error) {
+      forkError.textContent = error.message;
+      forkError.classList.remove('hidden');
+    } finally {
+      forkSubmit.disabled = false;
+      forkSubmit.textContent = '创建并恢复';
+    }
   }
 
   function buildNode(node, filter) {
@@ -942,6 +1143,11 @@
         renderArtifacts();
         return;
       }
+      if (msg.type === 'time-machine-session' || msg.type === 'time-machine-checkpoint') {
+        timeMachineState = msg.state;
+        renderTimeMachine();
+        return;
+      }
       if (msg.type !== 'change') return;
       const changed = msg.file;
       loadTree(true);
@@ -969,9 +1175,20 @@
       const showFiles = mode === 'files';
       document.querySelector('.sidebar-head').classList.toggle('hidden', !showFiles);
       treeEl.classList.toggle('hidden', !showFiles);
-      artifactListEl.classList.toggle('hidden', showFiles);
-      if (!showFiles) loadArtifacts();
+      artifactListEl.classList.toggle('hidden', mode !== 'artifacts');
+      timeMachineListEl.classList.toggle('hidden', mode !== 'time-machine');
+      if (mode === 'artifacts') loadArtifacts();
+      if (mode === 'time-machine') loadTimeMachine();
     });
+  });
+  forkForm.addEventListener('submit', submitFork);
+  forkClose.addEventListener('click', closeForkModal);
+  forkCancel.addEventListener('click', closeForkModal);
+  forkModal.addEventListener('click', event => {
+    if (event.target === forkModal) closeForkModal();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !forkModal.classList.contains('hidden')) closeForkModal();
   });
 
   // ---------- 启动 ----------
@@ -979,5 +1196,6 @@
   loadRootInfo();
   loadTree(false);
   loadArtifacts();
+  loadTimeMachine();
   connectEvents();
 })();
