@@ -25,9 +25,19 @@
   let treeData = null;
   let currentPath = null; // 当前打开的文件相对路径
   let currentRoot = ''; // 当前监听根目录(绝对路径)
+  let mermaidSequence = 0;
   const collapsed = new Set(); // 折叠的目录
 
   marked.setOptions({ breaks: true, gfm: true });
+  if (window.mermaid) {
+    window.mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'neutral',
+      suppressErrorRendering: true,
+      flowchart: { htmlLabels: false },
+    });
+  }
 
   // ---------- 文件树 ----------
   async function loadTree(keepSelection) {
@@ -257,13 +267,13 @@
       const file = await res.json();
       currentPath = p;
       renderTree(); // 更新高亮
-      renderFile(file, silent);
+      await renderFile(file, silent);
     } catch (err) {
       viewerEl.innerHTML = `<div class="empty-hint"><p>读取失败:${escapeHtml(err.message)}</p></div>`;
     }
   }
 
-  function renderFile(file, silent) {
+  async function renderFile(file, silent) {
     fileHeaderEl.classList.remove('hidden');
     fileNameEl.textContent = file.path;
     fileMetaEl.textContent = `${formatSize(file.size)} · 更新于 ${new Date(file.mtime).toLocaleTimeString('zh-CN')}`;
@@ -271,7 +281,11 @@
     const keepScroll = silent ? viewerEl.scrollTop : 0;
 
     if (file.ext === '.md') {
-      viewerEl.innerHTML = `<div class="markdown-body">${sanitizeMarkdown(marked.parse(file.content))}</div>`;
+      const markdownBody = document.createElement('div');
+      markdownBody.className = 'markdown-body';
+      markdownBody.innerHTML = sanitizeMarkdown(marked.parse(file.content));
+      viewerEl.replaceChildren(markdownBody);
+      await renderMermaidBlocks(markdownBody);
     } else {
       renderJson(file);
     }
@@ -301,7 +315,7 @@
       for (const attribute of [...element.attributes]) {
         if (
           attribute.name.toLowerCase().startsWith('on')
-          || ['srcdoc', 'formaction'].includes(attribute.name.toLowerCase())
+          || ['srcdoc', 'formaction', 'style'].includes(attribute.name.toLowerCase())
         ) {
           element.removeAttribute(attribute.name);
         }
@@ -310,6 +324,68 @@
         const value = element.getAttribute(attributeName);
         if (value && /^\s*(?:javascript|vbscript|data):/i.test(value)) {
           element.removeAttribute(attributeName);
+        }
+      }
+    }
+    return template.innerHTML;
+  }
+
+  async function renderMermaidBlocks(container) {
+    const blocks = [...container.querySelectorAll(
+      'pre > code.language-mermaid, pre > code.lang-mermaid'
+    )];
+    if (!blocks.length) return;
+    if (!window.mermaid) {
+      for (const code of blocks) showMermaidError(code, 'Mermaid 渲染器未加载');
+      return;
+    }
+
+    for (const code of blocks) {
+      const source = code.textContent;
+      const host = document.createElement('div');
+      host.className = 'mermaid-diagram';
+      code.parentElement.replaceWith(host);
+      try {
+        const id = `mermaid-diagram-${Date.now()}-${mermaidSequence += 1}`;
+        const { svg, bindFunctions } = await window.mermaid.render(id, source);
+        host.innerHTML = sanitizeMermaidSvg(svg);
+        bindFunctions?.(host);
+      } catch (error) {
+        host.classList.add('mermaid-error');
+        host.innerHTML = `
+          <strong>Mermaid 图表解析失败</strong>
+          <span>${escapeHtml(error?.message || String(error))}</span>
+          <pre><code>${escapeHtml(source)}</code></pre>`;
+      }
+    }
+  }
+
+  function showMermaidError(code, message) {
+    const host = document.createElement('div');
+    host.className = 'mermaid-diagram mermaid-error';
+    host.innerHTML = `
+      <strong>${escapeHtml(message)}</strong>
+      <pre><code>${escapeHtml(code.textContent)}</code></pre>`;
+    code.parentElement.replaceWith(host);
+  }
+
+  function sanitizeMermaidSvg(svg) {
+    const template = document.createElement('template');
+    template.innerHTML = svg;
+    for (const element of template.content.querySelectorAll(
+      'script, iframe, object, embed, foreignObject'
+    )) {
+      element.remove();
+    }
+    for (const element of template.content.querySelectorAll('*')) {
+      for (const attribute of [...element.attributes]) {
+        const name = attribute.name.toLowerCase();
+        if (name.startsWith('on')) element.removeAttribute(attribute.name);
+        if (
+          ['href', 'xlink:href'].includes(name)
+          && /^\s*(?:javascript|vbscript):/i.test(attribute.value)
+        ) {
+          element.removeAttribute(attribute.name);
         }
       }
     }

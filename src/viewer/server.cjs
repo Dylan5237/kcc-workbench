@@ -146,6 +146,16 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
       return fs.createReadStream(markedPath).pipe(response)
     }
 
+    if (url.pathname === '/vendor/mermaid.min.js') {
+      const mermaidPath = path.join(
+        path.dirname(require.resolve('mermaid/package.json')),
+        'dist',
+        'mermaid.min.js'
+      )
+      response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
+      return fs.createReadStream(mermaidPath).pipe(response)
+    }
+
     serveStatic(response, url.pathname)
   })
 

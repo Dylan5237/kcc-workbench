@@ -38,6 +38,9 @@ test('starts empty and accepts a project directory injection', async t => {
 
   const markdown = await fetch(`${baseUrl}/api/file?p=README.md`).then(response => response.json())
   assert.equal(markdown.content, '# Hello')
+  const mermaidVendor = await fetch(`${baseUrl}/vendor/mermaid.min.js`)
+  assert.equal(mermaidVendor.status, 200)
+  assert.match(mermaidVendor.headers.get('content-type'), /javascript/)
 })
 
 test('blocks paths outside the active project', async t => {

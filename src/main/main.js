@@ -2,7 +2,6 @@ import {
   app,
   BaseWindow,
   BrowserWindow,
-  clipboard,
   dialog,
   WebContentsView,
   ipcMain,
@@ -20,6 +19,7 @@ import { runQuotaFixtureSelfTest } from './quota-worker.js'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
 import { LocalKimiService } from './local-kimi-service.js'
 import { SettingsService } from './settings-service.js'
+import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -545,7 +545,7 @@ function wireIpc() {
     })
     return result.canceled ? null : result.filePaths[0]
   })
-  ipcMain.handle('viewer:copy-files', (event, paths) => {
+  ipcMain.handle('viewer:copy-files', async (event, paths) => {
     requireSender(event, viewerView.webContents)
     if (!Array.isArray(paths) || paths.length === 0) {
       throw new Error('没有可复制的文件')
@@ -556,7 +556,13 @@ function wireIpc() {
     if (safePaths.length !== paths.length) {
       throw new Error('文件不在当前项目目录中')
     }
-    clipboard.writeBuffer('CF_HDROP', buildHDropBuffer(safePaths))
+    for (const filePath of safePaths) {
+      const stat = await fs.stat(filePath)
+      if (!stat.isFile() && !stat.isDirectory()) {
+        throw new Error(`无法复制该路径：${filePath}`)
+      }
+    }
+    await copyPathsToWindowsClipboard(safePaths)
     return true
   })
   ipcMain.handle('settings:get-state', async event => {
@@ -694,15 +700,6 @@ async function existingDirectory(value) {
     // Candidate can be stale, truncated, or only visible text.
   }
   return null
-}
-
-function buildHDropBuffer(paths) {
-  const fileList = `${paths.map(value => path.resolve(value)).join('\0')}\0\0`
-  const pathBuffer = Buffer.from(fileList, 'utf16le')
-  const header = Buffer.alloc(20)
-  header.writeUInt32LE(20, 0)
-  header.writeUInt32LE(1, 16)
-  return Buffer.concat([header, pathBuffer])
 }
 
 function broadcastQuotaState(state) {

@@ -266,6 +266,33 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
 .markdown-body tr:nth-child(even) td { background: #fafbfc; }
 .markdown-body img { max-width: 100%; }
 .markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+.mermaid-diagram {
+  width: 100%;
+  margin: 20px 0;
+  padding: 18px;
+  overflow-x: auto;
+  text-align: center;
+  background: #fbfbfb;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mermaid-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.mermaid-diagram.mermaid-error {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #a43830;
+  text-align: left;
+  background: #fff7f6;
+  border-color: #efc8c4;
+}
+.mermaid-error span { font-size: 12px; }
+.mermaid-error pre { margin: 5px 0 0; }
 
 /* ---- 目录选择器 ---- */
 .modal {
