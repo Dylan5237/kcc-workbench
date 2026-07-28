@@ -80,3 +80,31 @@ test('blocks paths outside the active project', async t => {
   )
   assert.equal(response.status, 403)
 })
+
+test('tracks document changes inside the current artifact session', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-artifacts-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Before')
+  const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  t.after(async () => {
+    server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+  server.setConversationContext({
+    id: 'session:test',
+    label: '测试会话',
+    root: projectDir
+  })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# After\n\nNew line')
+  await new Promise(resolve => setTimeout(resolve, 900))
+  const session = await fetch(`http://127.0.0.1:${server.port}/api/artifacts`)
+    .then(response => response.json())
+  assert.equal(session.id, 'session:test')
+  assert.equal(session.label, '测试会话')
+  assert.equal(session.changes.length, 1)
+  assert.equal(session.changes[0].type, 'modified')
+  assert.ok(session.changes[0].stats.added > 0)
+  assert.ok(session.changes[0].stats.removed > 0)
+})

@@ -1,6 +1,7 @@
 const http = require('node:http')
 const fs = require('node:fs')
 const path = require('node:path')
+const { createLineDiff } = require('./diff.cjs')
 
 const PUBLIC_ROOT = path.join(__dirname, 'public')
 const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm'])
@@ -10,6 +11,8 @@ const HTML_ASSET_EXTENSIONS = new Set([
 ])
 const MAX_FILE_BYTES = 10 * 1024 * 1024
 const MAX_ASSET_BYTES = 20 * 1024 * 1024
+const MAX_ARTIFACT_CONTENT_BYTES = 512 * 1024
+const MAX_ARTIFACTS = 100
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.htm': 'text/html; charset=utf-8',
@@ -53,6 +56,9 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
   const clients = new Set()
   let watcher = null
   let debounceTimer = null
+  const artifactTimers = new Map()
+  let artifactSnapshot = new Map()
+  let artifactSession = createArtifactSession({ root })
 
   function saveState() {
     fs.mkdirSync(configDir, { recursive: true })
@@ -66,6 +72,11 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
     root = resolved
     recentRoots = [root, ...recentRoots.filter(item => item !== root)].slice(0, 10)
     saveState()
+    resetArtifactSession({
+      id: `workspace:${root.toLowerCase()}`,
+      label: '当前工作区',
+      root
+    })
     startWatcher()
     broadcast({ type: 'root', root })
     return true
@@ -75,20 +86,80 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
     watcher?.close()
     watcher = null
     clearTimeout(debounceTimer)
+    for (const timer of artifactTimers.values()) clearTimeout(timer)
+    artifactTimers.clear()
     if (!root) return
+    artifactSnapshot = snapshotDocuments(root)
     try {
       watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
-        if (!filename || !WATCHED_EXTENSIONS.has(path.extname(filename).toLowerCase())) return
+        if (!filename) return
+        const extension = path.extname(filename).toLowerCase()
+        if (!WATCHED_EXTENSIONS.has(extension) && !HTML_ASSET_EXTENSIONS.has(extension)) return
+        const normalizedFile = String(filename).replace(/\\/g, '/')
         clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           broadcast({
             type: 'change',
-            file: String(filename).replace(/\\/g, '/')
+            file: normalizedFile,
+            kind: WATCHED_EXTENSIONS.has(extension) ? 'document' : 'asset'
           })
         }, 250)
+        if (WATCHED_EXTENSIONS.has(extension)) scheduleArtifact(normalizedFile)
       })
     } catch (error) {
       console.error('Viewer watcher failed:', error)
+    }
+  }
+
+  function scheduleArtifact(relativePath) {
+    clearTimeout(artifactTimers.get(relativePath))
+    artifactTimers.set(relativePath, setTimeout(() => {
+      artifactTimers.delete(relativePath)
+      const previous = artifactSnapshot.get(relativePath) || null
+      const current = readArtifactDocument(root, relativePath)
+      if (sameArtifactDocument(previous, current)) return
+      if (current) artifactSnapshot.set(relativePath, current)
+      else artifactSnapshot.delete(relativePath)
+      const type = !previous ? 'created' : (!current ? 'deleted' : 'modified')
+      const diff = createLineDiff(previous?.content || '', current?.content || '')
+      const artifact = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        path: relativePath,
+        name: path.basename(relativePath),
+        ext: path.extname(relativePath).toLowerCase(),
+        type,
+        timestamp: Date.now(),
+        size: current?.size || previous?.size || 0,
+        diff: diff.lines,
+        stats: diff.stats
+      }
+      artifactSession.changes.unshift(artifact)
+      artifactSession.changes = artifactSession.changes.slice(0, MAX_ARTIFACTS)
+      broadcast({ type: 'artifact', artifact, session: publicArtifactSession() })
+    }, 350))
+  }
+
+  function resetArtifactSession(context = {}) {
+    if (context.root && validDirectory(context.root) && path.normalize(context.root) !== root) {
+      return setRoot(context.root)
+    }
+    artifactSession = createArtifactSession({
+      id: context.id,
+      label: context.label,
+      root
+    })
+    artifactSnapshot = snapshotDocuments(root)
+    broadcast({ type: 'artifact-session', session: publicArtifactSession() })
+    return true
+  }
+
+  function publicArtifactSession() {
+    return {
+      id: artifactSession.id,
+      label: artifactSession.label,
+      root: artifactSession.root,
+      startedAt: artifactSession.startedAt,
+      changes: artifactSession.changes
     }
   }
 
@@ -119,6 +190,10 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
       } catch (error) {
         return sendJson(response, 500, { error: error.message })
       }
+    }
+
+    if (url.pathname === '/api/artifacts') {
+      return sendJson(response, 200, publicArtifactSession())
     }
 
     if (url.pathname === '/api/set-root') {
@@ -248,9 +323,16 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
           return root
         },
         setRoot,
+        setConversationContext(context) {
+          if (context?.root && path.normalize(context.root) !== root) setRoot(context.root)
+          const nextId = context?.id || (root ? `workspace:${root.toLowerCase()}` : 'workspace:empty')
+          if (artifactSession.id === nextId && artifactSession.root === root) return true
+          return resetArtifactSession(context)
+        },
         close() {
           watcher?.close()
           clearTimeout(debounceTimer)
+          for (const timer of artifactTimers.values()) clearTimeout(timer)
           for (const client of clients) client.end()
           clients.clear()
           server.close()
@@ -323,6 +405,64 @@ function scanTree(directory, relativePath) {
 
 function emptyTree() {
   return { name: '', path: '', type: 'dir', children: [] }
+}
+
+function createArtifactSession({ id, label, root } = {}) {
+  return {
+    id: id || (root ? `workspace:${root.toLowerCase()}` : 'workspace:empty'),
+    label: label || '当前工作区',
+    root: root || '',
+    startedAt: Date.now(),
+    changes: []
+  }
+}
+
+function snapshotDocuments(root) {
+  const snapshot = new Map()
+  if (!root) return snapshot
+  const visit = (directory, relativeDirectory = '') => {
+    let entries = []
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue
+      const relativePath = relativeDirectory
+        ? `${relativeDirectory}/${entry.name}`
+        : entry.name
+      const absolutePath = path.join(directory, entry.name)
+      if (entry.isDirectory()) visit(absolutePath, relativePath)
+      else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        const document = readArtifactDocument(root, relativePath)
+        if (document) snapshot.set(relativePath, document)
+      }
+    }
+  }
+  visit(root)
+  return snapshot
+}
+
+function readArtifactDocument(root, relativePath) {
+  try {
+    const absolutePath = path.resolve(root, relativePath)
+    if (absolutePath !== root && !absolutePath.startsWith(`${root}${path.sep}`)) return null
+    const stat = fs.statSync(absolutePath)
+    if (!stat.isFile() || stat.size > MAX_ARTIFACT_CONTENT_BYTES) return null
+    return {
+      content: fs.readFileSync(absolutePath, 'utf8'),
+      size: stat.size,
+      mtime: stat.mtimeMs
+    }
+  } catch {
+    return null
+  }
+}
+
+function sameArtifactDocument(left, right) {
+  if (!left || !right) return left === right
+  return left.content === right.content
 }
 
 function browseDirectory(response, inputPath) {

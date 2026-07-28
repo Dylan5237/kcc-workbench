@@ -436,8 +436,14 @@ async function switchTab(nextTab) {
   activeTab = nextTab
 
   if (activeTab === 'viewer') {
-    const projectDirectory = await detectKimiProjectDirectory()
-    if (projectDirectory) viewerServer.setRoot(projectDirectory)
+    const context = await detectKimiWorkspaceContext()
+    if (context?.projectDirectory) {
+      viewerServer.setConversationContext({
+        id: context.sessionId ? `kimi:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
+        label: context.sessionId ? '当前 Kimi 对话' : '当前工作区',
+        root: context.projectDirectory
+      })
+    }
   }
   if (activeTab === 'settings') {
     settingsService.setProjectDirectory(await detectKimiProjectDirectory())
@@ -622,6 +628,10 @@ function navigationState() {
 }
 
 async function detectKimiProjectDirectory() {
+  return (await detectKimiWorkspaceContext())?.projectDirectory || null
+}
+
+async function detectKimiWorkspaceContext() {
   if (!kimiView || kimiView.webContents.isDestroyed()) return null
   try {
     const context = await kimiView.webContents.executeJavaScript(`
@@ -681,14 +691,19 @@ async function detectKimiProjectDirectory() {
       if (!response.ok) continue
       const sessionInfo = await response.json()
       const workDirectory = await existingDirectory(sessionInfo?.work_dir)
-      if (workDirectory) return workDirectory
+      if (workDirectory) return { projectDirectory: workDirectory, sessionId }
     }
 
     for (const candidate of context.paths) {
       const value = path.normalize(candidate.path)
       if (/\bAppData\b/i.test(value)) continue
       const directory = await existingDirectory(value)
-      if (directory) return directory
+      if (directory) {
+        return {
+          projectDirectory: directory,
+          sessionId: context.sessionIds[0] || null
+        }
+      }
     }
   } catch (error) {
     console.warn('Unable to detect the current Kimi project directory:', error)

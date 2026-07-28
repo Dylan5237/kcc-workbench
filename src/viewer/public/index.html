@@ -30,11 +30,16 @@
 
   <div id="main">
     <aside id="sidebar">
+      <div class="sidebar-tabs">
+        <button class="active" data-sidebar-mode="files">文件</button>
+        <button data-sidebar-mode="artifacts">本轮产物 <span id="artifactCount">0</span></button>
+      </div>
       <div class="sidebar-head">
         <input id="filterInput" type="text" placeholder="过滤文件名…" />
         <button id="refreshBtn" title="刷新文件树">⟳</button>
       </div>
       <div id="fileTree" class="tree"></div>
+      <div id="artifactList" class="artifact-list hidden"></div>
     </aside>
 
     <div id="splitter" class="splitter" title="拖拽调整宽度"></div>

@@ -21,11 +21,15 @@
   const pickerSelect = document.getElementById('pickerSelect');
   const pickerClose = document.getElementById('pickerClose');
   const toastEl = document.getElementById('toast');
+  const artifactListEl = document.getElementById('artifactList');
+  const artifactCountEl = document.getElementById('artifactCount');
+  const sidebarTabs = [...document.querySelectorAll('[data-sidebar-mode]')];
 
   let treeData = null;
   let currentPath = null; // 当前打开的文件相对路径
   let currentRoot = ''; // 当前监听根目录(绝对路径)
   let mermaidSequence = 0;
+  let artifactSession = null;
   const collapsed = new Set(); // 折叠的目录
 
   marked.setOptions({ breaks: true, gfm: true });
@@ -85,6 +89,86 @@
     }
     treeEl.appendChild(ul);
     if (!anyVisible) treeEl.innerHTML = '<div class="tree-empty">无匹配文件</div>';
+  }
+
+  async function loadArtifacts() {
+    const response = await fetch('/api/artifacts');
+    artifactSession = await response.json();
+    renderArtifacts();
+  }
+
+  function renderArtifacts() {
+    const artifacts = artifactSession?.changes || [];
+    artifactCountEl.textContent = String(artifacts.length);
+    if (!artifacts.length) {
+      artifactListEl.innerHTML = `
+        <div class="artifact-empty">
+          <strong>等待本轮产物</strong>
+          <span>${escapeHtml(artifactSession?.label || '当前工作区')}</span>
+          <small>进入 Viewer 后产生的 MD、JSON、HTML 变更会出现在这里</small>
+        </div>`;
+      return;
+    }
+    artifactListEl.innerHTML = `
+      <div class="artifact-session">
+        <span>${escapeHtml(artifactSession.label || '当前工作区')}</span>
+        <small>${new Date(artifactSession.startedAt).toLocaleTimeString('zh-CN')} 起</small>
+      </div>
+      ${artifacts.map(artifact => `
+        <button class="artifact-item" data-artifact-id="${artifact.id}">
+          <span class="artifact-type ${artifact.type}">${artifactTypeLabel(artifact.type)}</span>
+          <span class="artifact-main">
+            <strong title="${escapeHtml(artifact.path)}">${escapeHtml(artifact.name)}</strong>
+            <small>${escapeHtml(artifact.path)} · ${new Date(artifact.timestamp).toLocaleTimeString('zh-CN')}</small>
+          </span>
+          <span class="artifact-stats"><b>+${artifact.stats.added}</b><i>−${artifact.stats.removed}</i></span>
+        </button>`).join('')}`;
+    artifactListEl.querySelectorAll('.artifact-item').forEach(button => {
+      button.onclick = () => showArtifactDiff(
+        artifacts.find(artifact => artifact.id === button.dataset.artifactId)
+      );
+    });
+  }
+
+  function artifactTypeLabel(type) {
+    return type === 'created' ? '新增' : (type === 'deleted' ? '删除' : '修改');
+  }
+
+  function showArtifactDiff(artifact) {
+    if (!artifact) return;
+    currentPath = artifact.type === 'deleted' ? null : artifact.path;
+    renderTree();
+    fileHeaderEl.classList.remove('hidden');
+    fileNameEl.textContent = artifact.path;
+    fileMetaEl.textContent = `${artifactTypeLabel(artifact.type)} · ${new Date(artifact.timestamp).toLocaleTimeString('zh-CN')}`;
+    const absolutePath = absPathOf(artifact);
+    viewerEl.innerHTML = `
+      <div class="artifact-detail-head">
+        <div><strong>本次变更</strong><span>+${artifact.stats.added} / −${artifact.stats.removed}</span></div>
+        <div class="artifact-actions">
+          ${artifact.type === 'deleted' ? '' : '<button data-action="open">打开预览</button><button data-action="copy-file">复制文件</button>'}
+          <button data-action="copy-path">复制路径</button>
+        </div>
+      </div>
+      <div class="diff-view">${artifact.diff.map((line, index) => `
+        <div class="diff-line ${line.type}">
+          <span class="diff-number">${index + 1}</span>
+          <span class="diff-mark">${line.type === 'add' ? '+' : (line.type === 'remove' ? '−' : ' ')}</span>
+          <code>${escapeHtml(line.text) || ' '}</code>
+        </div>`).join('')}</div>`;
+    viewerEl.querySelector('[data-action="open"]')?.addEventListener('click', () => openFile(artifact.path));
+    viewerEl.querySelector('[data-action="copy-file"]')?.addEventListener('click', async () => {
+      try {
+        await window.electronAPI.copyFiles([absolutePath]);
+        toast('已复制文件');
+      } catch (error) {
+        toast(`复制失败: ${error.message}`, true);
+      }
+    });
+    viewerEl.querySelector('[data-action="copy-path"]').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(absolutePath);
+      toast('已复制文件路径');
+    });
   }
 
   function buildNode(node, filter) {
@@ -845,12 +929,25 @@
         showEmpty();
         loadRootInfo();
         loadTree(false);
+        loadArtifacts();
+        return;
+      }
+      if (msg.type === 'artifact-session') {
+        artifactSession = msg.session;
+        renderArtifacts();
+        return;
+      }
+      if (msg.type === 'artifact') {
+        artifactSession = msg.session;
+        renderArtifacts();
         return;
       }
       if (msg.type !== 'change') return;
       const changed = msg.file;
       loadTree(true);
       if (currentPath && (changed === currentPath || changed.endsWith(currentPath) || currentPath.endsWith(changed))) {
+        openFile(currentPath, true);
+      } else if (msg.kind === 'asset' && currentPath && /\.html?$/i.test(currentPath)) {
         openFile(currentPath, true);
       }
     };
@@ -865,10 +962,22 @@
   // ---------- 事件绑定 ----------
   filterInput.addEventListener('input', renderTree);
   refreshBtn.addEventListener('click', () => loadTree(true));
+  sidebarTabs.forEach(button => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.sidebarMode;
+      sidebarTabs.forEach(item => item.classList.toggle('active', item === button));
+      const showFiles = mode === 'files';
+      document.querySelector('.sidebar-head').classList.toggle('hidden', !showFiles);
+      treeEl.classList.toggle('hidden', !showFiles);
+      artifactListEl.classList.toggle('hidden', showFiles);
+      if (!showFiles) loadArtifacts();
+    });
+  });
 
   // ---------- 启动 ----------
   initSplitter();
   loadRootInfo();
   loadTree(false);
+  loadArtifacts();
   connectEvents();
 })();

@@ -91,6 +91,31 @@ html, body {
   display: flex;
   flex-direction: column;
 }
+.sidebar-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 8px 10px 0;
+}
+.sidebar-tabs button {
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 8px;
+  color: var(--text-dim);
+  background: transparent;
+  cursor: pointer;
+}
+.sidebar-tabs button.active { color: var(--text); background: #ececec; font-weight: 650; }
+.sidebar-tabs span {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 3px;
+  padding: 1px 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  color: #666;
+  background: #fff;
+}
 
 /* ---- 侧栏拖拽调宽 ---- */
 .splitter {
@@ -187,6 +212,56 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
 .tree-empty span { display: block; }
 .tree-empty strong { margin-bottom: 7px; color: #444; font-weight: 600; }
 .tree-empty span { font-size: 12px; line-height: 1.5; }
+
+.artifact-list { flex: 1; overflow: auto; padding: 8px; }
+.artifact-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 28px 16px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.artifact-empty strong { color: var(--text); }
+.artifact-empty small { line-height: 1.5; }
+.artifact-session {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 8px 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.artifact-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.artifact-item:hover { background: #f0f1f3; }
+.artifact-type {
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+.artifact-type.created { color: #15803d; background: #dcfce7; }
+.artifact-type.modified { color: #a16207; background: #fef3c7; }
+.artifact-type.deleted { color: #b91c1c; background: #fee2e2; }
+.artifact-main { min-width: 0; }
+.artifact-main strong, .artifact-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.artifact-main strong { font-size: 12.5px; }
+.artifact-main small { margin-top: 3px; color: var(--text-dim); font-size: 10.5px; }
+.artifact-stats { display: flex; gap: 3px; font-size: 10px; font-style: normal; }
+.artifact-stats b { color: #15803d; }
+.artifact-stats i { color: #b91c1c; font-style: normal; }
 
 #content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -637,3 +712,41 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
   font: 13.5px/1.6 Consolas, "JetBrains Mono", monospace;
   white-space: pre;
 }
+
+/* ---- 本轮产物 / Diff ---- */
+.artifact-detail-head {
+  max-width: 1180px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.artifact-detail-head > div:first-child { display: flex; align-items: center; gap: 10px; }
+.artifact-detail-head span { color: var(--text-dim); font-size: 12px; }
+.artifact-actions { display: flex; gap: 6px; }
+.artifact-actions button {
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: #333;
+  background: #fff;
+  cursor: pointer;
+}
+.artifact-actions button:hover { border-color: #b8b8b8; background: #f6f6f6; }
+.diff-view {
+  max-width: 1180px;
+  margin: 0 auto;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: 12.5px/1.55 Consolas, "JetBrains Mono", monospace;
+}
+.diff-line { min-width: max-content; display: grid; grid-template-columns: 50px 22px minmax(0, 1fr); }
+.diff-line.add { background: #eaf8ee; }
+.diff-line.remove { background: #fff0f0; }
+.diff-line.equal { color: #555; }
+.diff-number { padding: 1px 8px; color: #999; background: rgb(0 0 0 / 3%); text-align: right; user-select: none; }
+.diff-mark { padding: 1px 5px; color: #777; user-select: none; }
+.diff-line.add .diff-mark { color: #15803d; }
+.diff-line.remove .diff-mark { color: #b91c1c; }
+.diff-line code { padding: 1px 10px 1px 2px; white-space: pre; }
