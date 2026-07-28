@@ -72,8 +72,8 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 86px;
-  padding: 0 12px;
+  min-width: 82px;
+  padding: 0 10px;
   color: #777;
   font: inherit;
   font-size: 12px;

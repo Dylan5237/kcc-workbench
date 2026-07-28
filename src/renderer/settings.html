@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' app:; style-src 'self' app:; img-src 'self' app: data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系统设置</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main class="settings-shell">
+    <aside class="sidebar">
+      <div class="sidebar-heading">
+        <h1>系统设置</h1>
+        <p>配置 Kimi Code 与桌面工作区</p>
+      </div>
+      <nav aria-label="设置分类">
+        <button class="nav-item active" data-panel="general"><span>⌘</span>常规</button>
+        <button class="nav-item" data-panel="prompt"><span>✦</span>系统提示词</button>
+        <button class="nav-item" data-panel="model"><span>◇</span>模型与思考</button>
+        <button class="nav-item" data-panel="agent"><span>◎</span>Agent 执行</button>
+        <button class="nav-item" data-panel="permission"><span>⌁</span>权限与工具</button>
+        <div class="nav-label">扩展</div>
+        <button class="nav-item" data-panel="mcp"><span>⌘</span>MCP 服务</button>
+        <button class="nav-item" data-panel="skills"><span>◫</span>Skills 与插件</button>
+        <button class="nav-item" data-panel="hooks"><span>↯</span>Hooks</button>
+        <div class="nav-label">环境</div>
+        <button class="nav-item" data-panel="workspace"><span>▱</span>工作区</button>
+        <button class="nav-item" data-panel="advanced"><span>···</span>高级与诊断</button>
+      </nav>
+      <div class="sidebar-path">
+        <span>配置目录</span>
+        <code id="homePath">读取中…</code>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div id="sandboxBanner" class="sandbox-banner hidden">
+        <strong>隔离测试模式</strong>
+        <span>当前读写临时配置，不会修改真实 Kimi 配置文件。</span>
+      </div>
+
+      <section class="panel active" data-panel="general">
+        <header class="panel-header"><div><h2>常规</h2><p>设置默认启动行为和基础偏好。</p></div></header>
+        <div class="card">
+          <label class="field"><span><strong>默认模型</strong><small>新会话使用的模型别名</small></span><input id="defaultModel" list="modelAliases" placeholder="由 Kimi Code 决定"><datalist id="modelAliases"></datalist></label>
+          <label class="field"><span><strong>默认权限模式</strong><small>工具执行前的确认策略</small></span><select id="permissionMode"><option value="">由 Kimi Code 决定</option><option value="manual">manual · 逐项确认</option><option value="auto">auto · 自动判断</option><option value="yolo">yolo · 自动执行</option></select></label>
+          <label class="field"><span><strong>默认进入计划模式</strong><small>新会话先生成执行计划</small></span><input id="defaultPlanMode" class="switch" type="checkbox"></label>
+          <label class="field"><span><strong>匿名遥测</strong><small>允许发送产品改进所需的匿名数据</small></span><input id="telemetry" class="switch" type="checkbox"></label>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="prompt">
+        <header class="panel-header">
+          <div><h2>系统提示词</h2><p>管理主 Agent 的永久提示词与全局补充指令。</p></div>
+          <span class="scope-badge">用户级</span>
+        </header>
+        <div class="notice warning">
+          <strong>SYSTEM.md 会覆盖 Kimi Code 内置主 Agent 提示词。</strong>
+          <span>建议保留 <code>${base_prompt}</code>，否则内置能力说明可能不会被注入。</span>
+        </div>
+        <div class="card editor-card">
+          <div class="editor-heading">
+            <div><strong>主 Agent 系统提示词</strong><small id="systemPromptPath">SYSTEM.md</small></div>
+            <div class="insert-actions">
+              <button type="button" data-insert="${base_prompt}">base_prompt</button>
+              <button type="button" data-insert="${agents_md}">agents_md</button>
+              <button type="button" data-insert="${skills}">skills</button>
+              <button type="button" data-insert="${cwd}">cwd</button>
+            </div>
+          </div>
+          <textarea id="systemPrompt" class="code-editor" spellcheck="false" placeholder="留空表示不创建自定义 SYSTEM.md"></textarea>
+        </div>
+        <div class="card editor-card">
+          <div class="editor-heading"><div><strong>全局补充指令</strong><small id="agentsPath">AGENTS.md · 作为规则上下文注入</small></div></div>
+          <textarea id="agentsInstructions" class="code-editor compact" spellcheck="false" placeholder="例如：始终运行测试；提交信息使用中文 Conventional Commits。"></textarea>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="model">
+        <header class="panel-header"><div><h2>模型与思考</h2><p>控制思考过程的启用方式、强度和保留策略。</p></div></header>
+        <div class="card">
+          <label class="field"><span><strong>启用思考</strong><small>允许模型使用扩展思考</small></span><input id="thinkingEnabled" class="switch" type="checkbox"></label>
+          <label class="field"><span><strong>思考强度</strong><small>模型不支持时会忽略</small></span><select id="thinkingEffort"><option value="">默认</option><option>low</option><option>medium</option><option>high</option></select></label>
+          <label class="field"><span><strong>思考内容保留</strong><small>控制历史中的思考内容</small></span><select id="thinkingKeep"><option value="">默认</option><option>all</option><option>none</option></select></label>
+        </div>
+        <div class="card list-card">
+          <div class="card-title"><strong>已发现模型</strong><small>从 config.toml 读取，不会在此修改模型定义</small></div>
+          <div id="modelList" class="empty-state">没有发现自定义模型</div>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="agent">
+        <header class="panel-header"><div><h2>Agent 执行</h2><p>调整循环、重试、后台任务和子 Agent 的执行边界。</p></div></header>
+        <div class="card grid-card">
+          <label><span>单轮最大步骤</span><input id="maxSteps" type="number" min="0" placeholder="默认"></label>
+          <label><span>单步最大重试</span><input id="maxRetries" type="number" min="0" placeholder="默认"></label>
+          <label><span>保留上下文大小</span><input id="reservedContext" type="number" min="0" placeholder="默认"></label>
+          <label><span>子 Agent 超时（ms）</span><input id="subagentTimeout" type="number" min="0" placeholder="默认"></label>
+          <label><span>后台最大任务数</span><input id="maxBackgroundTasks" type="number" min="0" placeholder="默认"></label>
+          <label><span>Bash 后台超时（s）</span><input id="bashTimeout" type="number" min="0" placeholder="默认"></label>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="permission">
+        <header class="panel-header"><div><h2>权限与工具</h2><p>限制可供 Agent 使用的工具集合。</p></div></header>
+        <div class="card">
+          <label class="stack-field"><strong>仅启用这些工具</strong><small>逗号分隔；留空表示不设置白名单</small><input id="toolsEnabled" placeholder="ReadFile, Glob, Grep"></label>
+          <label class="stack-field"><strong>禁用这些工具</strong><small>逗号分隔；优先于启用列表</small><input id="toolsDisabled" placeholder="Shell, WriteFile"></label>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="mcp">
+        <header class="panel-header"><div><h2>MCP 服务</h2><p>查看已注册服务并调整全局超时。</p></div></header>
+        <div class="card grid-card">
+          <label><span>启动超时（ms）</span><input id="mcpStartupTimeout" type="number" min="0" placeholder="默认"></label>
+          <label><span>工具调用超时（ms）</span><input id="mcpToolTimeout" type="number" min="0" placeholder="默认"></label>
+        </div>
+        <div class="card list-card"><div id="mcpList" class="empty-state">没有发现 MCP 服务</div></div>
+      </section>
+
+      <section class="panel" data-panel="skills">
+        <header class="panel-header"><div><h2>Skills 与插件</h2><p>管理额外搜索目录与合并策略。</p></div></header>
+        <div class="card">
+          <label class="field"><span><strong>合并所有可用 Skills</strong><small>汇总所有已发现的技能目录</small></span><input id="mergeSkills" class="switch" type="checkbox"></label>
+          <label class="stack-field"><strong>额外 Skill 目录</strong><small>每行一个绝对路径</small><textarea id="extraSkillDirs" class="path-editor"></textarea></label>
+          <label class="stack-field"><strong>额外 Agent 目录</strong><small>每行一个绝对路径</small><textarea id="extraAgentDirs" class="path-editor"></textarea></label>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="hooks">
+        <header class="panel-header"><div><h2>Hooks</h2><p>Hooks 配置将保持原文件格式，本版先提供安全只读入口。</p></div></header>
+        <div class="notice"><strong>暂不提供可视化写入。</strong><span>避免格式不完整时覆盖未识别的自定义 Hook。</span></div>
+      </section>
+
+      <section class="panel" data-panel="workspace">
+        <header class="panel-header"><div><h2>工作区</h2><p>当前 Kimi Web 会话关联的项目目录。</p></div></header>
+        <div class="card">
+          <div class="path-row"><span>当前项目</span><code id="projectPath">未检测到</code></div>
+          <div class="path-row"><span>项目级配置</span><code>.kimi-code/local.toml</code></div>
+        </div>
+        <div class="notice"><strong>本页不会写入项目级配置。</strong><span>当前版本只展示项目上下文，避免误改仓库文件。</span></div>
+      </section>
+
+      <section class="panel" data-panel="advanced">
+        <header class="panel-header"><div><h2>高级与诊断</h2><p>图像读取预算与原始配置路径。</p></div></header>
+        <div class="card grid-card">
+          <label><span>图像最大边长（px）</span><input id="imageMaxEdge" type="number" min="0" placeholder="默认"></label>
+          <label><span>图像读取预算（byte）</span><input id="imageByteBudget" type="number" min="0" placeholder="默认"></label>
+        </div>
+        <div class="card paths-card" id="pathsCard"></div>
+      </section>
+
+      <footer class="save-bar">
+        <div><span id="saveStatus">尚未修改</span><small>所有配置均手动保存，不会自动同步</small></div>
+        <button id="resetButton" class="secondary" type="button" disabled>放弃更改</button>
+        <button id="saveButton" class="primary" type="button" disabled>保存设置</button>
+      </footer>
+    </section>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>

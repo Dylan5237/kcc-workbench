@@ -19,6 +19,7 @@ import { QuotaService } from './quota-service.js'
 import { runQuotaFixtureSelfTest } from './quota-worker.js'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
 import { LocalKimiService } from './local-kimi-service.js'
+import { SettingsService } from './settings-service.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -46,6 +47,7 @@ let mainWindow = null
 let shellView = null
 let kimiView = null
 let viewerView = null
+let settingsView = null
 let quotaView = null
 let viewerServer = null
 let activeTab = 'kimi'
@@ -53,6 +55,7 @@ let quotaVisible = false
 let quotaPreferredHeight = 620
 let quotaService = null
 let localKimiService = null
+let settingsService = null
 let loginWindow = null
 let loginPromise = null
 let demoMode = false
@@ -88,6 +91,17 @@ app.whenReady().then(async () => {
   }
 
   demoMode = process.argv.includes('--demo')
+  const settingsSandboxed = demoMode || process.argv.includes('--settings-sandbox')
+  const kimiCodeHome = settingsSandboxed
+    ? path.join(app.getPath('userData'), 'kimi-code-settings-sandbox')
+    : path.resolve(
+        process.env.KIMI_CODE_HOME
+        || path.join(app.getPath('home'), '.kimi-code')
+      )
+  settingsService = new SettingsService({
+    kimiCodeHome,
+    sandboxed: settingsSandboxed
+  })
   quotaService = new QuotaService({
     userDataPath: app.getPath('userData'),
     partition: SESSION_PARTITION,
@@ -202,6 +216,7 @@ async function createMainWindow() {
   await shellView.webContents.loadURL('app://shell/shell.html')
   createKimiView()
   createViewerView()
+  createSettingsView()
   createQuotaView()
   layoutViews()
 
@@ -231,7 +246,7 @@ async function createMainWindow() {
     if (loginWindow && !loginWindow.isDestroyed()) {
       loginWindow.close()
     }
-    for (const view of [shellView, kimiView, viewerView, quotaView]) {
+    for (const view of [shellView, kimiView, viewerView, settingsView, quotaView]) {
       if (view && !view.webContents.isDestroyed()) {
         view.webContents.close()
       }
@@ -240,6 +255,7 @@ async function createMainWindow() {
     quotaView = null
     kimiView = null
     viewerView = null
+    settingsView = null
     mainWindow = null
   })
 
@@ -330,6 +346,23 @@ function createViewerView() {
   viewerView.webContents.loadURL(`http://127.0.0.1:${viewerServer.port}/`)
 }
 
+function createSettingsView() {
+  settingsView = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/settings.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true
+    }
+  })
+  settingsView.setBackgroundColor('#f6f6f6')
+  settingsView.webContents.on('focus', closeQuotaPopup)
+  settingsView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  settingsView.webContents.on('will-navigate', event => event.preventDefault())
+  settingsView.webContents.loadURL('app://shell/settings.html')
+}
+
 function createQuotaView() {
   quotaView = new WebContentsView({
     webPreferences: {
@@ -345,7 +378,7 @@ function createQuotaView() {
 }
 
 function layoutViews() {
-  if (!mainWindow || !shellView || !kimiView || !viewerView) return
+  if (!mainWindow || !shellView || !kimiView || !viewerView || !settingsView) return
   const [width, height] = mainWindow.getContentSize()
   shellView.setBounds({
     x: 0,
@@ -361,6 +394,7 @@ function layoutViews() {
   }
   kimiView.setBounds(contentBounds)
   viewerView.setBounds(contentBounds)
+  settingsView.setBounds(contentBounds)
 
   if (quotaView) {
     const availableHeight = Math.max(360, height - TITLEBAR_HEIGHT)
@@ -374,12 +408,17 @@ function layoutViews() {
 }
 
 async function switchTab(nextTab) {
-  if (!mainWindow || !shellView || !kimiView || !viewerView) return
-  if (!['kimi', 'viewer'].includes(nextTab) || nextTab === activeTab) return
+  if (!mainWindow || !shellView || !kimiView || !viewerView || !settingsView) return
+  if (!['kimi', 'viewer', 'settings'].includes(nextTab) || nextTab === activeTab) return
   closeQuotaPopup()
 
-  const previousView = activeTab === 'viewer' ? viewerView : kimiView
-  const nextView = nextTab === 'viewer' ? viewerView : kimiView
+  const views = {
+    kimi: kimiView,
+    viewer: viewerView,
+    settings: settingsView
+  }
+  const previousView = views[activeTab]
+  const nextView = views[nextTab]
   mainWindow.contentView.removeChildView(previousView)
   mainWindow.contentView.addChildView(nextView)
   activeTab = nextTab
@@ -387,6 +426,9 @@ async function switchTab(nextTab) {
   if (activeTab === 'viewer') {
     const projectDirectory = await detectKimiProjectDirectory()
     if (projectDirectory) viewerServer.setRoot(projectDirectory)
+  }
+  if (activeTab === 'settings') {
+    settingsService.setProjectDirectory(await detectKimiProjectDirectory())
   }
 
   layoutViews()
@@ -432,6 +474,8 @@ function wireIpc() {
   ipcMain.removeHandler('quota:set-preferred-height')
   ipcMain.removeHandler('viewer:select-directory')
   ipcMain.removeHandler('viewer:copy-files')
+  ipcMain.removeHandler('settings:get-state')
+  ipcMain.removeHandler('settings:save')
 
   ipcMain.handle('shell:get-state', event => {
     requireSender(event, shellView.webContents)
@@ -507,6 +551,15 @@ function wireIpc() {
     }
     clipboard.writeBuffer('CF_HDROP', buildHDropBuffer(safePaths))
     return true
+  })
+  ipcMain.handle('settings:get-state', async event => {
+    requireSender(event, settingsView.webContents)
+    settingsService.setProjectDirectory(await detectKimiProjectDirectory())
+    return settingsService.getState()
+  })
+  ipcMain.handle('settings:save', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    return settingsService.save(payload || {})
   })
 }
 

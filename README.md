@@ -8,7 +8,7 @@
 - 如果 5494 端口已有 Kimi Web，则直接连接而不重复启动
 - 使用 `BaseWindow` 对标题栏、Kimi Code 和额度面板进行独立分层
 - 自定义 Windows 标题栏
-- 固定“首页 / 文件查看器”双标签工作区
+- 固定“首页 / 文件查看器 / 系统设置”三标签工作区
 - 文件查看器实时监听项目目录中的 Markdown 和 JSON 变化
 - Markdown 渲染与 JSON 表格、树形、原文三视图
 - 文件树筛选、宽度调节、复制文件和复制路径
@@ -19,6 +19,9 @@
 - `kimi.com` 持久登录会话仅供额度 Worker 使用
 - 本地额度缓存
 - Quota Autopilot 本地燃尽预测
+- 可视化管理常规、模型与思考、Agent 执行、权限工具、MCP、Skills 等配置
+- “系统提示词”一级菜单，可编辑 `SYSTEM.md` 与全局 `AGENTS.md`
+- 配置只在点击“保存设置”后写入，保留 `.bak` 备份；演示与自动测试使用隔离目录
 
 ## 隐私与联网
 
@@ -35,3 +38,6 @@ npm test
 npm run demo
 npm run build
 ```
+
+`npm run demo` 会把系统设置写入临时沙箱。正常启动时，设置页会读取
+`$KIMI_CODE_HOME`（未设置时为 `~/.kimi-code`），但不会自动写入。
