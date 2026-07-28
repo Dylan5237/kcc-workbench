@@ -70,11 +70,11 @@
     const filter = filterInput.value.trim().toLowerCase();
     treeEl.innerHTML = '';
     if (!currentRoot) {
-      treeEl.innerHTML = '<div class="tree-empty"><strong>尚未选择项目</strong><span>请选择一个包含 Markdown 或 JSON 的文件夹</span></div>';
+      treeEl.innerHTML = '<div class="tree-empty"><strong>尚未选择项目</strong><span>请选择一个包含 Markdown、JSON 或 HTML 的文件夹</span></div>';
       return;
     }
     if (!treeData || !treeData.children || !treeData.children.length) {
-      treeEl.innerHTML = '<div class="tree-empty">目录下没有 .md / .json 文件</div>';
+      treeEl.innerHTML = '<div class="tree-empty">目录下没有 .md / .json / .html 文件</div>';
       return;
     }
     const ul = document.createElement('ul');
@@ -127,7 +127,7 @@
       }
     } else {
       const ext = node.ext.slice(1);
-      const icon = node.ext === '.md' ? '📝' : '🧩';
+      const icon = node.ext === '.md' ? '📝' : (node.ext === '.json' ? '🧩' : '🌐');
       row.innerHTML = `<span class="arrow"></span><span class="icon">${icon}</span><span>${escapeHtml(node.name)}</span><span class="ext-tag ${ext}">${ext}</span>`;
       if (node.path === currentPath) row.classList.add('active');
       row.onclick = () => openFile(node.path);
@@ -286,8 +286,10 @@
       markdownBody.innerHTML = sanitizeMarkdown(marked.parse(file.content));
       viewerEl.replaceChildren(markdownBody);
       await renderMermaidBlocks(markdownBody);
-    } else {
+    } else if (file.ext === '.json') {
       renderJson(file);
+    } else {
+      renderHtml(file);
     }
 
     if (silent) viewerEl.scrollTop = keepScroll;
@@ -300,7 +302,40 @@
 
   function showEmpty() {
     fileHeaderEl.classList.add('hidden');
-    viewerEl.innerHTML = `<div class="empty-hint"><p>← 从左侧选择一个 <code>.md</code> 或 <code>.json</code> 文件</p><p class="sub">文件修改后会自动刷新</p></div>`;
+    viewerEl.innerHTML = `<div class="empty-hint"><p>← 从左侧选择一个 <code>.md</code>、<code>.json</code> 或 <code>.html</code> 文件</p><p class="sub">文件修改后会自动刷新</p></div>`;
+  }
+
+  const htmlModeByPath = new Map();
+
+  function renderHtml(file) {
+    const mode = htmlModeByPath.get(file.path) || 'preview';
+    viewerEl.innerHTML = `
+      <div class="html-toolbar">
+        <div class="html-tabs">
+          <button data-mode="preview" class="${mode === 'preview' ? 'active' : ''}">安全预览</button>
+          <button data-mode="source" class="${mode === 'source' ? 'active' : ''}">源文件</button>
+        </div>
+        <span class="html-security">脚本、表单与外部网络已禁用</span>
+      </div>
+      <div id="htmlBody" class="html-body"></div>`;
+    viewerEl.querySelectorAll('.html-tabs button').forEach(button => {
+      button.onclick = () => {
+        htmlModeByPath.set(file.path, button.dataset.mode);
+        renderHtml(file);
+      };
+    });
+    const body = document.getElementById('htmlBody');
+    if (mode === 'source') {
+      body.innerHTML = `<pre class="html-source"><code>${escapeHtml(file.content)}</code></pre>`;
+      return;
+    }
+    const frame = document.createElement('iframe');
+    frame.className = 'html-preview';
+    frame.title = `${file.name} 安全预览`;
+    frame.setAttribute('sandbox', '');
+    frame.referrerPolicy = 'no-referrer';
+    frame.src = `/api/html-preview?p=${encodeURIComponent(file.path)}&v=${encodeURIComponent(file.mtime)}`;
+    body.appendChild(frame);
   }
 
   function sanitizeMarkdown(html) {

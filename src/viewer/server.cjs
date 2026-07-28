@@ -3,15 +3,43 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const PUBLIC_ROOT = path.join(__dirname, 'public')
-const WATCHED_EXTENSIONS = new Set(['.md', '.json'])
+const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm'])
+const HTML_ASSET_EXTENSIONS = new Set([
+  '.css', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico',
+  '.woff', '.woff2', '.ttf', '.otf'
+])
 const MAX_FILE_BYTES = 10 * 1024 * 1024
+const MAX_ASSET_BYTES = 20 * 1024 * 1024
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
-  '.png': 'image/png'
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf'
 }
+const HTML_PREVIEW_CSP = [
+  "default-src 'none'",
+  "script-src 'none'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "media-src 'self'",
+  "connect-src 'none'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "form-action 'none'",
+  "base-uri 'self'"
+].join('; ')
 
 function startServer({ port = 0, configDir, defaultRoot = '' }) {
   const configPath = path.join(configDir, 'viewer-config.json')
@@ -125,6 +153,57 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
         })
       } catch (error) {
         return sendJson(response, 404, { error: error.message })
+      }
+    }
+
+    if (url.pathname === '/api/html-preview') {
+      const relativePath = url.searchParams.get('p') || ''
+      const absolutePath = safeResolve(relativePath)
+      const extension = absolutePath ? path.extname(absolutePath).toLowerCase() : ''
+      if (!absolutePath) return sendText(response, 403, '非法文件路径')
+      if (!['.html', '.htm'].includes(extension)) {
+        return sendText(response, 403, '不支持的预览类型')
+      }
+      try {
+        const stat = fs.statSync(absolutePath)
+        if (!stat.isFile()) throw new Error('目标不是文件')
+        if (stat.size > MAX_FILE_BYTES) throw new Error('文件超过 10 MB')
+        const baseDirectory = normalizeWebPath(path.dirname(relativePath))
+        const baseHref = `/api/html-asset/${encodePathSegments(baseDirectory)}${baseDirectory ? '/' : ''}`
+        const html = injectPreviewBase(fs.readFileSync(absolutePath, 'utf8'), baseHref)
+        response.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Security-Policy': HTML_PREVIEW_CSP,
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'no-store'
+        })
+        response.end(html)
+      } catch (error) {
+        return sendText(response, 404, error.message)
+      }
+      return
+    }
+
+    if (url.pathname.startsWith('/api/html-asset/')) {
+      const relativePath = decodeURIComponent(url.pathname.slice('/api/html-asset/'.length))
+      const absolutePath = safeResolve(relativePath)
+      const extension = absolutePath ? path.extname(absolutePath).toLowerCase() : ''
+      if (!absolutePath) return sendText(response, 403, '非法资源路径')
+      if (!HTML_ASSET_EXTENSIONS.has(extension)) {
+        return sendText(response, 403, '不支持的资源类型')
+      }
+      try {
+        const stat = fs.statSync(absolutePath)
+        if (!stat.isFile()) throw new Error('目标不是文件')
+        if (stat.size > MAX_ASSET_BYTES) throw new Error('资源超过 20 MB')
+        response.writeHead(200, {
+          'Content-Type': MIME_TYPES[extension] || 'application/octet-stream',
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'no-cache'
+        })
+        return fs.createReadStream(absolutePath).pipe(response)
+      } catch (error) {
+        return sendText(response, 404, error.message)
       }
     }
 
@@ -294,6 +373,28 @@ function readJson(filePath) {
 function sendJson(response, status, value) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
   response.end(JSON.stringify(value))
+}
+
+function sendText(response, status, value) {
+  response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' })
+  response.end(String(value))
+}
+
+function normalizeWebPath(value) {
+  return value === '.' ? '' : String(value).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+}
+
+function encodePathSegments(value) {
+  return value.split('/').filter(Boolean).map(encodeURIComponent).join('/')
+}
+
+function injectPreviewBase(source, baseHref) {
+  const withoutBase = source.replace(/<base\b[^>]*>/gi, '')
+  const baseTag = `<base href="${baseHref}">`
+  if (/<head\b[^>]*>/i.test(withoutBase)) {
+    return withoutBase.replace(/<head\b([^>]*)>/i, `<head$1>${baseTag}`)
+  }
+  return `<!doctype html><html><head>${baseTag}</head><body>${withoutBase}</body></html>`
 }
 
 module.exports = { startServer }
