@@ -2,6 +2,7 @@ const http = require('node:http')
 const fs = require('node:fs')
 const path = require('node:path')
 const { createLineDiff } = require('./diff.cjs')
+const { createTimeMachine } = require('./time-machine.cjs')
 
 const PUBLIC_ROOT = path.join(__dirname, 'public')
 const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm'])
@@ -54,6 +55,12 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
     ? stored.recentRoots.filter(validDirectory).slice(0, 10)
     : []
   const clients = new Set()
+  const timeMachine = createTimeMachine({
+    configDir,
+    onChange(message) {
+      broadcast(message)
+    }
+  })
   let watcher = null
   let debounceTimer = null
   const artifactTimers = new Map()
@@ -135,6 +142,11 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
       }
       artifactSession.changes.unshift(artifact)
       artifactSession.changes = artifactSession.changes.slice(0, MAX_ARTIFACTS)
+      timeMachine.recordChange({
+        artifact,
+        beforeContent: previous?.content || '',
+        afterContent: current?.content || ''
+      })
       broadcast({ type: 'artifact', artifact, session: publicArtifactSession() })
     }, 350))
   }
@@ -149,6 +161,11 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
       root
     })
     artifactSnapshot = snapshotDocuments(root)
+    timeMachine.setContext({
+      id: artifactSession.id,
+      label: artifactSession.label,
+      root
+    })
     broadcast({ type: 'artifact-session', session: publicArtifactSession() })
     return true
   }
@@ -194,6 +211,23 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
 
     if (url.pathname === '/api/artifacts') {
       return sendJson(response, 200, publicArtifactSession())
+    }
+
+    if (url.pathname === '/api/time-machine') {
+      return sendJson(response, 200, timeMachine.getState())
+    }
+
+    if (url.pathname === '/api/time-machine/checkpoint') {
+      const checkpoint = timeMachine.getCheckpoint(url.searchParams.get('id') || '')
+      return checkpoint
+        ? sendJson(response, 200, checkpoint)
+        : sendJson(response, 404, { error: '时间点不存在' })
+    }
+
+    if (url.pathname === '/api/time-machine/fork' && request.method === 'POST') {
+      return readJsonBody(request)
+        .then(body => sendJson(response, 200, timeMachine.forkCheckpoint(body)))
+        .catch(error => sendJson(response, 400, { error: error.message }))
     }
 
     if (url.pathname === '/api/set-root') {
@@ -333,6 +367,7 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
           watcher?.close()
           clearTimeout(debounceTimer)
           for (const timer of artifactTimers.values()) clearTimeout(timer)
+          timeMachine.close()
           for (const client of clients) client.end()
           clients.clear()
           server.close()
@@ -518,6 +553,30 @@ function sendJson(response, status, value) {
 function sendText(response, status, value) {
   response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' })
   response.end(String(value))
+}
+
+function readJsonBody(request) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    let size = 0
+    request.on('data', chunk => {
+      size += chunk.length
+      if (size > 64 * 1024) {
+        reject(new Error('请求内容过大'))
+        request.destroy()
+        return
+      }
+      chunks.push(chunk)
+    })
+    request.on('end', () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'))
+      } catch {
+        reject(new Error('请求格式无效'))
+      }
+    })
+    request.on('error', reject)
+  })
 }
 
 function normalizeWebPath(value) {
