@@ -25,8 +25,8 @@ button { cursor: pointer; }
 .sidebar-path { margin-top: auto; padding: 12px 10px 2px; border-top: 1px solid var(--border); }
 .sidebar-path span { display: block; margin-bottom: 5px; color: #999; font-size: 11px; }
 .sidebar-path code { display: block; overflow: hidden; color: #666; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.content { position: relative; min-width: 0; height: 100%; padding: 34px max(34px, calc((100% - 860px) / 2)) 96px; overflow: auto; }
-.panel { display: none; width: min(860px, 100%); margin: 0 auto; }
+.content { position: relative; min-width: 0; height: 100%; padding: 30px clamp(28px, 4vw, 64px) 96px; overflow: auto; }
+.panel { display: none; width: min(1032px, 100%); margin: 0; }
 .panel.active { display: block; }
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 21px; }
 .panel-header h2 { margin: 0 0 7px; font-size: 24px; letter-spacing: -.5px; }
@@ -46,7 +46,9 @@ input:not(.switch), select { width: 240px; height: 34px; padding: 0 10px; }
 .switch:checked::after { transform: translateX(16px); }
 .notice, .sandbox-banner { display: flex; align-items: center; gap: 8px; margin: 0 auto 14px; padding: 12px 14px; color: #555; font-size: 12px; background: #f1f5fc; border: 1px solid #dce7fb; border-radius: 10px; }
 .notice.warning { align-items: flex-start; flex-direction: column; color: #73570b; background: #fffaf0; border-color: #f0dfb7; }
-.sandbox-banner { width: min(860px, 100%); color: #206039; background: #effaf3; border-color: #cdebd7; }
+.sandbox-banner { width: min(1032px, 100%); margin-left: 0; color: #206039; background: #effaf3; border-color: #cdebd7; }
+.prompt-source { align-items: flex-start; flex-direction: column; color: #315d45; background: #f1f8f4; border-color: #d8eadf; }
+.prompt-source.custom { color: #31527a; background: #f2f6fc; border-color: #d9e5f5; }
 .hidden { display: none; }
 .editor-card { padding: 0; overflow: hidden; }
 .editor-heading { display: flex; align-items: center; justify-content: space-between; min-height: 58px; padding: 12px 15px; border-bottom: 1px solid var(--border); }
@@ -62,6 +64,11 @@ input:not(.switch), select { width: 240px; height: 34px; padding: 0 10px; }
 .stack-field:last-child { border-bottom: 0; }
 .stack-field input, .stack-field textarea { width: 100%; }
 .path-editor { min-height: 72px; padding: 9px; resize: vertical; font: 11px/1.5 Consolas, monospace; }
+.field-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.field-heading > span { display: flex; flex-direction: column; gap: 5px; }
+.browse-button { flex: 0 0 auto; height: 30px; padding: 0 11px; color: #454545; font-size: 11px; background: #fff; border: 1px solid #d8d8d8; border-radius: 7px; }
+.browse-button:hover { background: #f3f3f3; }
+.notice.explanation { align-items: flex-start; flex-direction: column; }
 .list-card { padding: 0; overflow: hidden; }
 .card-title { padding: 15px 17px; border-bottom: 1px solid var(--border); }
 .card-title small { margin-top: 4px; }
@@ -74,7 +81,7 @@ input:not(.switch), select { width: 240px; height: 34px; padding: 0 10px; }
 .path-row:last-child { border-bottom: 0; }
 .path-row code { overflow: hidden; max-width: 70%; color: #555; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .paths-card { padding: 11px 20px; }
-.save-bar { position: fixed; right: 0; bottom: 0; left: 244px; display: flex; align-items: center; gap: 10px; min-height: 70px; padding: 12px max(34px, calc((100% - 244px - 860px) / 2)); background: rgb(250 250 250 / 94%); border-top: 1px solid var(--border); backdrop-filter: blur(12px); }
+.save-bar { position: fixed; right: 0; bottom: 0; left: 244px; display: flex; align-items: center; gap: 10px; min-height: 70px; padding: 12px clamp(28px, 4vw, 64px); background: rgb(250 250 250 / 94%); border-top: 1px solid var(--border); backdrop-filter: blur(12px); }
 .save-bar > div { display: flex; flex: 1; flex-direction: column; gap: 3px; font-size: 12px; }
 .save-bar button { height: 35px; padding: 0 15px; border-radius: 8px; }
 .secondary { color: #444; background: #fff; border: 1px solid #d7d7d7; }

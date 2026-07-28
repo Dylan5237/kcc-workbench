@@ -22,7 +22,7 @@
         <button class="nav-item" data-panel="permission"><span>⌁</span>权限与工具</button>
         <div class="nav-label">扩展</div>
         <button class="nav-item" data-panel="mcp"><span>⌘</span>MCP 服务</button>
-        <button class="nav-item" data-panel="skills"><span>◫</span>Skills 与插件</button>
+        <button class="nav-item" data-panel="skills"><span>◫</span>Skills 与 Agent</button>
         <button class="nav-item" data-panel="hooks"><span>↯</span>Hooks</button>
         <div class="nav-label">环境</div>
         <button class="nav-item" data-panel="workspace"><span>▱</span>工作区</button>
@@ -43,7 +43,7 @@
       <section class="panel active" data-panel="general">
         <header class="panel-header"><div><h2>常规</h2><p>设置默认启动行为和基础偏好。</p></div></header>
         <div class="card">
-          <label class="field"><span><strong>默认模型</strong><small>新会话使用的模型别名</small></span><input id="defaultModel" list="modelAliases" placeholder="由 Kimi Code 决定"><datalist id="modelAliases"></datalist></label>
+          <label class="field"><span><strong>默认模型</strong><small>新会话使用的模型别名</small></span><select id="defaultModel" aria-label="默认模型"><option value="">由 Kimi Code 决定</option></select></label>
           <label class="field"><span><strong>默认权限模式</strong><small>工具执行前的确认策略</small></span><select id="permissionMode"><option value="">由 Kimi Code 决定</option><option value="manual">manual · 逐项确认</option><option value="auto">auto · 自动判断</option><option value="yolo">yolo · 自动执行</option></select></label>
           <label class="field"><span><strong>默认进入计划模式</strong><small>新会话先生成执行计划</small></span><input id="defaultPlanMode" class="switch" type="checkbox"></label>
           <label class="field"><span><strong>匿名遥测</strong><small>允许发送产品改进所需的匿名数据</small></span><input id="telemetry" class="switch" type="checkbox"></label>
@@ -55,13 +55,17 @@
           <div><h2>系统提示词</h2><p>管理主 Agent 的永久提示词与全局补充指令。</p></div>
           <span class="scope-badge">用户级</span>
         </header>
+        <div id="promptSourceNotice" class="notice prompt-source">
+          <strong id="promptSourceTitle">正在识别提示词来源…</strong>
+          <span id="promptSourceDescription"></span>
+        </div>
         <div class="notice warning">
-          <strong>SYSTEM.md 会覆盖 Kimi Code 内置主 Agent 提示词。</strong>
+          <strong>启用自定义 SYSTEM.md 后会覆盖内置提示词。</strong>
           <span>建议保留 <code>${base_prompt}</code>，否则内置能力说明可能不会被注入。</span>
         </div>
         <div class="card editor-card">
           <div class="editor-heading">
-            <div><strong>主 Agent 系统提示词</strong><small id="systemPromptPath">SYSTEM.md</small></div>
+            <div><strong>自定义系统提示词覆盖</strong><small id="systemPromptPath">SYSTEM.md</small></div>
             <div class="insert-actions">
               <button type="button" data-insert="${base_prompt}">base_prompt</button>
               <button type="button" data-insert="${agents_md}">agents_md</button>
@@ -69,7 +73,7 @@
               <button type="button" data-insert="${cwd}">cwd</button>
             </div>
           </div>
-          <textarea id="systemPrompt" class="code-editor" spellcheck="false" placeholder="留空表示不创建自定义 SYSTEM.md"></textarea>
+          <textarea id="systemPrompt" class="code-editor" spellcheck="false" placeholder="当前未配置自定义覆盖，Kimi Code 将继续使用内置系统提示词。"></textarea>
         </div>
         <div class="card editor-card">
           <div class="editor-heading"><div><strong>全局补充指令</strong><small id="agentsPath">AGENTS.md · 作为规则上下文注入</small></div></div>
@@ -120,11 +124,25 @@
       </section>
 
       <section class="panel" data-panel="skills">
-        <header class="panel-header"><div><h2>Skills 与插件</h2><p>管理额外搜索目录与合并策略。</p></div></header>
+        <header class="panel-header"><div><h2>Skills 与 Agent</h2><p>让 Kimi Code 从其他文件夹加载可复用能力和子 Agent 定义。</p></div></header>
+        <div class="notice explanation">
+          <strong>这不是插件商店。</strong>
+          <span>Skill 是带 <code>SKILL.md</code> 的能力目录；Agent 目录用于放置自定义子 Agent。添加目录后仍需点击底部“保存设置”才会生效。</span>
+        </div>
         <div class="card">
-          <label class="field"><span><strong>合并所有可用 Skills</strong><small>汇总所有已发现的技能目录</small></span><input id="mergeSkills" class="switch" type="checkbox"></label>
-          <label class="stack-field"><strong>额外 Skill 目录</strong><small>每行一个绝对路径</small><textarea id="extraSkillDirs" class="path-editor"></textarea></label>
-          <label class="stack-field"><strong>额外 Agent 目录</strong><small>每行一个绝对路径</small><textarea id="extraAgentDirs" class="path-editor"></textarea></label>
+          <label class="field"><span><strong>合并多来源 Skills</strong><small>同时加载内置目录和下面添加的额外目录</small></span><input id="mergeSkills" class="switch" type="checkbox"></label>
+          <div class="stack-field">
+            <div class="field-heading"><span><strong>额外 Skill 目录</strong><small>目录本身或其子目录中应包含 SKILL.md</small></span><button id="addSkillDirectory" class="browse-button" type="button">选择文件夹</button></div>
+            <textarea id="extraSkillDirs" class="path-editor" placeholder="每行一个绝对路径"></textarea>
+          </div>
+          <div class="stack-field">
+            <div class="field-heading"><span><strong>额外 Agent 目录</strong><small>用于加载自定义子 Agent 定义</small></span><button id="addAgentDirectory" class="browse-button" type="button">选择文件夹</button></div>
+            <textarea id="extraAgentDirs" class="path-editor" placeholder="每行一个绝对路径"></textarea>
+          </div>
+        </div>
+        <div class="card list-card">
+          <div class="card-title"><strong>已发现的 Skills</strong><small>这里只读展示当前配置能够发现的能力；保存新目录后会重新扫描</small></div>
+          <div id="skillsList" class="empty-state">正在扫描…</div>
         </div>
       </section>
 
@@ -138,6 +156,7 @@
         <div class="card">
           <div class="path-row"><span>当前项目</span><code id="projectPath">未检测到</code></div>
           <div class="path-row"><span>项目级配置</span><code>.kimi-code/local.toml</code></div>
+          <div class="path-row"><span>项目指令</span><code id="projectInstructionsPath">未发现</code></div>
         </div>
         <div class="notice"><strong>本页不会写入项目级配置。</strong><span>当前版本只展示项目上下文，避免误改仓库文件。</span></div>
       </section>

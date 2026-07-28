@@ -63,7 +63,13 @@ let demoMode = false
 app.setName('Kimi Desktop')
 const isDemoLaunch = process.argv.includes('--demo')
 if (isDemoLaunch) {
-  app.setPath('userData', path.join(app.getPath('temp'), 'KimiDesktopDemo'))
+  const demoProfile = (argumentValue('--demo-profile=') || 'default')
+    .replace(/[^a-z0-9_-]/gi, '')
+    .slice(0, 40)
+  app.setPath(
+    'userData',
+    path.join(app.getPath('temp'), `KimiDesktopDemo-${demoProfile || 'default'}`)
+  )
 }
 const selfTestRequested = process.argv.some(value =>
   value.startsWith('--self-test-quota=')
@@ -476,6 +482,7 @@ function wireIpc() {
   ipcMain.removeHandler('viewer:copy-files')
   ipcMain.removeHandler('settings:get-state')
   ipcMain.removeHandler('settings:save')
+  ipcMain.removeHandler('settings:select-directory')
 
   ipcMain.handle('shell:get-state', event => {
     requireSender(event, shellView.webContents)
@@ -560,6 +567,14 @@ function wireIpc() {
   ipcMain.handle('settings:save', async (event, payload) => {
     requireSender(event, settingsView.webContents)
     return settingsService.save(payload || {})
+  })
+  ipcMain.handle('settings:select-directory', async event => {
+    requireSender(event, settingsView.webContents)
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 Skills 或 Agent 目录',
+      properties: ['openDirectory']
+    })
+    return result.canceled ? null : result.filePaths[0]
   })
 }
 

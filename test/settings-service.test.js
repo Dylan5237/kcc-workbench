@@ -75,3 +75,22 @@ test('does not touch config when only prompts change and removes cleared prompt 
   await assert.rejects(fs.access(promptPath), { code: 'ENOENT' })
   assert.equal(await fs.readFile(`${promptPath}.bak`, 'utf8'), 'Old prompt\n')
 })
+
+test('reports built-in prompt state and discovers skills without writing configuration', async t => {
+  const tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-settings-'))
+  t.after(() => fs.rm(tempHome, { recursive: true, force: true }))
+  const skillDirectory = path.join(tempHome, 'skills', 'reviewer')
+  await fs.mkdir(skillDirectory, { recursive: true })
+  await fs.writeFile(path.join(skillDirectory, 'SKILL.md'), '# Reviewer\n')
+
+  const service = new SettingsService({ kimiCodeHome: tempHome, sandboxed: true })
+  const state = await service.getState()
+
+  assert.equal(state.promptSources.system, 'builtin')
+  assert.deepEqual(state.skills, [{
+    name: 'reviewer',
+    path: skillDirectory,
+    source: 'Kimi Code'
+  }])
+  await assert.rejects(fs.access(path.join(tempHome, 'config.toml')), { code: 'ENOENT' })
+})

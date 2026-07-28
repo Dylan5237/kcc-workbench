@@ -42,6 +42,12 @@ for (const button of document.querySelectorAll('[data-insert]')) {
 }
 saveButton.addEventListener('click', save)
 resetButton.addEventListener('click', () => render(state))
+document.querySelector('#addSkillDirectory').addEventListener('click', () => {
+  selectDirectoryFor(elements.extraSkillDirs)
+})
+document.querySelector('#addAgentDirectory').addEventListener('click', () => {
+  selectDirectoryFor(elements.extraAgentDirs)
+})
 
 load()
 
@@ -58,7 +64,7 @@ async function load() {
 function render(nextState) {
   state = nextState
   const config = state.config || {}
-  setValue('defaultModel', config.default_model)
+  renderModels(state.models || [], config.default_model)
   setValue('permissionMode', config.default_permission_mode)
   setChecked('defaultPlanMode', config.default_plan_mode)
   setChecked('telemetry', config.telemetry)
@@ -85,12 +91,15 @@ function render(nextState) {
 
   document.querySelector('#homePath').textContent = state.kimiCodeHome
   document.querySelector('#projectPath').textContent = state.projectDirectory || '未检测到'
+  document.querySelector('#projectInstructionsPath').textContent =
+    state.projectInstructions?.path || '未发现'
   document.querySelector('#systemPromptPath').textContent = state.paths.systemPrompt
   document.querySelector('#agentsPath').textContent = state.paths.agentsInstructions
   document.querySelector('#sandboxBanner').classList.toggle('hidden', !state.sandboxed)
-  renderModels(state.models || [])
   renderMcp(state.mcpServers || [])
+  renderSkills(state.skills || [])
   renderPaths(state.paths)
+  renderPromptSource(state.promptSources?.system)
   setDirty(false)
 }
 
@@ -176,10 +185,15 @@ function insertPromptVariable(value) {
   markDirty()
 }
 
-function renderModels(models) {
-  document.querySelector('#modelAliases').innerHTML = models
-    .map(model => `<option value="${escapeHtml(model.alias)}">${escapeHtml(model.displayName)}</option>`)
+function renderModels(models, selectedAlias) {
+  const options = [{ alias: '', displayName: '由 Kimi Code 决定' }, ...models]
+  if (selectedAlias && !models.some(model => model.alias === selectedAlias)) {
+    options.push({ alias: selectedAlias, displayName: selectedAlias })
+  }
+  elements.defaultModel.innerHTML = options
+    .map(model => `<option value="${escapeHtml(model.alias)}">${escapeHtml(model.displayName)}${model.alias ? ` · ${escapeHtml(model.alias)}` : ''}</option>`)
     .join('')
+  elements.defaultModel.value = selectedAlias || ''
   const list = document.querySelector('#modelList')
   if (!models.length) {
     list.className = 'empty-state'
@@ -194,6 +208,47 @@ function renderModels(models) {
       <small>${escapeHtml(model.model)}${model.maxContextSize ? ` · ${model.maxContextSize} context` : ''}</small>
     </div>
   `).join('')
+}
+
+function renderSkills(skills) {
+  const list = document.querySelector('#skillsList')
+  if (!skills.length) {
+    list.className = 'empty-state'
+    list.textContent = '没有发现 Skill。可通过“选择文件夹”添加额外目录。'
+    return
+  }
+  list.className = ''
+  list.innerHTML = skills.map(skill => `
+    <div class="list-row">
+      <strong>${escapeHtml(skill.name)}</strong>
+      <span class="state-chip">${escapeHtml(skill.source)}</span>
+      <small title="${escapeHtml(skill.path)}">${escapeHtml(skill.path)}</small>
+    </div>
+  `).join('')
+}
+
+function renderPromptSource(source) {
+  const notice = document.querySelector('#promptSourceNotice')
+  const title = document.querySelector('#promptSourceTitle')
+  const description = document.querySelector('#promptSourceDescription')
+  const custom = source === 'custom'
+  notice.classList.toggle('custom', custom)
+  title.textContent = custom
+    ? '正在使用自定义 SYSTEM.md'
+    : '正在使用 Kimi Code 内置系统提示词'
+  description.textContent = custom
+    ? '下方编辑器显示的是当前生效的自定义覆盖。'
+    : '配置目录中没有 SYSTEM.md。内置提示词由 Kimi Code 程序提供，不是可直接读取的配置文件；下方用于创建自定义覆盖。'
+}
+
+async function selectDirectoryFor(input) {
+  const directory = await window.desktopSettings.selectDirectory()
+  if (!directory) return
+  const directories = lineList(input.value)
+  if (!directories.includes(directory)) directories.push(directory)
+  input.value = directories.join('\n')
+  input.focus()
+  markDirty()
 }
 
 function renderMcp(servers) {

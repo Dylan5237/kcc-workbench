@@ -69,6 +69,15 @@ export class SettingsService {
       readText(agentsInstructionsPath)
     ])
 
+    const config = parseManagedConfig(configText)
+    const [systemPromptExists, agentsInstructionsExists, skills, projectInstructions] =
+      await Promise.all([
+        fileExists(systemPromptPath),
+        fileExists(agentsInstructionsPath),
+        discoverSkills(this.kimiCodeHome, config.extra_skill_dirs || []),
+        readProjectInstructions(this.projectDirectory)
+      ])
+
     return {
       sandboxed: this.sandboxed,
       kimiCodeHome: this.kimiCodeHome,
@@ -80,11 +89,17 @@ export class SettingsService {
         systemPrompt: systemPromptPath,
         agentsInstructions: agentsInstructionsPath
       },
-      config: parseManagedConfig(configText),
+      config,
       models: parseModels(configText),
       mcpServers: parseMcpServers(mcpText),
+      skills,
       systemPrompt,
       agentsInstructions,
+      promptSources: {
+        system: systemPromptExists ? 'custom' : 'builtin',
+        agents: agentsInstructionsExists ? 'custom' : 'none'
+      },
+      projectInstructions,
       raw: {
         config: configText,
         tui: tuiText,
@@ -340,6 +355,68 @@ async function readText(filePath) {
     if (error.code === 'ENOENT') return ''
     throw error
   }
+}
+
+async function fileExists(filePath) {
+  try {
+    await fs.access(filePath)
+    return true
+  } catch (error) {
+    if (error.code === 'ENOENT') return false
+    throw error
+  }
+}
+
+async function discoverSkills(kimiCodeHome, extraDirectories) {
+  const roots = [
+    path.join(kimiCodeHome, 'skills'),
+    ...extraDirectories.map(directory => path.resolve(directory))
+  ]
+  const results = []
+  const seen = new Set()
+  for (const root of roots) {
+    const candidates = []
+    if (await fileExists(path.join(root, 'SKILL.md'))) candidates.push(root)
+    try {
+      const entries = await fs.readdir(root, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory()) candidates.push(path.join(root, entry.name))
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT' && error.code !== 'EACCES') throw error
+    }
+    for (const directory of candidates) {
+      const manifestPath = path.join(directory, 'SKILL.md')
+      if (!(await fileExists(manifestPath))) continue
+      const normalized = directory.toLowerCase()
+      if (seen.has(normalized)) continue
+      seen.add(normalized)
+      results.push({
+        name: path.basename(directory),
+        path: directory,
+        source: directory.startsWith(path.join(kimiCodeHome, 'skills'))
+          ? 'Kimi Code'
+          : '额外目录'
+      })
+    }
+  }
+  return results.sort((left, right) => left.name.localeCompare(right.name))
+}
+
+async function readProjectInstructions(projectDirectory) {
+  if (!projectDirectory) return null
+  const candidates = [
+    path.join(projectDirectory, '.kimi-code', 'AGENTS.md'),
+    path.join(projectDirectory, 'AGENTS.md')
+  ]
+  for (const filePath of candidates) {
+    if (!(await fileExists(filePath))) continue
+    return {
+      path: filePath,
+      content: await readText(filePath)
+    }
+  }
+  return null
 }
 
 async function writeWithBackup(filePath, content) {
