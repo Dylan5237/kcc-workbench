@@ -372,8 +372,10 @@
   function sanitizeMermaidSvg(svg) {
     const template = document.createElement('template');
     template.innerHTML = svg;
+    // Mermaid uses foreignObject for node labels. Keep it so text remains visible;
+    // strict mode handles label escaping, while active content is removed below.
     for (const element of template.content.querySelectorAll(
-      'script, iframe, object, embed, foreignObject'
+      'script, iframe, object, embed'
     )) {
       element.remove();
     }

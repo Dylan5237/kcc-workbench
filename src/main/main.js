@@ -224,6 +224,11 @@ async function createMainWindow() {
   createViewerView()
   createSettingsView()
   createQuotaView()
+
+  mainWindow.on('resize', layoutViews)
+  mainWindow.on('maximize', layoutViews)
+  mainWindow.on('unmaximize', layoutViews)
+  mainWindow.on('show', layoutViews)
   layoutViews()
 
   if (savedState?.isMaximized) {
@@ -231,6 +236,10 @@ async function createMainWindow() {
   }
 
   mainWindow.show()
+  layoutViews()
+  setImmediate(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) layoutViews()
+  })
   mainWindow.focus()
   if (demoMode) {
     setTimeout(() => {
@@ -240,9 +249,6 @@ async function createMainWindow() {
     }, 500)
   }
 
-  mainWindow.on('resize', layoutViews)
-  mainWindow.on('maximize', layoutViews)
-  mainWindow.on('unmaximize', layoutViews)
   mainWindow.on('blur', closeQuotaPopup)
   mainWindow.on('close', () => {
     saveWindowState().catch(() => {})
