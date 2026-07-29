@@ -1,0 +1,55 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build portable executable
+        run: npm run dist
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = Get-ChildItem -LiteralPath "dist" -Filter "Kimi-Desktop-*.exe"
+          if (-not $assets) {
+            throw "Portable executable was not generated."
+          }
+          $arguments = @(
+            "release", "create", "${{ github.ref_name }}",
+            "--repo", "${{ github.repository }}",
+            "--title", "Kimi Desktop Workbench ${{ github.ref_name }}",
+            "--generate-notes"
+          )
+          if ("${{ github.ref_name }}" -match "-(alpha|beta|rc)") {
+            $arguments += "--prerelease"
+          }
+          $arguments += $assets.FullName
+          & gh @arguments
+

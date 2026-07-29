@@ -1,10 +1,10 @@
 {
-  "name": "kimi-desktop-wrapper",
+  "name": "kimi-code-workbench",
   "version": "1.0.0",
-  "description": "Kimi Code local Web UI wrapper with manual quota tracking and local burn-rate forecasting",
+  "description": "Unofficial local desktop workbench for Kimi Code with quota forecasting, visual configuration, artifact diffs, file previews, and task time travel",
   "main": "src/main/main.js",
   "type": "module",
-  "author": "howyo",
+  "author": "Dylan5237",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
