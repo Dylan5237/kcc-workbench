@@ -3,6 +3,8 @@
 
   <h1>Kimi Desktop Workbench</h1>
 
+  <p><strong>简体中文</strong> · <a href="./README_EN.md">English</a></p>
+
   <p><strong>Kimi Code 的非官方本地桌面工作台</strong></p>
   <p>把 Kimi Web、Coding Plan 额度、可视化配置、会话产物与时间机器放进一个 Windows 应用。</p>
 
