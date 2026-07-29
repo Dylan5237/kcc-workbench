@@ -233,8 +233,13 @@ function summarizeCheckpoint(checkpoint) {
 function captureGitState(root) {
   let stage = '发现 Git 仓库'
   try {
-    const repoRoot = path.resolve(execGit(root, ['rev-parse', '--show-toplevel']).trim())
-    const scope = normalizeGitPath(path.relative(repoRoot, root)) || '.'
+    const canonicalRoot = canonicalDirectory(root)
+    const repoRoot = canonicalDirectory(execGit(root, ['rev-parse', '--show-toplevel']).trim())
+    const relativeScope = path.relative(repoRoot, canonicalRoot)
+    if (relativeScope === '..' || relativeScope.startsWith(`..${path.sep}`) || path.isAbsolute(relativeScope)) {
+      throw new Error(`项目目录不在 Git 仓库内：${canonicalRoot}`)
+    }
+    const scope = normalizeGitPath(relativeScope) || '.'
     stage = '读取 Git HEAD'
     const head = execGit(repoRoot, ['rev-parse', 'HEAD']).trim()
     stage = '读取 Git 分支'
@@ -370,6 +375,11 @@ function validDirectory(value) {
   } catch {
     return ''
   }
+}
+
+function canonicalDirectory(value) {
+  const resolved = path.resolve(String(value || ''))
+  return fs.realpathSync.native(resolved)
 }
 
 function loadSessions(storagePath) {
