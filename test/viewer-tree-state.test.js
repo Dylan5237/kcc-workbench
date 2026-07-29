@@ -81,3 +81,20 @@ test('preserves manual directory toggles and expands filtered matches', async ()
     collapsed
   }), true)
 })
+
+test('formats file timestamps as month-day hour-minute', async () => {
+  const state = await loadTreeState()
+  const timestamp = new Date(2026, 6, 29, 8, 5).getTime()
+
+  assert.equal(state.formatTimestamp(timestamp), '07-29 08:05')
+  assert.equal(state.formatTimestamp('invalid'), '--')
+})
+
+test('detects file changes by modification time or size', async () => {
+  const state = await loadTreeState()
+  const current = { mtime: 1000, size: 20 }
+
+  assert.equal(state.isFileVersionChanged(current, { mtime: 1000, size: 20 }), false)
+  assert.equal(state.isFileVersionChanged(current, { mtime: 1001, size: 20 }), true)
+  assert.equal(state.isFileVersionChanged(current, { mtime: 1000, size: 21 }), true)
+})

@@ -6,6 +6,7 @@
   const fileNameEl = document.getElementById('fileName');
   const fileMetaEl = document.getElementById('fileMeta');
   const updatedBadge = document.getElementById('updatedBadge');
+  const fileRefreshBtn = document.getElementById('fileRefreshBtn');
   const liveDot = document.getElementById('liveDot');
   const liveText = document.getElementById('liveText');
   const filterInput = document.getElementById('filterInput');
@@ -42,6 +43,9 @@
   let artifactSession = null;
   let timeMachineState = null;
   let pendingForkCheckpoint = null;
+  let currentFileVersion = null;
+  let freshnessCheckInFlight = false;
+  let fileStatusTimer = null;
   const expanded = new Set(); // 用户手动展开的目录
   const collapsed = new Set(); // 用户手动折叠的目录
 
@@ -149,6 +153,7 @@
 
   function showArtifactDiff(artifact) {
     if (!artifact) return;
+    clearLiveFileState();
     currentPath = artifact.type === 'deleted' ? null : artifact.path;
     renderTree();
     fileHeaderEl.classList.remove('hidden');
@@ -234,6 +239,7 @@
       toast(checkpoint.error || '无法读取时间点', true);
       return;
     }
+    clearLiveFileState();
     currentPath = null;
     renderTree();
     fileHeaderEl.classList.remove('hidden');
@@ -402,7 +408,7 @@
         expanded,
         collapsed
       });
-      row.innerHTML = `<span class="arrow ${isExpanded ? 'open' : ''}">▶</span><span class="icon">📁</span><span>${escapeHtml(node.name)}</span>`;
+      row.innerHTML = `<span class="arrow ${isExpanded ? 'open' : ''}">▶</span><span class="icon">📁</span><span class="tree-name">${escapeHtml(node.name)}</span>`;
       row.onclick = () => {
         window.ViewerTreeState.toggle({
           depth,
@@ -424,7 +430,7 @@
     } else {
       const ext = node.ext.slice(1);
       const icon = node.ext === '.md' ? '📝' : (node.ext === '.json' ? '🧩' : '🌐');
-      row.innerHTML = `<span class="arrow"></span><span class="icon">${icon}</span><span>${escapeHtml(node.name)}</span><span class="ext-tag ${ext}">${ext}</span>`;
+      row.innerHTML = `<span class="arrow"></span><span class="icon">${icon}</span><span class="tree-name">${escapeHtml(node.name)}</span><span class="ext-tag ${ext}">${ext}</span><time class="file-time" datetime="${new Date(node.mtime).toISOString()}">${window.ViewerTreeState.formatTimestamp(node.mtime)}</time>`;
       if (node.path === currentPath) row.classList.add('active');
       row.onclick = () => openFile(node.path);
       li.appendChild(row);
@@ -556,23 +562,31 @@
   }
 
   // ---------- 文件渲染 ----------
-  async function openFile(p, silent) {
+  async function openFile(p, silent, refreshSource) {
+    const refreshingCurrentFile = currentFileVersion?.path === p;
     try {
       const res = await fetch('/api/file?p=' + encodeURIComponent(p));
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
       const file = await res.json();
       currentPath = p;
       renderTree(); // 更新高亮
-      await renderFile(file, silent);
+      await renderFile(file, silent, refreshSource);
     } catch (err) {
+      if (refreshingCurrentFile) {
+        showFileStatus(`刷新失败：${err.message}`, 'error');
+        fileRefreshBtn.classList.add('needs-refresh');
+        return;
+      }
+      clearLiveFileState();
+      fileHeaderEl.classList.add('hidden');
       viewerEl.innerHTML = `<div class="empty-hint"><p>读取失败:${escapeHtml(err.message)}</p></div>`;
     }
   }
 
-  async function renderFile(file, silent) {
+  async function renderFile(file, silent, refreshSource) {
     fileHeaderEl.classList.remove('hidden');
     fileNameEl.textContent = file.path;
-    fileMetaEl.textContent = `${formatSize(file.size)} · 更新于 ${new Date(file.mtime).toLocaleTimeString('zh-CN')}`;
+    fileMetaEl.textContent = `${formatSize(file.size)} · 更新于 ${window.ViewerTreeState.formatTimestamp(file.mtime)}`;
 
     const keepScroll = silent ? viewerEl.scrollTop : 0;
 
@@ -590,15 +604,78 @@
 
     if (silent) viewerEl.scrollTop = keepScroll;
 
+    currentFileVersion = {
+      path: file.path,
+      mtime: file.mtime,
+      size: file.size
+    };
+    fileRefreshBtn.classList.remove('hidden', 'needs-refresh');
+
     if (silent) {
-      updatedBadge.classList.remove('hidden');
-      setTimeout(() => updatedBadge.classList.add('hidden'), 2000);
+      showFileStatus(refreshSource === 'manual' ? '已手动刷新' : '已自动刷新', 'updated', true);
+    } else {
+      clearFileStatus();
     }
   }
 
   function showEmpty() {
+    clearLiveFileState();
     fileHeaderEl.classList.add('hidden');
     viewerEl.innerHTML = `<div class="empty-hint"><p>← 从左侧选择一个 <code>.md</code>、<code>.json</code> 或 <code>.html</code> 文件</p><p class="sub">文件修改后会自动刷新</p></div>`;
+  }
+
+  function showFileStatus(message, variant, autoHide) {
+    clearTimeout(fileStatusTimer);
+    updatedBadge.textContent = message;
+    updatedBadge.className = `badge ${variant || 'updated'}`;
+    if (autoHide) {
+      fileStatusTimer = setTimeout(() => updatedBadge.classList.add('hidden'), 2200);
+    }
+  }
+
+  function clearFileStatus() {
+    clearTimeout(fileStatusTimer);
+    updatedBadge.className = 'badge hidden';
+    updatedBadge.textContent = '';
+  }
+
+  function clearLiveFileState() {
+    currentFileVersion = null;
+    fileRefreshBtn.classList.add('hidden');
+    fileRefreshBtn.classList.remove('needs-refresh');
+    clearFileStatus();
+  }
+
+  function markCurrentFileStale(message = '文件已更新，请手动刷新') {
+    if (!currentFileVersion) return;
+    fileRefreshBtn.classList.remove('hidden');
+    fileRefreshBtn.classList.add('needs-refresh');
+    showFileStatus(message, 'stale');
+  }
+
+  async function checkCurrentFileFreshness() {
+    const checkedVersion = currentFileVersion;
+    if (!checkedVersion || currentPath !== checkedVersion.path || freshnessCheckInFlight) return;
+    freshnessCheckInFlight = true;
+    try {
+      const response = await fetch(
+        '/api/file-meta?p=' + encodeURIComponent(checkedVersion.path),
+        { cache: 'no-store' }
+      );
+      if (currentFileVersion !== checkedVersion) return;
+      if (!response.ok) {
+        markCurrentFileStale('文件已删除或无法读取');
+        return;
+      }
+      const metadata = await response.json();
+      if (window.ViewerTreeState.isFileVersionChanged(checkedVersion, metadata)) {
+        markCurrentFileStale();
+      }
+    } catch {
+      // SSE 状态会显示连接问题；元数据轮询失败时保留当前内容。
+    } finally {
+      freshnessCheckInFlight = false;
+    }
   }
 
   const htmlModeByPath = new Map();
@@ -1165,9 +1242,11 @@
       const changed = msg.file;
       loadTree(true);
       if (currentPath && (changed === currentPath || changed.endsWith(currentPath) || currentPath.endsWith(changed))) {
-        openFile(currentPath, true);
+        showFileStatus('检测到更新，正在刷新…', 'refreshing');
+        openFile(currentPath, true, 'auto');
       } else if (msg.kind === 'asset' && currentPath && /\.html?$/i.test(currentPath)) {
-        openFile(currentPath, true);
+        showFileStatus('预览资源已更新，正在刷新…', 'refreshing');
+        openFile(currentPath, true, 'auto');
       }
     };
     es.onerror = () => {
@@ -1181,6 +1260,20 @@
   // ---------- 事件绑定 ----------
   filterInput.addEventListener('input', renderTree);
   refreshBtn.addEventListener('click', () => loadTree(true));
+  fileRefreshBtn.addEventListener('click', async () => {
+    if (!currentFileVersion || currentPath !== currentFileVersion.path) return;
+    fileRefreshBtn.disabled = true;
+    fileRefreshBtn.classList.remove('needs-refresh');
+    showFileStatus('正在重新读取…', 'refreshing');
+    try {
+      await Promise.all([
+        loadTree(true),
+        openFile(currentPath, true, 'manual')
+      ]);
+    } finally {
+      fileRefreshBtn.disabled = false;
+    }
+  });
   sidebarTabs.forEach(button => {
     button.addEventListener('click', () => {
       const mode = button.dataset.sidebarMode;
@@ -1211,4 +1304,8 @@
   loadArtifacts();
   loadTimeMachine();
   connectEvents();
+  setInterval(checkCurrentFileFreshness, 5000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkCurrentFileFreshness();
+  });
 })();

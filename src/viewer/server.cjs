@@ -265,6 +265,26 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
       }
     }
 
+    if (url.pathname === '/api/file-meta') {
+      const relativePath = url.searchParams.get('p') || ''
+      const absolutePath = safeResolve(relativePath)
+      if (!absolutePath) return sendJson(response, 403, { error: '非法文件路径' })
+      if (!WATCHED_EXTENSIONS.has(path.extname(absolutePath).toLowerCase())) {
+        return sendJson(response, 403, { error: '不支持的文件类型' })
+      }
+      try {
+        const stat = fs.statSync(absolutePath)
+        if (!stat.isFile()) throw new Error('目标不是文件')
+        return sendJson(response, 200, {
+          path: relativePath,
+          mtime: stat.mtimeMs,
+          size: stat.size
+        })
+      } catch (error) {
+        return sendJson(response, 404, { error: error.message })
+      }
+    }
+
     if (url.pathname === '/api/html-preview') {
       const relativePath = url.searchParams.get('p') || ''
       const absolutePath = safeResolve(relativePath)

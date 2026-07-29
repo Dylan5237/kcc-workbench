@@ -50,7 +50,10 @@
       <div id="fileHeader" class="file-header hidden">
         <span id="fileName" class="file-name"></span>
         <span id="fileMeta" class="file-meta"></span>
-        <span id="updatedBadge" class="badge hidden">已更新</span>
+        <div class="file-header-actions">
+          <span id="updatedBadge" class="badge hidden" role="status"></span>
+          <button id="fileRefreshBtn" class="file-refresh hidden" type="button" title="重新读取当前文件">↻ 刷新</button>
+        </div>
       </div>
       <div id="viewer" class="viewer">
         <div class="empty-hint">

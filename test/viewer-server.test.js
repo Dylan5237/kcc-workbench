@@ -44,6 +44,11 @@ test('starts empty and accepts a project directory injection', async t => {
 
   const markdown = await fetch(`${baseUrl}/api/file?p=README.md`).then(response => response.json())
   assert.equal(markdown.content, '# Hello')
+  const metadata = await fetch(`${baseUrl}/api/file-meta?p=README.md`).then(response => response.json())
+  assert.equal(metadata.path, 'README.md')
+  assert.equal(metadata.size, Buffer.byteLength('# Hello'))
+  assert.equal(typeof metadata.mtime, 'number')
+  assert.equal(Object.hasOwn(metadata, 'content'), false)
   const mermaidVendor = await fetch(`${baseUrl}/vendor/mermaid.min.js`)
   assert.equal(mermaidVendor.status, 200)
   assert.match(mermaidVendor.headers.get('content-type'), /javascript/)

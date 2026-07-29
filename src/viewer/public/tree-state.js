@@ -16,5 +16,22 @@
     return true;
   }
 
-  global.ViewerTreeState = Object.freeze({ isExpanded, toggle });
+  function formatTimestamp(value) {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '--';
+    const pad = part => String(part).padStart(2, '0');
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function isFileVersionChanged(current, next) {
+    if (!current || !next) return false;
+    return current.mtime !== next.mtime || current.size !== next.size;
+  }
+
+  global.ViewerTreeState = Object.freeze({
+    isExpanded,
+    toggle,
+    formatTimestamp,
+    isFileVersionChanged
+  });
 })(globalThis);
