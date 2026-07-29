@@ -51,7 +51,7 @@ test('persists Git-aware checkpoints and restores them into an isolated worktree
   })
   const checkpoint = machine.flush()
   assert.equal(machine.getState().checkpoints.length, 1)
-  assert.equal(checkpoint.git.available, true)
+  assert.equal(checkpoint.git.available, true, checkpoint.git.error)
 
   const target = path.join(tempRoot, 'fork')
   const result = machine.forkCheckpoint({

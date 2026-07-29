@@ -231,28 +231,45 @@ function summarizeCheckpoint(checkpoint) {
 }
 
 function captureGitState(root) {
+  let stage = '发现 Git 仓库'
   try {
-    const repoRoot = execGit(root, ['rev-parse', '--show-toplevel']).trim()
+    const repoRoot = path.resolve(execGit(root, ['rev-parse', '--show-toplevel']).trim())
     const scope = normalizeGitPath(path.relative(repoRoot, root)) || '.'
+    stage = '读取 Git HEAD'
     const head = execGit(repoRoot, ['rev-parse', 'HEAD']).trim()
+    stage = '读取 Git 分支'
     const branch = execGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']).trim()
-    const statusText = execGit(repoRoot, ['status', '--porcelain=v1', '--', scope])
+    const warnings = []
+    let status = []
+    try {
+      const statusText = execGit(repoRoot, ['status', '--porcelain=v1', '--', scope])
+      status = statusText.split(/\r?\n/).filter(Boolean)
+    } catch (error) {
+      warnings.push(`读取工作区状态失败：${cleanGitError(error)}`)
+    }
+    stage = '生成 Git patch'
     const patch = execGitBuffer(repoRoot, ['diff', '--binary', '--no-ext-diff', 'HEAD', '--', scope])
     if (patch.length > MAX_PATCH_BYTES) throw new Error('Git 差异超过 8 MB，未保存可分叉快照')
-    const untracked = captureUntrackedFiles(repoRoot, scope)
+    let untracked = []
+    try {
+      untracked = captureUntrackedFiles(repoRoot, scope)
+    } catch (error) {
+      warnings.push(`读取未跟踪文件失败：${cleanGitError(error)}`)
+    }
     return {
       available: true,
       repoRoot,
       branch,
       head,
-      status: statusText.split(/\r?\n/).filter(Boolean),
+      status,
       patch: patch.toString('base64'),
-      untracked
+      untracked,
+      warnings
     }
   } catch (error) {
     return {
       available: false,
-      error: cleanGitError(error)
+      error: `${stage}失败：${cleanGitError(error)}`
     }
   }
 }
