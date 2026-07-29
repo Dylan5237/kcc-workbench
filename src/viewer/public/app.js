@@ -42,7 +42,8 @@
   let artifactSession = null;
   let timeMachineState = null;
   let pendingForkCheckpoint = null;
-  const collapsed = new Set(); // 折叠的目录
+  const expanded = new Set(); // 用户手动展开的目录
+  const collapsed = new Set(); // 用户手动折叠的目录
 
   marked.setOptions({ breaks: true, gfm: true });
   if (window.mermaid) {
@@ -96,7 +97,7 @@
     const ul = document.createElement('ul');
     let anyVisible = false;
     for (const child of treeData.children) {
-      const li = buildNode(child, filter);
+      const li = buildNode(child, filter, 0);
       if (li) { ul.appendChild(li); anyVisible = true; }
     }
     treeEl.appendChild(ul);
@@ -372,7 +373,7 @@
     }
   }
 
-  function buildNode(node, filter) {
+  function buildNode(node, filter, depth) {
     // 过滤:目录需有匹配后代,文件需名字匹配
     if (filter) {
       if (node.type === 'file' && !node.name.toLowerCase().includes(filter)) return null;
@@ -394,18 +395,28 @@
     });
 
     if (node.type === 'dir') {
-      const isCollapsed = collapsed.has(node.path) && !filter;
-      row.innerHTML = `<span class="arrow ${isCollapsed ? '' : 'open'}">▶</span><span class="icon">📁</span><span>${escapeHtml(node.name)}</span>`;
+      const isExpanded = window.ViewerTreeState.isExpanded({
+        depth,
+        path: node.path,
+        filter,
+        expanded,
+        collapsed
+      });
+      row.innerHTML = `<span class="arrow ${isExpanded ? 'open' : ''}">▶</span><span class="icon">📁</span><span>${escapeHtml(node.name)}</span>`;
       row.onclick = () => {
-        if (collapsed.has(node.path)) collapsed.delete(node.path);
-        else collapsed.add(node.path);
+        window.ViewerTreeState.toggle({
+          depth,
+          path: node.path,
+          expanded,
+          collapsed
+        });
         renderTree();
       };
       li.appendChild(row);
-      if (!isCollapsed) {
+      if (isExpanded) {
         const ul = document.createElement('ul');
         for (const c of node.children) {
-          const childLi = buildNode(c, filter);
+          const childLi = buildNode(c, filter, depth + 1);
           if (childLi) ul.appendChild(childLi);
         }
         li.appendChild(ul);
@@ -999,6 +1010,7 @@
       if (!res.ok) throw new Error(data.error || res.statusText);
       // 切换成功:清空当前文件,重载树
       currentPath = null;
+      expanded.clear();
       collapsed.clear();
       showEmpty();
       loadRootInfo();
@@ -1126,6 +1138,7 @@
       if (msg.type === 'root') {
         // 其他客户端切换了根目录
         currentPath = null;
+        expanded.clear();
         collapsed.clear();
         showEmpty();
         loadRootInfo();
