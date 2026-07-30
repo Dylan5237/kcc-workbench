@@ -27,6 +27,33 @@ effort = "high"
   assert.match(patched, /unknown_key = "untouched"/)
 })
 
+test('updates quoted TOML sections without appending a duplicate section', () => {
+  const text = `["loop_control"] # keep quoted header
+max_steps_per_turn = 8
+
+[custom]
+value = "untouched"
+`
+  const patched = patchTomlValue(text, 'loop_control', 'max_steps_per_turn', '12')
+  assert.match(patched, /\["loop_control"\] # keep quoted header/)
+  assert.match(patched, /max_steps_per_turn = 12/)
+  assert.equal((patched.match(/loop_control/g) || []).length, 1)
+  assert.match(patched, /\[custom\]\nvalue = "untouched"/)
+})
+
+test('rejects semantically duplicate TOML sections before writing', () => {
+  const text = `["thinking"]
+enabled = true
+
+[thinking]
+effort = "high"
+`
+  assert.throws(
+    () => patchTomlValue(text, 'thinking', 'enabled', 'false'),
+    /重复节/
+  )
+})
+
 test('saves into an isolated home and creates backups', async t => {
   const tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-settings-'))
   t.after(() => fs.rm(tempHome, { recursive: true, force: true }))

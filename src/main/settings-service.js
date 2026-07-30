@@ -203,11 +203,29 @@ function findSectionRange(lines, section) {
     const end = lines.findIndex(line => /^\s*\[\[?/.test(line))
     return { exists: true, start: 0, end: end === -1 ? lines.length : end }
   }
-  const header = `[${section}]`
-  const index = lines.findIndex(line => line.trim() === header)
+  const matches = lines
+    .map((line, index) => ({ index, section: parseTomlSectionName(line) }))
+    .filter(item => item.section === section)
+  if (matches.length > 1) throw new Error(`TOML 中存在重复节：[${section}]`)
+  const index = matches[0]?.index ?? -1
   if (index === -1) return { exists: false, start: lines.length, end: lines.length }
   const next = lines.findIndex((line, lineIndex) => lineIndex > index && /^\s*\[\[?/.test(line))
   return { exists: true, start: index + 1, end: next === -1 ? lines.length : next }
+}
+
+function parseTomlSectionName(line) {
+  const match = String(line).match(/^\s*\[(?!\[)(.+)\]\s*(?:#.*)?$/)
+  if (!match) return null
+  const raw = match[1].trim()
+  if (/^"(?:\\.|[^"])*"$/.test(raw)) {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  if (/^'[^']*'$/.test(raw)) return raw.slice(1, -1)
+  return raw
 }
 
 function parseModels(text) {
