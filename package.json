@@ -1,6 +1,6 @@
 {
   "name": "kimi-code-workbench",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.1",
   "description": "Unofficial local desktop workbench for Kimi Code with quota forecasting, visual configuration, artifact diffs, file previews, and task time travel",
   "main": "src/main/main.js",
   "type": "module",
