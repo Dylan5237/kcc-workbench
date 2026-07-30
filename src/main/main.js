@@ -187,12 +187,20 @@ async function registerAppProtocol() {
 
 function configureRemoteSession() {
   const remoteSession = session.fromPartition(SESSION_PARTITION)
-  remoteSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    const safePermissions = new Set(['clipboard-sanitized-write', 'fullscreen'])
-    callback(safePermissions.has(permission))
+  configurePermissionPolicy(remoteSession, webContents => isAllowedKimiLoginUrl(webContents.getURL()))
+  configurePermissionPolicy(
+    session.defaultSession,
+    webContents => isAllowedKimiCodeUrl(webContents.getURL())
+  )
+}
+
+function configurePermissionPolicy(targetSession, isTrustedContents) {
+  const safePermissions = new Set(['clipboard-sanitized-write', 'fullscreen'])
+  targetSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(Boolean(webContents) && isTrustedContents(webContents) && safePermissions.has(permission))
   })
-  remoteSession.setPermissionCheckHandler((_webContents, permission) => {
-    return new Set(['clipboard-sanitized-write', 'fullscreen']).has(permission)
+  targetSession.setPermissionCheckHandler((webContents, permission) => {
+    return Boolean(webContents) && isTrustedContents(webContents) && safePermissions.has(permission)
   })
 }
 
@@ -717,7 +725,6 @@ async function detectKimiWorkspaceContext() {
           collect(sessionStorage.getItem(key), score)
         }
         collectSessionIds(location.href)
-        collect(document.body?.innerText, 10)
         return {
           sessionIds,
           paths: results.sort((left, right) => right.score - left.score)
@@ -735,17 +742,6 @@ async function detectKimiWorkspaceContext() {
       if (workDirectory) return { projectDirectory: workDirectory, sessionId }
     }
 
-    for (const candidate of context.paths) {
-      const value = path.normalize(candidate.path)
-      if (/\bAppData\b/i.test(value)) continue
-      const directory = await existingDirectory(value)
-      if (directory) {
-        return {
-          projectDirectory: directory,
-          sessionId: context.sessionIds[0] || null
-        }
-      }
-    }
   } catch (error) {
     console.warn('Unable to detect the current Kimi project directory:', error)
   }
@@ -777,9 +773,8 @@ function isAllowedKimiCodeUrl(value) {
   try {
     const url = new URL(value)
     if (url.protocol === 'app:' && demoMode) return true
-    return url.protocol === 'http:'
-      && (url.hostname === '127.0.0.1' || url.hostname === 'localhost')
-      && url.port === '5494'
+    if (!localKimiService?.url) return false
+    return url.origin === new URL(localKimiService.url).origin
   } catch {
     return false
   }
@@ -829,10 +824,17 @@ function openKimiLoginWindow() {
     .replace(/\sElectron\/\S+/i, '')
   loginWindow.webContents.setUserAgent(sanitizedUserAgent)
   loginWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url)) {
+    if (isAllowedKimiLoginUrl(url)) {
       loginWindow.webContents.loadURL(url)
+    } else if (isSafeExternalUrl(url)) {
+      shell.openExternal(url)
     }
     return { action: 'deny' }
+  })
+  loginWindow.webContents.on('will-navigate', (event, url) => {
+    if (isAllowedKimiLoginUrl(url)) return
+    event.preventDefault()
+    if (isSafeExternalUrl(url)) shell.openExternal(url)
   })
 
   loginPromise = new Promise((resolve, reject) => {
@@ -888,6 +890,16 @@ function openKimiLoginWindow() {
 function isSafeExternalUrl(value) {
   try {
     return new URL(value).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function isAllowedKimiLoginUrl(value) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:'
+      && (url.hostname === 'kimi.com' || url.hostname.endsWith('.kimi.com'))
   } catch {
     return false
   }

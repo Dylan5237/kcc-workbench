@@ -1,11 +1,10 @@
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:net'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { net } from 'electron'
 
 const HOST = '127.0.0.1'
-const PORT = 5494
-const URL = `http://${HOST}:${PORT}/`
 
 export class LocalKimiService {
   constructor({ homePath, logPath }) {
@@ -15,14 +14,15 @@ export class LocalKimiService {
     this.ownsProcess = false
     this.startPromise = null
     this.lastOutput = ''
+    this.port = null
   }
 
   get url() {
-    return URL
+    return this.port ? `http://${HOST}:${this.port}/` : ''
   }
 
   async start() {
-    if (await isReady()) return URL
+    if (this.child && this.url && await isReady(this.url)) return this.url
     if (this.startPromise) return this.startPromise
     this.startPromise = this.startProcess()
     try {
@@ -38,17 +38,20 @@ export class LocalKimiService {
     }
     this.child = null
     this.ownsProcess = false
+    this.port = null
   }
 
   async startProcess() {
     const executable = process.env.KIMI_CLI_PATH
       || path.join(this.homePath, '.local', 'bin', 'kimi.exe')
+    this.port = await reserveLoopbackPort()
+    const url = this.url
 
-    await this.writeLog(`Starting ${executable} web on ${URL}\n`)
+    await this.writeLog(`Starting ${executable} web on ${url}\n`)
     this.child = spawn(executable, [
       'web',
       '--host', HOST,
-      '--port', String(PORT),
+      '--port', String(this.port),
       '--no-open'
     ], {
       cwd: this.homePath,
@@ -79,9 +82,9 @@ export class LocalKimiService {
       this.child.once('error', reject)
     })
 
-    await Promise.race([waitUntilReady(), exitPromise])
-    await this.writeLog(`Kimi Web is ready at ${URL}\n`)
-    return URL
+    await Promise.race([waitUntilReady(url), exitPromise])
+    await this.writeLog(`Kimi Web is ready at ${url}\n`)
+    return url
   }
 
   captureOutput(chunk) {
@@ -96,24 +99,41 @@ export class LocalKimiService {
   }
 }
 
-async function waitUntilReady() {
+async function waitUntilReady(url) {
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
-    if (await isReady()) return
+    if (await isReady(url)) return
     await delay(300)
   }
-  throw new Error(`等待 Kimi Web 启动超时：${URL}`)
+  throw new Error(`等待 Kimi Web 启动超时：${url}`)
 }
 
-async function isReady() {
+async function isReady(url) {
   try {
-    const response = await net.fetch(URL)
+    const response = await net.fetch(url)
     if (!response.ok) return false
     const html = await response.text()
     return /Kimi(?:\s+Code)?|\/assets\/index-/i.test(html)
   } catch {
     return false
   }
+}
+
+function reserveLoopbackPort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer()
+    server.unref()
+    server.once('error', reject)
+    server.listen(0, HOST, () => {
+      const address = server.address()
+      const port = typeof address === 'object' && address ? address.port : 0
+      server.close(error => {
+        if (error) reject(error)
+        else if (!port) reject(new Error('无法分配 Kimi Web 本地端口'))
+        else resolve(port)
+      })
+    })
+  })
 }
 
 function delay(milliseconds) {
