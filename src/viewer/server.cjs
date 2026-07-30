@@ -73,14 +73,14 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     fs.writeFileSync(configPath, JSON.stringify({ root, recentRoots }, null, 2))
   }
 
-  function setRoot(nextRoot) {
+  async function setRoot(nextRoot) {
     const resolved = validDirectory(nextRoot)
     if (!resolved) return false
     if (resolved === root) return true
     root = resolved
     recentRoots = [root, ...recentRoots.filter(item => item !== root)].slice(0, 10)
     saveState()
-    resetArtifactSession({
+    await resetArtifactSession({
       id: `workspace:${root.toLowerCase()}`,
       label: '当前工作区',
       root
@@ -152,7 +152,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }, 350))
   }
 
-  function resetArtifactSession(context = {}) {
+  async function resetArtifactSession(context = {}) {
     if (context.root && validDirectory(context.root) && path.normalize(context.root) !== root) {
       return setRoot(context.root)
     }
@@ -162,7 +162,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       root
     })
     artifactSnapshot = snapshotDocuments(root)
-    timeMachine.setContext({
+    await timeMachine.setContext({
       id: artifactSession.id,
       label: artifactSession.label,
       root
@@ -397,17 +397,17 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         forkCheckpoint(input) {
           return timeMachine.forkCheckpoint(input)
         },
-        setConversationContext(context) {
-          if (context?.root && path.normalize(context.root) !== root) setRoot(context.root)
+        async setConversationContext(context) {
+          if (context?.root && path.normalize(context.root) !== root) await setRoot(context.root)
           const nextId = context?.id || (root ? `workspace:${root.toLowerCase()}` : 'workspace:empty')
           if (artifactSession.id === nextId && artifactSession.root === root) return true
           return resetArtifactSession(context)
         },
-        close() {
+        async close() {
           watcher?.close()
           clearTimeout(debounceTimer)
           for (const timer of artifactTimers.values()) clearTimeout(timer)
-          timeMachine.close()
+          await timeMachine.close()
           for (const client of clients) client.end()
           clients.clear()
           server.close()

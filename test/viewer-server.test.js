@@ -54,7 +54,7 @@ test('starts empty and accepts a project directory injection', async t => {
 
   const server = await startServer({ port: 0, configDir })
   t.after(async () => {
-    server.close()
+    await server.close()
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
 
@@ -62,7 +62,7 @@ test('starts empty and accepts a project directory injection', async t => {
   assert.equal(initial.root, '')
   assert.deepEqual(initial.tree.children, [])
 
-  assert.equal(server.setRoot(projectDir), true)
+  assert.equal(await server.setRoot(projectDir), true)
   const tree = await viewerFetch(server, '/api/tree').then(response => response.json())
   assert.equal(tree.root, projectDir)
   assert.deepEqual(
@@ -104,7 +104,7 @@ test('blocks paths outside the active project', async t => {
   await fs.mkdir(projectDir, { recursive: true })
   const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
   t.after(async () => {
-    server.close()
+    await server.close()
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
 
@@ -132,10 +132,10 @@ test('tracks document changes inside the current artifact session', async t => {
   await fs.writeFile(path.join(projectDir, 'README.md'), '# Before')
   const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
   t.after(async () => {
-    server.close()
+    await server.close()
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
-  server.setConversationContext({
+  await server.setConversationContext({
     id: 'session:test',
     label: '测试会话',
     root: projectDir
@@ -156,7 +156,7 @@ test('rejects unauthenticated API calls and forged hosts', async t => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-auth-'))
   const server = await startServer({ port: 0, configDir: path.join(tempRoot, 'config') })
   t.after(async () => {
-    server.close()
+    await server.close()
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
 
@@ -174,7 +174,7 @@ test('contains synchronous request failures without terminating the server', asy
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-errors-'))
   const server = await startServer({ port: 0, configDir: path.join(tempRoot, 'config') })
   t.after(async () => {
-    server.close()
+    await server.close()
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
 

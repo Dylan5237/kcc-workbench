@@ -1,6 +1,6 @@
 const fs = require('node:fs')
 const path = require('node:path')
-const { execFileSync } = require('node:child_process')
+const { execFile } = require('node:child_process')
 const { createLineDiff } = require('./diff.cjs')
 
 const MAX_SESSIONS = 20
@@ -16,9 +16,10 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 1
   let activeSession = null
   let checkpointTimer = null
   let pendingChanges = []
+  let operationQueue = Promise.resolve()
 
-  function setContext(context = {}) {
-    flush()
+  async function setContext(context = {}) {
+    await flush()
     const root = validDirectory(context.root)
     if (!root) {
       activeSession = null
@@ -54,33 +55,38 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 1
       afterContent
     })
     clearTimeout(checkpointTimer)
-    checkpointTimer = setTimeout(flush, checkpointDelay)
+      checkpointTimer = setTimeout(() => {
+        flush().catch(error => console.error('Time machine checkpoint failed:', error))
+      }, checkpointDelay)
   }
 
   function flush() {
     clearTimeout(checkpointTimer)
     checkpointTimer = null
-    if (!activeSession || !pendingChanges.length) return null
+    if (!activeSession || !pendingChanges.length) return Promise.resolve(null)
+    const session = activeSession
     const changes = coalesceChanges(pendingChanges)
     pendingChanges = []
-    const git = captureGitState(activeSession.root)
-    const checkpoint = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      timestamp: Date.now(),
-      title: checkpointTitle(changes),
-      changes,
-      git
-    }
-    activeSession.checkpoints.unshift(checkpoint)
-    activeSession.checkpoints = activeSession.checkpoints.slice(0, MAX_CHECKPOINTS)
-    activeSession.updatedAt = checkpoint.timestamp
-    trimAndSave()
-    onChange({
-      type: 'time-machine-checkpoint',
-      checkpoint: summarizeCheckpoint(checkpoint),
-      state: getState()
+    return enqueue(async () => {
+      const git = await captureGitState(session.root)
+      const checkpoint = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        timestamp: Date.now(),
+        title: checkpointTitle(changes),
+        changes,
+        git
+      }
+      session.checkpoints.unshift(checkpoint)
+      session.checkpoints = session.checkpoints.slice(0, MAX_CHECKPOINTS)
+      session.updatedAt = checkpoint.timestamp
+      trimAndSave()
+      onChange({
+        type: 'time-machine-checkpoint',
+        checkpoint: summarizeCheckpoint(checkpoint),
+        state: getState()
+      })
+      return checkpoint
     })
-    return checkpoint
   }
 
   function getState() {
@@ -130,22 +136,31 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 1
     const target = resolveForkTarget(repoRoot, branch, targetPath)
     if (fs.existsSync(target)) throw new Error(`目标目录已存在：${target}`)
 
-    execGit(repoRoot, ['worktree', 'add', '-b', branch, target, checkpoint.git.head])
-    try {
-      if (checkpoint.git.patch) {
-        execGit(target, ['apply', '--binary', '-'], {
-          input: Buffer.from(checkpoint.git.patch, 'base64')
-        })
+    return enqueue(async () => {
+      await execGit(repoRoot, ['worktree', 'add', '-b', branch, target, checkpoint.git.head])
+      try {
+        if (checkpoint.git.patch) {
+          await execGit(target, ['apply', '--binary', '-'], {
+            input: Buffer.from(checkpoint.git.patch, 'base64')
+          })
+        }
+        restoreUntrackedFiles(target, checkpoint.git.untracked || [])
+      } catch (error) {
+        throw new Error(`隔离工作区已创建于 ${target}，但恢复改动失败：${error.message}`)
       }
-      restoreUntrackedFiles(target, checkpoint.git.untracked || [])
-    } catch (error) {
-      throw new Error(`隔离工作区已创建于 ${target}，但恢复改动失败：${error.message}`)
-    }
-    return { branch, target, checkpointId }
+      return { branch, target, checkpointId }
+    })
   }
 
-  function close() {
-    flush()
+  async function close() {
+    await flush()
+    await operationQueue
+  }
+
+  function enqueue(operation) {
+    const result = operationQueue.then(operation, operation)
+    operationQueue = result.catch(() => {})
+    return result
   }
 
   function trimAndSave() {
@@ -230,34 +245,34 @@ function summarizeCheckpoint(checkpoint) {
   }
 }
 
-function captureGitState(root) {
+async function captureGitState(root) {
   let stage = '发现 Git 仓库'
   try {
     const canonicalRoot = canonicalDirectory(root)
-    const repoRoot = canonicalDirectory(execGit(root, ['rev-parse', '--show-toplevel']).trim())
+    const repoRoot = canonicalDirectory((await execGit(root, ['rev-parse', '--show-toplevel'])).trim())
     const relativeScope = path.relative(repoRoot, canonicalRoot)
     if (relativeScope === '..' || relativeScope.startsWith(`..${path.sep}`) || path.isAbsolute(relativeScope)) {
       throw new Error(`项目目录不在 Git 仓库内：${canonicalRoot}`)
     }
     const scope = normalizeGitPath(relativeScope) || '.'
     stage = '读取 Git HEAD'
-    const head = execGit(repoRoot, ['rev-parse', 'HEAD']).trim()
+    const head = (await execGit(repoRoot, ['rev-parse', 'HEAD'])).trim()
     stage = '读取 Git 分支'
-    const branch = execGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']).trim()
+    const branch = (await execGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
     const warnings = []
     let status = []
     try {
-      const statusText = execGit(repoRoot, ['status', '--porcelain=v1', '--', scope])
+      const statusText = await execGit(repoRoot, ['status', '--porcelain=v1', '--', scope])
       status = statusText.split(/\r?\n/).filter(Boolean)
     } catch (error) {
       warnings.push(`读取工作区状态失败：${cleanGitError(error)}`)
     }
     stage = '生成 Git patch'
-    const patch = execGitBuffer(repoRoot, ['diff', '--binary', '--no-ext-diff', 'HEAD', '--', scope])
+    const patch = await execGitBuffer(repoRoot, ['diff', '--binary', '--no-ext-diff', 'HEAD', '--', scope])
     if (patch.length > MAX_PATCH_BYTES) throw new Error('Git 差异超过 8 MB，未保存可分叉快照')
     let untracked = []
     try {
-      untracked = captureUntrackedFiles(repoRoot, scope)
+      untracked = await captureUntrackedFiles(repoRoot, scope)
     } catch (error) {
       warnings.push(`读取未跟踪文件失败：${cleanGitError(error)}`)
     }
@@ -279,8 +294,8 @@ function captureGitState(root) {
   }
 }
 
-function captureUntrackedFiles(repoRoot, scope) {
-  const output = execGitBuffer(
+async function captureUntrackedFiles(repoRoot, scope) {
+  const output = await execGitBuffer(
     repoRoot,
     ['ls-files', '--others', '--exclude-standard', '-z', '--', scope]
   )
@@ -359,21 +374,24 @@ function validateBranchName(value) {
 }
 
 function execGit(cwd, args, options = {}) {
-  return execFileSync('git', ['-C', cwd, ...args], {
-    encoding: options.input ? undefined : 'utf8',
-    input: options.input,
-    maxBuffer: MAX_PATCH_BYTES + MAX_UNTRACKED_BYTES + 1024 * 1024,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    windowsHide: true
-  })
+  return runGit(cwd, args, { ...options, encoding: options.input ? 'buffer' : 'utf8' })
 }
 
 function execGitBuffer(cwd, args) {
-  return execFileSync('git', ['-C', cwd, ...args], {
-    encoding: 'buffer',
-    maxBuffer: MAX_PATCH_BYTES + MAX_UNTRACKED_BYTES + 1024 * 1024,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    windowsHide: true
+  return runGit(cwd, args, { encoding: 'buffer' })
+}
+
+function runGit(cwd, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile('git', ['-C', cwd, ...args], {
+      encoding: options.encoding || 'utf8',
+      maxBuffer: MAX_PATCH_BYTES + MAX_UNTRACKED_BYTES + 1024 * 1024,
+      windowsHide: true
+    }, (error, stdout) => {
+      if (error) reject(error)
+      else resolve(stdout)
+    })
+    child.stdin.end(options.input)
   })
 }
 

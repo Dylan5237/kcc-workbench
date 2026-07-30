@@ -34,10 +34,10 @@ test('persists Git-aware checkpoints and restores them into an isolated worktree
 
   const machine = createTimeMachine({ configDir, checkpointDelay: 10 })
   t.after(async () => {
-    machine.close()
+    await machine.close()
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
-  machine.setContext({ id: 'kimi:test', label: '测试任务', root: repo })
+  await machine.setContext({ id: 'kimi:test', label: '测试任务', root: repo })
   await fs.writeFile(path.join(repo, 'README.md'), '# After\n')
   machine.recordChange({
     artifact: {
@@ -53,12 +53,12 @@ test('persists Git-aware checkpoints and restores them into an isolated worktree
     beforeContent: '# Before\n',
     afterContent: '# After\n'
   })
-  const checkpoint = machine.flush()
+  const checkpoint = await machine.flush()
   assert.equal(machine.getState().checkpoints.length, 1)
   assert.equal(checkpoint.git.available, true, checkpoint.git.error)
 
   const target = path.join(tempRoot, 'fork')
-  const result = machine.forkCheckpoint({
+  const result = await machine.forkCheckpoint({
     checkpointId: checkpoint.id,
     branchName: 'time-machine/test',
     targetPath: target
@@ -70,9 +70,9 @@ test('persists Git-aware checkpoints and restores them into an isolated worktree
   )
 
   const reloaded = createTimeMachine({ configDir })
-  reloaded.setContext({ id: 'kimi:test', label: '测试任务', root: repo })
+  await reloaded.setContext({ id: 'kimi:test', label: '测试任务', root: repo })
   assert.equal(reloaded.getState().checkpoints.length, 1)
-  reloaded.close()
+  await reloaded.close()
 })
 
 test('rejects unsafe branch names', () => {

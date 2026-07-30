@@ -448,7 +448,7 @@ async function switchTab(nextTab) {
   if (activeTab === 'viewer') {
     const context = await detectKimiWorkspaceContext()
     if (context?.projectDirectory) {
-      viewerServer.setConversationContext({
+      await viewerServer.setConversationContext({
         id: context.sessionId ? `kimi:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
         label: context.sessionId ? '当前 Kimi 对话' : '当前工作区',
         root: context.projectDirectory
@@ -569,12 +569,12 @@ function wireIpc() {
     })
     return result.canceled ? null : result.filePaths[0]
   })
-  ipcMain.handle('viewer:set-root', (event, nextRoot) => {
+  ipcMain.handle('viewer:set-root', async (event, nextRoot) => {
     requireSender(event, viewerView.webContents)
     if (typeof nextRoot !== 'string' || nextRoot.length > 4096) {
       throw new Error('项目目录无效')
     }
-    if (!viewerServer.setRoot(nextRoot.trim())) {
+    if (!await viewerServer.setRoot(nextRoot.trim())) {
       throw new Error(`目录不存在：${nextRoot.trim()}`)
     }
     return { root: viewerServer.root }
