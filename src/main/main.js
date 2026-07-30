@@ -7,6 +7,7 @@ import {
   ipcMain,
   net,
   protocol,
+  screen,
   session,
   shell
 } from 'electron'
@@ -922,12 +923,24 @@ async function readWindowState() {
       && value.width >= 960
       && value.height >= 640
     ) {
+      if (!isWindowPositionVisible(value.x, value.y)) {
+        delete value.x
+        delete value.y
+      }
       return value
     }
   } catch {
     return null
   }
   return null
+}
+
+function isWindowPositionVisible(x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false
+  return screen.getAllDisplays().some(display => {
+    const bounds = display.bounds
+    return x >= bounds.x && y >= bounds.y && x < bounds.x + bounds.width && y < bounds.y + bounds.height
+  })
 }
 
 async function saveWindowState() {
