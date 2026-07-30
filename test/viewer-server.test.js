@@ -110,6 +110,18 @@ test('blocks paths outside the active project', async t => {
 
   const response = await viewerFetch(server, `/api/file?p=${encodeURIComponent('../secret.json')}`)
   assert.equal(response.status, 403)
+
+  const outsideDir = path.join(tempRoot, 'outside')
+  const linkPath = path.join(projectDir, 'linked')
+  await fs.mkdir(outsideDir)
+  await fs.writeFile(path.join(outsideDir, 'secret.json'), '{"secret":true}')
+  try {
+    await fs.symlink(outsideDir, linkPath, process.platform === 'win32' ? 'junction' : 'dir')
+    const linked = await viewerFetch(server, '/api/file?p=linked%2Fsecret.json')
+    assert.equal(linked.status, 403)
+  } catch (error) {
+    if (error.code !== 'EPERM') throw error
+  }
 })
 
 test('tracks document changes inside the current artifact session', async t => {
@@ -156,4 +168,17 @@ test('rejects unauthenticated API calls and forged hosts', async t => {
     method: 'POST',
     body: '{}'
   })).status, 404)
+})
+
+test('contains synchronous request failures without terminating the server', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-errors-'))
+  const server = await startServer({ port: 0, configDir: path.join(tempRoot, 'config') })
+  t.after(async () => {
+    server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  const malformed = await fetch(`http://127.0.0.1:${server.port}/%E0%A4%A`)
+  assert.equal(malformed.status, 500)
+  assert.equal((await viewerFetch(server, '/api/root')).status, 200)
 })

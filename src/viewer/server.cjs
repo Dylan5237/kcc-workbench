@@ -189,12 +189,27 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   function safeResolve(relativePath) {
     if (!root) return null
     const resolved = path.resolve(root, relativePath)
-    return resolved === root || resolved.startsWith(`${root}${path.sep}`)
-      ? resolved
-      : null
+    if (!isInsidePath(root, resolved)) return null
+    try {
+      const canonicalRoot = fs.realpathSync(root)
+      const canonicalTarget = fs.realpathSync(resolved)
+      return isInsidePath(canonicalRoot, canonicalTarget) ? canonicalTarget : null
+    } catch {
+      return null
+    }
   }
 
   const server = http.createServer((request, response) => {
+    Promise.resolve()
+      .then(() => handleRequest(request, response))
+      .catch(error => {
+        console.error('Viewer request failed:', error)
+        if (response.headersSent) response.destroy(error)
+        else sendJson(response, 500, { error: 'Viewer 请求处理失败' })
+      })
+  })
+
+  function handleRequest(request, response) {
     const url = new URL(request.url, 'http://127.0.0.1')
     const expectedHost = `127.0.0.1:${server.address()?.port || port}`
     if (request.headers.host !== expectedHost) {
@@ -331,7 +346,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
           'X-Content-Type-Options': 'nosniff',
           'Cache-Control': 'no-cache'
         })
-        return fs.createReadStream(absolutePath).pipe(response)
+        return pipeFile(response, absolutePath)
       } catch (error) {
         return sendText(response, 404, error.message)
       }
@@ -352,7 +367,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/vendor/marked.min.js') {
       const markedPath = path.join(path.dirname(require.resolve('marked')), 'marked.umd.js')
       response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
-      return fs.createReadStream(markedPath).pipe(response)
+      return pipeFile(response, markedPath)
     }
 
     if (url.pathname === '/vendor/mermaid.min.js') {
@@ -362,11 +377,11 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         'mermaid.min.js'
       )
       response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
-      return fs.createReadStream(mermaidPath).pipe(response)
+      return pipeFile(response, mermaidPath)
     }
 
     serveStatic(response, url.pathname)
-  })
+  }
 
   return new Promise((resolve, reject) => {
     server.once('error', reject)
@@ -507,11 +522,14 @@ function snapshotDocuments(root) {
 function readArtifactDocument(root, relativePath) {
   try {
     const absolutePath = path.resolve(root, relativePath)
-    if (absolutePath !== root && !absolutePath.startsWith(`${root}${path.sep}`)) return null
-    const stat = fs.statSync(absolutePath)
+    if (!isInsidePath(root, absolutePath)) return null
+    const canonicalRoot = fs.realpathSync(root)
+    const canonicalPath = fs.realpathSync(absolutePath)
+    if (!isInsidePath(canonicalRoot, canonicalPath)) return null
+    const stat = fs.statSync(canonicalPath)
     if (!stat.isFile() || stat.size > MAX_ARTIFACT_CONTENT_BYTES) return null
     return {
-      content: fs.readFileSync(absolutePath, 'utf8'),
+      content: fs.readFileSync(canonicalPath, 'utf8'),
       size: stat.size,
       mtime: stat.mtimeMs
     }
@@ -553,28 +571,20 @@ function sendText(response, status, value) {
   response.end(String(value))
 }
 
-function readJsonBody(request) {
-  return new Promise((resolve, reject) => {
-    const chunks = []
-    let size = 0
-    request.on('data', chunk => {
-      size += chunk.length
-      if (size > 64 * 1024) {
-        reject(new Error('请求内容过大'))
-        request.destroy()
-        return
-      }
-      chunks.push(chunk)
-    })
-    request.on('end', () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'))
-      } catch {
-        reject(new Error('请求格式无效'))
-      }
-    })
-    request.on('error', reject)
+function pipeFile(response, filePath) {
+  const stream = fs.createReadStream(filePath)
+  stream.once('error', error => {
+    if (response.headersSent) response.destroy(error)
+    else sendText(response, 404, error.message)
   })
+  stream.pipe(response)
+}
+
+function isInsidePath(root, target) {
+  const normalizedRoot = path.resolve(root)
+  const normalizedTarget = path.resolve(target)
+  return normalizedTarget === normalizedRoot
+    || normalizedTarget.startsWith(`${normalizedRoot}${path.sep}`)
 }
 
 function viewerCookie(token) {

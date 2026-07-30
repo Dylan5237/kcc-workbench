@@ -7,7 +7,11 @@ import { createRequire } from 'node:module'
 import test from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { createTimeMachine, validateBranchName } = require('../src/viewer/time-machine.cjs')
+const {
+  createTimeMachine,
+  ensureSafeWritePath,
+  validateBranchName
+} = require('../src/viewer/time-machine.cjs')
 
 function git(cwd, args) {
   return execFileSync('git', ['-C', cwd, ...args], {
@@ -75,4 +79,24 @@ test('rejects unsafe branch names', () => {
   assert.throws(() => validateBranchName('../escape'), /分支名/)
   assert.throws(() => validateBranchName('-force'), /分支名/)
   assert.equal(validateBranchName('kimi-time/step-1'), 'kimi-time/step-1')
+})
+
+test('rejects restore paths that traverse a directory link', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-time-link-'))
+  const target = path.join(tempRoot, 'target')
+  const outside = path.join(tempRoot, 'outside')
+  await fs.mkdir(target)
+  await fs.mkdir(outside)
+  t.after(() => fs.rm(tempRoot, { recursive: true, force: true }))
+
+  try {
+    await fs.symlink(outside, path.join(target, 'linked'), process.platform === 'win32' ? 'junction' : 'dir')
+  } catch (error) {
+    if (error.code === 'EPERM') return
+    throw error
+  }
+  assert.throws(
+    () => ensureSafeWritePath(target, path.join(target, 'linked', 'payload.json')),
+    /链接|逃逸/
+  )
 })

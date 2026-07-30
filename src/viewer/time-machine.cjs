@@ -305,8 +305,34 @@ function restoreUntrackedFiles(target, files) {
   for (const file of files) {
     const absolutePath = path.resolve(target, file.path)
     if (!isInside(target, absolutePath)) throw new Error(`非法快照路径：${file.path}`)
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true })
+    ensureSafeWritePath(target, absolutePath)
     fs.writeFileSync(absolutePath, Buffer.from(file.content, 'base64'))
+  }
+}
+
+function ensureSafeWritePath(root, target) {
+  const canonicalRoot = fs.realpathSync(root)
+  const relativeDirectory = path.relative(canonicalRoot, path.dirname(target))
+  if (relativeDirectory === '..' || relativeDirectory.startsWith(`..${path.sep}`)) {
+    throw new Error(`非法快照路径：${target}`)
+  }
+  let current = canonicalRoot
+  for (const segment of relativeDirectory.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment)
+    if (fs.existsSync(current)) {
+      const stat = fs.lstatSync(current)
+      if (stat.isSymbolicLink() || !stat.isDirectory()) {
+        throw new Error(`快照路径经过链接或非目录：${current}`)
+      }
+      if (!isInside(canonicalRoot, fs.realpathSync(current))) {
+        throw new Error(`快照路径逃逸目标目录：${current}`)
+      }
+    } else {
+      fs.mkdirSync(current)
+    }
+  }
+  if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) {
+    throw new Error(`拒绝覆盖符号链接：${target}`)
   }
 }
 
@@ -394,5 +420,6 @@ function loadSessions(storagePath) {
 module.exports = {
   createTimeMachine,
   captureGitState,
+  ensureSafeWritePath,
   validateBranchName
 }

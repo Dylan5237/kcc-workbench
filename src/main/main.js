@@ -600,11 +600,17 @@ function wireIpc() {
     if (!Array.isArray(paths) || paths.length === 0) {
       throw new Error('没有可复制的文件')
     }
-    const safePaths = paths
-      .map(value => path.resolve(String(value)))
-      .filter(value => value === viewerServer.root || value.startsWith(`${viewerServer.root}${path.sep}`))
-    if (safePaths.length !== paths.length) {
-      throw new Error('文件不在当前项目目录中')
+    const canonicalRoot = await fs.realpath(viewerServer.root)
+    const safePaths = []
+    for (const value of paths) {
+      const canonicalPath = await fs.realpath(path.resolve(String(value)))
+      if (
+        canonicalPath !== canonicalRoot
+        && !canonicalPath.startsWith(`${canonicalRoot}${path.sep}`)
+      ) {
+        throw new Error('文件不在当前项目目录中')
+      }
+      safePaths.push(canonicalPath)
     }
     for (const filePath of safePaths) {
       const stat = await fs.stat(filePath)
