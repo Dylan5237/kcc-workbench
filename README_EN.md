@@ -47,10 +47,10 @@ Kimi Code already provides a complete terminal and web workflow, but quota infor
 
 | | Capability | Description |
 | --- | --- | --- |
-| **01** | **Kimi Web desktop workspace** | Starts or reuses `kimi web` inside a persistent Home tab, with a file viewer, visual settings, and system tray integration. |
+| **01** | **Kimi Web desktop workspace** | Starts or reuses `kimi web` inside a persistent Home tab, with a file viewer and visual settings. |
 | **02** | **Coding Plan quota** | Synchronizes total quota, Kimi / Code shares, five-hour usage, seven-day usage, and reset times only when requested. |
 | **03** | **Quota Autopilot** | Stores local quota samples and estimates depletion risk from consumption velocity, turning a percentage into a clearer pacing signal. |
-| **04** | **Visual system configuration** | Manages models, thinking, Agent behavior, permissions, MCP, Skills, Hooks, workspaces, and system prompts; nothing is written until you save. |
+| **04** | **Visual system configuration** | Manages models, thinking, Agent behavior, permissions, MCP, Skills, Hooks (read-only in this release), workspaces, and system prompts; nothing is written until you save. |
 | **05** | **Artifact and file viewer** | Watches the project directory, renders Markdown / Mermaid, JSON, and HTML, and supports filtering, source views, line diffs, and native Windows file copy. |
 | **06** | **Task time machine** | Persists artifact checkpoints, replays historical content and diffs, and creates an isolated branch + worktree from a checkpoint in Git projects. |
 
