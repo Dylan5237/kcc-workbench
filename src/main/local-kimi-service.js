@@ -5,6 +5,7 @@ import { promises as fs } from 'node:fs'
 import { net } from 'electron'
 
 const HOST = '127.0.0.1'
+const MAX_LOG_BYTES = 5 * 1024 * 1024
 
 export class LocalKimiService {
   constructor({ homePath, logPath }) {
@@ -94,8 +95,20 @@ export class LocalKimiService {
   }
 
   async writeLog(text) {
-    await fs.mkdir(path.dirname(this.logPath), { recursive: true })
-    await fs.appendFile(this.logPath, `[${new Date().toISOString()}] ${text}`)
+    try {
+      await fs.mkdir(path.dirname(this.logPath), { recursive: true })
+      const entry = `[${new Date().toISOString()}] ${text}`
+      const stat = await fs.stat(this.logPath).catch(() => null)
+      if (stat && stat.size >= MAX_LOG_BYTES) {
+        const existing = await fs.readFile(this.logPath, 'utf8').catch(() => '')
+        const tail = existing.slice(-Math.floor(MAX_LOG_BYTES / 2))
+        await fs.writeFile(this.logPath, tail + entry)
+      } else {
+        await fs.appendFile(this.logPath, entry)
+      }
+    } catch {
+      // 日志写入失败不阻断主流程
+    }
   }
 }
 
