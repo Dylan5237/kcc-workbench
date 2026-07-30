@@ -5,3 +5,5 @@ dist-*/
 *.log
 .DS_Store
 Thumbs.db
+# 本地对抗性审查报告, 不进公开仓库(含攻击路径细节)
+docs/kimi-code-workbench-对抗性审查报告.md
