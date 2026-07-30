@@ -173,11 +173,13 @@ npm run build
 & ".\dist\win-unpacked\Kimi Desktop.exe"
 ```
 
-构建便携发布包：
+构建便携发布包（推荐一键打包）：
 
 ```powershell
-npm run dist
+npm run pack          # 一键：跑测试 -> 清理 dist -> 打包 -> 报告产物路径与大小
 ```
+
+也可直接双击仓库根目录的 `pack.bat`；仅需重新打包可加 `-- --no-test` 跳过测试。底层命令 `npm run dist` 直接调用 electron-builder，不跑测试也不清理。
 
 推送和 Pull Request 会在 GitHub Actions 的 Windows 环境中执行测试与构建；推送 `v*` 标签会触发便携版 Release 工作流。
 

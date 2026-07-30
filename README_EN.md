@@ -173,11 +173,13 @@ npm run build
 & ".\dist\win-unpacked\Kimi Desktop.exe"
 ```
 
-Build a portable release:
+Build a portable release (one-click, recommended):
 
 ```powershell
-npm run dist
+npm run pack          # one-click: test -> clean dist -> package -> report artifact path and size
 ```
+
+You can also double-click `pack.bat` in the repo root; add `-- --no-test` to skip tests when repackaging. The underlying command `npm run dist` calls electron-builder directly without tests or cleanup.
 
 Pushes and pull requests run tests and a Windows build in GitHub Actions. Tags matching `v*` trigger the portable release workflow.
 

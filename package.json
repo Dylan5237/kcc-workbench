@@ -11,7 +11,8 @@
     "demo": "electron . --demo",
     "test": "node --test",
     "build": "electron-builder --win --dir",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "pack": "node scripts/pack.mjs"
   },
   "devDependencies": {
     "electron": "43.2.0",
