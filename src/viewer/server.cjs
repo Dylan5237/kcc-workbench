@@ -380,6 +380,15 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       return pipeFile(response, mermaidPath)
     }
 
+    if (url.pathname === '/vendor/purify.min.js') {
+      const purifyPath = path.join(
+        path.dirname(require.resolve('dompurify')),
+        'purify.min.js'
+      )
+      response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
+      return pipeFile(response, purifyPath)
+    }
+
     serveStatic(response, url.pathname)
   }
 

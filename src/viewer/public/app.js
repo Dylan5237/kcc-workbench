@@ -709,30 +709,13 @@
   }
 
   function sanitizeMarkdown(html) {
-    const template = document.createElement('template');
-    template.innerHTML = html;
-    for (const element of template.content.querySelectorAll(
-      'script, iframe, object, embed, form, input, button, meta, link, style'
-    )) {
-      element.remove();
-    }
-    for (const element of template.content.querySelectorAll('*')) {
-      for (const attribute of [...element.attributes]) {
-        if (
-          attribute.name.toLowerCase().startsWith('on')
-          || ['srcdoc', 'formaction', 'style'].includes(attribute.name.toLowerCase())
-        ) {
-          element.removeAttribute(attribute.name);
-        }
-      }
-      for (const attributeName of ['href', 'src']) {
-        const value = element.getAttribute(attributeName);
-        if (value && /^\s*(?:javascript|vbscript|data):/i.test(value)) {
-          element.removeAttribute(attributeName);
-        }
-      }
-    }
-    return template.innerHTML;
+    if (!window.DOMPurify) return escapeHtml(String(html));
+    return window.DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ['form', 'input', 'button', 'meta', 'link', 'style'],
+      FORBID_ATTR: ['style', 'srcdoc', 'formaction'],
+      ALLOW_DATA_ATTR: false
+    });
   }
 
   async function renderMermaidBlocks(container) {
@@ -775,28 +758,13 @@
   }
 
   function sanitizeMermaidSvg(svg) {
-    const template = document.createElement('template');
-    template.innerHTML = svg;
-    // Mermaid uses foreignObject for node labels. Keep it so text remains visible;
-    // strict mode handles label escaping, while active content is removed below.
-    for (const element of template.content.querySelectorAll(
-      'script, iframe, object, embed'
-    )) {
-      element.remove();
-    }
-    for (const element of template.content.querySelectorAll('*')) {
-      for (const attribute of [...element.attributes]) {
-        const name = attribute.name.toLowerCase();
-        if (name.startsWith('on')) element.removeAttribute(attribute.name);
-        if (
-          ['href', 'xlink:href'].includes(name)
-          && /^\s*(?:javascript|vbscript):/i.test(attribute.value)
-        ) {
-          element.removeAttribute(attribute.name);
-        }
-      }
-    }
-    return template.innerHTML;
+    if (!window.DOMPurify) return '';
+    return window.DOMPurify.sanitize(svg, {
+      ADD_TAGS: ['foreignObject'],
+      ADD_ATTR: ['xlink:href'],
+      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+      ALLOW_DATA_ATTR: false
+    });
   }
 
   // ---------- JSON 三视图:表格 / 树形 / 原文 ----------

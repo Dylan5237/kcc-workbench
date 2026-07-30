@@ -80,6 +80,9 @@ test('starts empty and accepts a project directory injection', async t => {
   const mermaidVendor = await viewerFetch(server, '/vendor/mermaid.min.js')
   assert.equal(mermaidVendor.status, 200)
   assert.match(mermaidVendor.headers.get('content-type'), /javascript/)
+  const purifyVendor = await viewerFetch(server, '/vendor/purify.min.js')
+  assert.equal(purifyVendor.status, 200)
+  assert.match(purifyVendor.headers.get('content-type'), /javascript/)
 
   const html = await viewerFetch(server, '/api/file?p=index.html').then(response => response.json())
   assert.match(html.content, /Hello/)
