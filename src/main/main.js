@@ -355,7 +355,9 @@ function createViewerView() {
     event.preventDefault()
     if (isSafeExternalUrl(url)) shell.openExternal(url)
   })
-  viewerView.webContents.loadURL(`http://127.0.0.1:${viewerServer.port}/`)
+  viewerView.webContents.loadURL(
+    `http://127.0.0.1:${viewerServer.port}/?token=${encodeURIComponent(viewerServer.bootstrapToken)}`
+  )
 }
 
 function createSettingsView() {
@@ -491,6 +493,8 @@ function wireIpc() {
   ipcMain.removeHandler('quota:close')
   ipcMain.removeHandler('quota:set-preferred-height')
   ipcMain.removeHandler('viewer:select-directory')
+  ipcMain.removeHandler('viewer:set-root')
+  ipcMain.removeHandler('viewer:fork-checkpoint')
   ipcMain.removeHandler('viewer:copy-files')
   ipcMain.removeHandler('settings:get-state')
   ipcMain.removeHandler('settings:save')
@@ -557,6 +561,32 @@ function wireIpc() {
     })
     return result.canceled ? null : result.filePaths[0]
   })
+  ipcMain.handle('viewer:set-root', (event, nextRoot) => {
+    requireSender(event, viewerView.webContents)
+    if (typeof nextRoot !== 'string' || nextRoot.length > 4096) {
+      throw new Error('项目目录无效')
+    }
+    if (!viewerServer.setRoot(nextRoot.trim())) {
+      throw new Error(`目录不存在：${nextRoot.trim()}`)
+    }
+    return { root: viewerServer.root }
+  })
+  ipcMain.handle('viewer:fork-checkpoint', async (event, input) => {
+    requireSender(event, viewerView.webContents)
+    const payload = normalizeForkRequest(input)
+    const confirmation = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: '创建隔离分支',
+      message: `确认创建分支 ${payload.branchName}？`,
+      detail: '这会在磁盘上创建新的 Git worktree，并恢复所选时间点的改动。',
+      buttons: ['取消', '创建并恢复'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    })
+    if (confirmation.response !== 1) throw new Error('已取消创建隔离分支')
+    return viewerServer.forkCheckpoint(payload)
+  })
   ipcMain.handle('viewer:copy-files', async (event, paths) => {
     requireSender(event, viewerView.webContents)
     if (!Array.isArray(paths) || paths.length === 0) {
@@ -600,6 +630,17 @@ function requireSender(event, expectedWebContents) {
   if (!expectedWebContents || event.sender.id !== expectedWebContents.id) {
     throw new Error('Blocked IPC from an unexpected renderer')
   }
+}
+
+function normalizeForkRequest(input) {
+  if (!input || typeof input !== 'object') throw new Error('分叉参数无效')
+  const checkpointId = String(input.checkpointId || '').trim()
+  const branchName = String(input.branchName || '').trim()
+  const targetPath = String(input.targetPath || '').trim()
+  if (!checkpointId || checkpointId.length > 200) throw new Error('时间点无效')
+  if (!branchName || branchName.length > 120) throw new Error('分支名无效')
+  if (targetPath.length > 4096) throw new Error('目标目录无效')
+  return { checkpointId, branchName, targetPath }
 }
 
 function sendNavigationState() {

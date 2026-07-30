@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import http from 'node:http'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,6 +8,34 @@ import test from 'node:test'
 
 const require = createRequire(import.meta.url)
 const { startServer } = require('../src/viewer/server.cjs')
+
+function viewerFetch(server, pathname, options = {}) {
+  return fetch(`http://127.0.0.1:${server.port}${pathname}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Cookie: `kimi_viewer=${server.bootstrapToken}`
+    }
+  })
+}
+
+function requestWithHost(server, host) {
+  return new Promise((resolve, reject) => {
+    const request = http.get({
+      host: '127.0.0.1',
+      port: server.port,
+      path: '/api/root',
+      headers: {
+        Host: host,
+        Cookie: `kimi_viewer=${server.bootstrapToken}`
+      }
+    }, response => {
+      response.resume()
+      response.on('end', () => resolve(response.statusCode))
+    })
+    request.on('error', reject)
+  })
+}
 
 test('starts empty and accepts a project directory injection', async t => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-'))
@@ -29,43 +58,42 @@ test('starts empty and accepts a project directory injection', async t => {
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
 
-  const baseUrl = `http://127.0.0.1:${server.port}`
-  const initial = await fetch(`${baseUrl}/api/tree`).then(response => response.json())
+  const initial = await viewerFetch(server, '/api/tree').then(response => response.json())
   assert.equal(initial.root, '')
   assert.deepEqual(initial.tree.children, [])
 
   assert.equal(server.setRoot(projectDir), true)
-  const tree = await fetch(`${baseUrl}/api/tree`).then(response => response.json())
+  const tree = await viewerFetch(server, '/api/tree').then(response => response.json())
   assert.equal(tree.root, projectDir)
   assert.deepEqual(
     tree.tree.children.map(item => item.name).sort(),
     ['README.md', 'data.json', 'index.html']
   )
 
-  const markdown = await fetch(`${baseUrl}/api/file?p=README.md`).then(response => response.json())
+  const markdown = await viewerFetch(server, '/api/file?p=README.md').then(response => response.json())
   assert.equal(markdown.content, '# Hello')
-  const metadata = await fetch(`${baseUrl}/api/file-meta?p=README.md`).then(response => response.json())
+  const metadata = await viewerFetch(server, '/api/file-meta?p=README.md').then(response => response.json())
   assert.equal(metadata.path, 'README.md')
   assert.equal(metadata.size, Buffer.byteLength('# Hello'))
   assert.equal(typeof metadata.mtime, 'number')
   assert.equal(Object.hasOwn(metadata, 'content'), false)
-  const mermaidVendor = await fetch(`${baseUrl}/vendor/mermaid.min.js`)
+  const mermaidVendor = await viewerFetch(server, '/vendor/mermaid.min.js')
   assert.equal(mermaidVendor.status, 200)
   assert.match(mermaidVendor.headers.get('content-type'), /javascript/)
 
-  const html = await fetch(`${baseUrl}/api/file?p=index.html`).then(response => response.json())
+  const html = await viewerFetch(server, '/api/file?p=index.html').then(response => response.json())
   assert.match(html.content, /Hello/)
 
-  const preview = await fetch(`${baseUrl}/api/html-preview?p=index.html`)
+  const preview = await viewerFetch(server, '/api/html-preview?p=index.html')
   assert.equal(preview.status, 200)
   assert.match(preview.headers.get('content-security-policy'), /script-src 'none'/)
   assert.match(await preview.text(), /<base href="\/api\/html-asset\/">/)
 
-  const stylesheet = await fetch(`${baseUrl}/api/html-asset/style.css`)
+  const stylesheet = await viewerFetch(server, '/api/html-asset/style.css')
   assert.equal(stylesheet.status, 200)
   assert.match(stylesheet.headers.get('content-type'), /text\/css/)
 
-  const script = await fetch(`${baseUrl}/api/html-asset/unsafe.js`)
+  const script = await viewerFetch(server, '/api/html-asset/unsafe.js')
   assert.equal(script.status, 403)
 })
 
@@ -80,9 +108,7 @@ test('blocks paths outside the active project', async t => {
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
 
-  const response = await fetch(
-    `http://127.0.0.1:${server.port}/api/file?p=${encodeURIComponent('../secret.json')}`
-  )
+  const response = await viewerFetch(server, `/api/file?p=${encodeURIComponent('../secret.json')}`)
   assert.equal(response.status, 403)
 })
 
@@ -104,7 +130,7 @@ test('tracks document changes inside the current artifact session', async t => {
   })
   await fs.writeFile(path.join(projectDir, 'README.md'), '# After\n\nNew line')
   await new Promise(resolve => setTimeout(resolve, 900))
-  const session = await fetch(`http://127.0.0.1:${server.port}/api/artifacts`)
+  const session = await viewerFetch(server, '/api/artifacts')
     .then(response => response.json())
   assert.equal(session.id, 'session:test')
   assert.equal(session.label, '测试会话')
@@ -112,4 +138,22 @@ test('tracks document changes inside the current artifact session', async t => {
   assert.equal(session.changes[0].type, 'modified')
   assert.ok(session.changes[0].stats.added > 0)
   assert.ok(session.changes[0].stats.removed > 0)
+})
+
+test('rejects unauthenticated API calls and forged hosts', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-auth-'))
+  const server = await startServer({ port: 0, configDir: path.join(tempRoot, 'config') })
+  t.after(async () => {
+    server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  const baseUrl = `http://127.0.0.1:${server.port}`
+  assert.equal((await fetch(`${baseUrl}/api/root`)).status, 401)
+  assert.equal(await requestWithHost(server, 'attacker.example'), 403)
+  assert.equal((await viewerFetch(server, '/api/set-root?p=C%3A%2F')).status, 404)
+  assert.equal((await viewerFetch(server, '/api/time-machine/fork', {
+    method: 'POST',
+    body: '{}'
+  })).status, 404)
 })

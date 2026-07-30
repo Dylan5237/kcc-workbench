@@ -357,17 +357,14 @@
     forkSubmit.textContent = '创建中…';
     forkError.classList.add('hidden');
     try {
-      const response = await fetch('/api/time-machine/fork', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      if (!window.electronAPI?.forkCheckpoint) {
+        throw new Error('浏览器只读模式不支持创建隔离分支');
+      }
+      const result = await window.electronAPI.forkCheckpoint({
           checkpointId: pendingForkCheckpoint.id,
           branchName: forkBranch.value.trim(),
           targetPath: forkTarget.value.trim()
-        })
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || '创建失败');
       closeForkModal();
       toast(`已创建 ${result.branch}：${result.target}`);
     } catch (error) {
@@ -1082,9 +1079,10 @@
     const target = (p !== undefined ? p : rootInput.value).trim();
     if (!target) return;
     try {
-      const res = await fetch('/api/set-root?p=' + encodeURIComponent(target));
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || res.statusText);
+      if (!window.electronAPI?.setRoot) {
+        throw new Error('浏览器只读模式不支持切换项目目录');
+      }
+      const data = await window.electronAPI.setRoot(target);
       // 切换成功:清空当前文件,重载树
       currentPath = null;
       expanded.clear();
@@ -1188,7 +1186,7 @@
       }
       return;
     }
-    openPicker(rootInput.value.trim());
+    toast('浏览器只读模式不支持选择项目目录', true);
   });
   pickerClose.addEventListener('click', () => pickerModal.classList.add('hidden'));
   pickerModal.addEventListener('click', (e) => {

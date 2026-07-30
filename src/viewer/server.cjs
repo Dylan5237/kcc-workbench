@@ -1,4 +1,5 @@
 const http = require('node:http')
+const crypto = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
 const { createLineDiff } = require('./diff.cjs')
@@ -45,7 +46,7 @@ const HTML_PREVIEW_CSP = [
   "base-uri 'self'"
 ].join('; ')
 
-function startServer({ port = 0, configDir, defaultRoot = '' }) {
+function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto.randomBytes(32).toString('hex') }) {
   const configPath = path.join(configDir, 'viewer-config.json')
   const stored = readJson(configPath)
   let root = validDirectory(defaultRoot)
@@ -195,6 +196,23 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
 
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1')
+    const expectedHost = `127.0.0.1:${server.address()?.port || port}`
+    if (request.headers.host !== expectedHost) {
+      return sendJson(response, 403, { error: '非法 Viewer 主机' })
+    }
+    if (url.pathname === '/' && url.searchParams.get('token')) {
+      if (!safeTokenEqual(url.searchParams.get('token'), authToken)) {
+        return sendJson(response, 403, { error: 'Viewer 启动凭证无效' })
+      }
+      response.writeHead(302, {
+        Location: '/',
+        'Set-Cookie': viewerCookie(authToken)
+      })
+      return response.end()
+    }
+    if (url.pathname.startsWith('/api/') && !hasViewerSession(request, authToken)) {
+      return sendJson(response, 401, { error: 'Viewer 会话未授权' })
+    }
 
     if (url.pathname === '/api/root') {
       return sendJson(response, 200, { root, recentRoots })
@@ -222,23 +240,6 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
       return checkpoint
         ? sendJson(response, 200, checkpoint)
         : sendJson(response, 404, { error: '时间点不存在' })
-    }
-
-    if (url.pathname === '/api/time-machine/fork' && request.method === 'POST') {
-      return readJsonBody(request)
-        .then(body => sendJson(response, 200, timeMachine.forkCheckpoint(body)))
-        .catch(error => sendJson(response, 400, { error: error.message }))
-    }
-
-    if (url.pathname === '/api/set-root') {
-      const nextRoot = url.searchParams.get('p')?.trim() || ''
-      return setRoot(nextRoot)
-        ? sendJson(response, 200, { root, recentRoots })
-        : sendJson(response, 400, { error: `目录不存在：${nextRoot}` })
-    }
-
-    if (url.pathname === '/api/browse') {
-      return browseDirectory(response, url.searchParams.get('p')?.trim() || '')
     }
 
     if (url.pathname === '/api/file') {
@@ -373,10 +374,14 @@ function startServer({ port = 0, configDir, defaultRoot = '' }) {
       startWatcher()
       resolve({
         port: server.address().port,
+        bootstrapToken: authToken,
         get root() {
           return root
         },
         setRoot,
+        forkCheckpoint(input) {
+          return timeMachine.forkCheckpoint(input)
+        },
         setConversationContext(context) {
           if (context?.root && path.normalize(context.root) !== root) setRoot(context.root)
           const nextId = context?.id || (root ? `workspace:${root.toLowerCase()}` : 'workspace:empty')
@@ -520,33 +525,6 @@ function sameArtifactDocument(left, right) {
   return left.content === right.content
 }
 
-function browseDirectory(response, inputPath) {
-  try {
-    if (!inputPath) {
-      const drives = []
-      for (let code = 67; code <= 90; code += 1) {
-        const drive = `${String.fromCharCode(code)}:/`
-        if (fs.existsSync(drive)) drives.push({ name: drive, path: drive })
-      }
-      return sendJson(response, 200, { path: '', parent: null, dirs: drives })
-    }
-    const absolutePath = validDirectory(inputPath)
-    if (!absolutePath) throw new Error('目录不存在')
-    const dirs = fs.readdirSync(absolutePath, { withFileTypes: true })
-      .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('$'))
-      .map(entry => ({ name: entry.name, path: path.join(absolutePath, entry.name) }))
-      .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
-    const parent = path.dirname(absolutePath)
-    return sendJson(response, 200, {
-      path: absolutePath,
-      parent: parent === absolutePath ? null : parent,
-      dirs
-    })
-  } catch (error) {
-    return sendJson(response, 400, { error: error.message })
-  }
-}
-
 function validDirectory(value) {
   if (!value || typeof value !== 'string') return ''
   try {
@@ -597,6 +575,26 @@ function readJsonBody(request) {
     })
     request.on('error', reject)
   })
+}
+
+function viewerCookie(token) {
+  return `kimi_viewer=${token}; HttpOnly; SameSite=Strict; Path=/`
+}
+
+function hasViewerSession(request, token) {
+  const cookies = String(request.headers.cookie || '').split(';')
+  const value = cookies
+    .map(cookie => cookie.trim().split('='))
+    .find(([name]) => name === 'kimi_viewer')?.[1]
+  return safeTokenEqual(value, token)
+}
+
+function safeTokenEqual(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') return false
+  const leftBuffer = Buffer.from(left)
+  const rightBuffer = Buffer.from(right)
+  return leftBuffer.length === rightBuffer.length
+    && crypto.timingSafeEqual(leftBuffer, rightBuffer)
 }
 
 function normalizeWebPath(value) {
