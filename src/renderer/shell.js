@@ -1,9 +1,18 @@
 const quotaButton = document.querySelector('#quotaButton')
 const quotaPercent = document.querySelector('#quotaPercent')
 const quotaStatusDot = document.querySelector('#quotaStatusDot')
+const restartKimiBtn = document.querySelector('#restartKimiBtn')
 const workspaceTabs = [...document.querySelectorAll('.workspace-tab')]
 
 quotaButton.addEventListener('click', () => window.desktopShell.toggleQuota())
+restartKimiBtn.addEventListener('click', async () => {
+  restartKimiBtn.disabled = true
+  try {
+    await window.desktopShell.restartWeb()
+  } finally {
+    restartKimiBtn.disabled = false
+  }
+})
 for (const tab of workspaceTabs) {
   tab.addEventListener('click', () => window.desktopShell.setTab(tab.dataset.tab))
 }
@@ -25,6 +34,7 @@ function renderActiveTab(activeTab) {
     tab.classList.toggle('active', active)
     tab.setAttribute('aria-current', active ? 'page' : 'false')
   }
+  restartKimiBtn.hidden = activeTab !== 'kimi'
 }
 
 function renderQuota(state) {

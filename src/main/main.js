@@ -569,6 +569,11 @@ function wireIpc() {
       kimiView.webContents.reload()
     }
   })
+  ipcMain.handle('kimi:restart-web', async event => {
+    requireSender(event, shellView.webContents)
+    localKimiService.stop()
+    await connectLocalKimiView()
+  })
   ipcMain.handle('quota:get-state', event => {
     requireSender(event, quotaView.webContents)
     return quotaService.getState()

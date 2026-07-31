@@ -37,12 +37,15 @@
       </button>
     </nav>
 
-    <button id="quotaButton" class="quota-pill" type="button" aria-expanded="false">
-      <span id="quotaStatusDot" class="status-dot status-insufficient"></span>
-      <span class="quota-label">额度</span>
-      <strong id="quotaPercent">--</strong>
-      <span class="chevron">⌄</span>
-    </button>
+    <div class="titlebar-actions">
+      <button id="restartKimiBtn" class="restart-btn" type="button" title="重启 Kimi Web 服务" hidden>↻ 重启首页</button>
+      <button id="quotaButton" class="quota-pill" type="button" aria-expanded="false">
+        <span id="quotaStatusDot" class="status-dot status-insufficient"></span>
+        <span class="quota-label">额度</span>
+        <strong id="quotaPercent">--</strong>
+        <span class="chevron">⌄</span>
+      </button>
+    </div>
   </header>
   <script src="shell.js"></script>
 </body>

@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('desktopShell', {
   goBack: () => ipcRenderer.invoke('nav:back'),
   goForward: () => ipcRenderer.invoke('nav:forward'),
   reload: () => ipcRenderer.invoke('nav:reload'),
+  restartWeb: () => ipcRenderer.invoke('kimi:restart-web'),
   onQuotaState: callback => {
     const handler = (_event, state) => callback(state)
     ipcRenderer.on('quota:state', handler)
