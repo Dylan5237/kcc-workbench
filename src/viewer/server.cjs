@@ -92,19 +92,19 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       label: '当前工作区',
       root
     })
-    startWatcher()
+    await startWatcher()
     broadcast({ type: 'root', root })
     return true
   }
 
-  function startWatcher() {
+  async function startWatcher() {
     watcher?.close()
     watcher = null
     clearTimeout(debounceTimer)
     for (const timer of artifactTimers.values()) clearTimeout(timer)
     artifactTimers.clear()
     if (!root) return
-    artifactSnapshot = snapshotDocuments(root)
+    artifactSnapshot = await snapshotDocuments(root)
     try {
       watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
         if (!filename) return
@@ -128,10 +128,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
 
   function scheduleArtifact(relativePath) {
     clearTimeout(artifactTimers.get(relativePath))
-    artifactTimers.set(relativePath, setTimeout(() => {
+    artifactTimers.set(relativePath, setTimeout(async () => {
       artifactTimers.delete(relativePath)
       const previous = artifactSnapshot.get(relativePath) || null
-      const current = readArtifactDocument(root, relativePath)
+      const current = await readArtifactDocument(root, relativePath)
       if (sameArtifactDocument(previous, current)) return
       if (current) artifactSnapshot.set(relativePath, current)
       else artifactSnapshot.delete(relativePath)
@@ -168,7 +168,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       label: context.label,
       root
     })
-    artifactSnapshot = snapshotDocuments(root)
+    artifactSnapshot = await snapshotDocuments(root)
     await timeMachine.setContext({
       id: artifactSession.id,
       label: artifactSession.label,
@@ -216,7 +216,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       })
   })
 
-  function handleRequest(request, response) {
+  async function handleRequest(request, response) {
     const url = new URL(request.url, 'http://127.0.0.1')
     const expectedHost = `127.0.0.1:${server.address()?.port || port}`
     if (request.headers.host !== expectedHost) {
@@ -243,7 +243,8 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/api/tree') {
       if (!root) return sendJson(response, 200, { root: '', tree: emptyTree() })
       try {
-        return sendJson(response, 200, { root, tree: scanTree(root, '') })
+        const tree = await scanTree(root, '')
+        return sendJson(response, 200, { root, tree })
       } catch (error) {
         return sendJson(response, 500, { error: error.message })
       }
@@ -401,7 +402,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
 
   return new Promise((resolve, reject) => {
     server.once('error', reject)
-    const onListening = () => {
+    const onListening = async () => {
       if (RESTRICTED_BROWSER_PORTS.has(server.address().port)) {
         server.close(error => {
           if (error) reject(error)
@@ -409,7 +410,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         })
         return
       }
-      startWatcher()
+      await startWatcher()
       resolve({
         port: server.address().port,
         bootstrapToken: authToken,
@@ -463,14 +464,14 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   }
 }
 
-function scanTree(directory, relativePath) {
+async function scanTree(directory, relativePath) {
   const node = {
     name: path.basename(directory),
     path: relativePath,
     type: 'dir',
     children: []
   }
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+  for (const entry of await fs.promises.readdir(directory, { withFileTypes: true })) {
     if (entry.name.startsWith('.')) continue
     const childRelativePath = relativePath
       ? `${relativePath}/${entry.name}`
@@ -478,13 +479,13 @@ function scanTree(directory, relativePath) {
     const absolutePath = path.join(directory, entry.name)
     if (entry.isDirectory()) {
       try {
-        const child = scanTree(absolutePath, childRelativePath)
+        const child = await scanTree(absolutePath, childRelativePath)
         if (child.children.length) node.children.push(child)
       } catch {
         // Skip folders that cannot be read.
       }
     } else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-      const stat = fs.statSync(absolutePath)
+      const stat = await fs.promises.stat(absolutePath)
       node.children.push({
         name: entry.name,
         path: childRelativePath,
@@ -516,13 +517,13 @@ function createArtifactSession({ id, label, root } = {}) {
   }
 }
 
-function snapshotDocuments(root) {
+async function snapshotDocuments(root) {
   const snapshot = new Map()
   if (!root) return snapshot
-  const visit = (directory, relativeDirectory = '') => {
+  const visit = async (directory, relativeDirectory = '') => {
     let entries = []
     try {
-      entries = fs.readdirSync(directory, { withFileTypes: true })
+      entries = await fs.promises.readdir(directory, { withFileTypes: true })
     } catch {
       return
     }
@@ -532,28 +533,28 @@ function snapshotDocuments(root) {
         ? `${relativeDirectory}/${entry.name}`
         : entry.name
       const absolutePath = path.join(directory, entry.name)
-      if (entry.isDirectory()) visit(absolutePath, relativePath)
+      if (entry.isDirectory()) await visit(absolutePath, relativePath)
       else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-        const document = readArtifactDocument(root, relativePath)
+        const document = await readArtifactDocument(root, relativePath)
         if (document) snapshot.set(relativePath, document)
       }
     }
   }
-  visit(root)
+  await visit(root)
   return snapshot
 }
 
-function readArtifactDocument(root, relativePath) {
+async function readArtifactDocument(root, relativePath) {
   try {
     const absolutePath = path.resolve(root, relativePath)
     if (!isInsidePath(root, absolutePath)) return null
-    const canonicalRoot = fs.realpathSync(root)
-    const canonicalPath = fs.realpathSync(absolutePath)
+    const canonicalRoot = await fs.promises.realpath(root)
+    const canonicalPath = await fs.promises.realpath(absolutePath)
     if (!isInsidePath(canonicalRoot, canonicalPath)) return null
-    const stat = fs.statSync(canonicalPath)
+    const stat = await fs.promises.stat(canonicalPath)
     if (!stat.isFile() || stat.size > MAX_ARTIFACT_CONTENT_BYTES) return null
     return {
-      content: fs.readFileSync(canonicalPath, 'utf8'),
+      content: await fs.promises.readFile(canonicalPath, 'utf8'),
       size: stat.size,
       mtime: stat.mtimeMs
     }

@@ -9,7 +9,7 @@ const MAX_PATCH_BYTES = 8 * 1024 * 1024
 const MAX_UNTRACKED_BYTES = 10 * 1024 * 1024
 const MAX_UNTRACKED_FILE_BYTES = 2 * 1024 * 1024
 
-function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 1800 }) {
+function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 3700 }) {
   const storageDir = path.join(configDir, 'time-machine')
   const storagePath = path.join(storageDir, 'sessions.json')
   let sessions = loadSessions(storagePath)
