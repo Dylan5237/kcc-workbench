@@ -22,6 +22,7 @@ import { LocalKimiService } from './local-kimi-service.js'
 import { SettingsService } from './settings-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
+import { isAllowedKimiCodeUrl } from './url-trust.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -211,7 +212,11 @@ function configureRemoteSession() {
   configurePermissionPolicy(remoteSession, webContents => isAllowedKimiLoginUrl(webContents.getURL()))
   configurePermissionPolicy(
     session.defaultSession,
-    webContents => isAllowedKimiCodeUrl(webContents.getURL())
+    webContents => isAllowedKimiCodeUrl(webContents.getURL(), {
+      viewerPort: viewerServer?.port,
+      kimiUrl: localKimiService?.url,
+      demoMode
+    })
   )
 }
 
@@ -776,17 +781,6 @@ function broadcastQuotaState(state) {
   }
   if (quotaView && !quotaView.webContents.isDestroyed()) {
     quotaView.webContents.send('quota:state', state)
-  }
-}
-
-function isAllowedKimiCodeUrl(value) {
-  try {
-    const url = new URL(value)
-    if (url.protocol === 'app:' && demoMode) return true
-    if (!localKimiService?.url) return false
-    return url.origin === new URL(localKimiService.url).origin
-  } catch {
-    return false
   }
 }
 
