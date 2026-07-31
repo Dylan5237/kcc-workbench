@@ -138,7 +138,7 @@ If the current project cannot be detected, File Viewer keeps the last opened dir
 
 | Data or operation | How it is handled |
 | --- | --- |
-| Kimi Web | Home connects only to local `127.0.0.1:5494`; network behavior is owned by the local Kimi Code service |
+| Kimi Web | Home connects only to local `127.0.0.1 (random port)`; network behavior is owned by the local Kimi Code service |
 | Quota login state | Managed by a persistent Electron Chromium session and never written to quota history |
 | Quota synchronization | Visits the Kimi quota page only after a user-initiated update |
 | Configuration changes | Written only after an explicit save, with a `.bak` backup created first |
