@@ -647,6 +647,39 @@ function wireIpc() {
     await copyPathsToWindowsClipboard(safePaths)
     return true
   })
+  ipcMain.handle('viewer:trash-item', async (event, paths) => {
+    requireSender(event, viewerView.webContents)
+    if (!Array.isArray(paths) || paths.length === 0) {
+      throw new Error('没有可删除的文件')
+    }
+    const canonicalRoot = await fs.realpath(viewerServer.root)
+    const safePaths = []
+    for (const value of paths) {
+      const canonicalPath = await fs.realpath(path.resolve(String(value)))
+      if (canonicalPath === canonicalRoot) {
+        throw new Error('不能删除项目根目录')
+      }
+      if (!canonicalPath.startsWith(`${canonicalRoot}${path.sep}`)) {
+        throw new Error('文件不在当前项目目录中')
+      }
+      safePaths.push(canonicalPath)
+    }
+    const confirmation = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: '放入回收站',
+      message: `确认将 ${safePaths.length} 个文件放入回收站？`,
+      detail: safePaths.map(p => path.basename(p)).join('\n'),
+      buttons: ['取消', '放入回收站'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    })
+    if (confirmation.response !== 1) throw new Error('已取消放入回收站')
+    for (const filePath of safePaths) {
+      await shell.trashItem(filePath)
+    }
+    return true
+  })
   ipcMain.handle('settings:get-state', async event => {
     requireSender(event, settingsView.webContents)
     settingsService.setProjectDirectory(await detectKimiProjectDirectory())

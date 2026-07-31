@@ -483,6 +483,17 @@
         }
       },
     });
+    items.push({
+      label: '🗑️ 放入回收站',
+      onClick: async () => {
+        try {
+          await window.electronAPI.trashItem([absPath]);
+          toast('已放入回收站');
+        } catch (err) {
+          toast('删除失败:' + err.message, true);
+        }
+      },
+    });
 
     for (const item of items) {
       const el = document.createElement('div');
