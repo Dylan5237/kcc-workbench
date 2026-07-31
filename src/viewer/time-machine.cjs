@@ -37,11 +37,11 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 1
         checkpoints: []
       }
       sessions.unshift(activeSession)
-      trimAndSave()
+      await trimAndSave()
     } else if (context.label) {
       activeSession.label = String(context.label)
       activeSession.updatedAt = Date.now()
-      trimAndSave()
+      await trimAndSave()
     }
     onChange({ type: 'time-machine-session', state: getState() })
     return getState()
@@ -79,7 +79,7 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 1
       session.checkpoints.unshift(checkpoint)
       session.checkpoints = session.checkpoints.slice(0, MAX_CHECKPOINTS)
       session.updatedAt = checkpoint.timestamp
-      trimAndSave()
+      await trimAndSave()
       onChange({
         type: 'time-machine-checkpoint',
         checkpoint: summarizeCheckpoint(checkpoint),
@@ -163,14 +163,14 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 1
     return result
   }
 
-  function trimAndSave() {
+  async function trimAndSave() {
     sessions = sessions
       .sort((left, right) => right.updatedAt - left.updatedAt)
       .slice(0, MAX_SESSIONS)
-    fs.mkdirSync(storageDir, { recursive: true })
+    await fs.promises.mkdir(storageDir, { recursive: true })
     const temporaryPath = `${storagePath}.tmp`
-    fs.writeFileSync(temporaryPath, JSON.stringify({ version: 1, sessions }, null, 2))
-    fs.renameSync(temporaryPath, storagePath)
+    await fs.promises.writeFile(temporaryPath, JSON.stringify({ version: 1, sessions }, null, 2))
+    await fs.promises.rename(temporaryPath, storagePath)
   }
 
   return {
@@ -304,13 +304,14 @@ async function captureUntrackedFiles(repoRoot, scope) {
   for (const relativePath of output.toString('utf8').split('\0').filter(Boolean)) {
     const absolutePath = path.resolve(repoRoot, relativePath)
     if (!isInside(repoRoot, absolutePath)) continue
-    const stat = fs.statSync(absolutePath)
+    const stat = await fs.promises.stat(absolutePath)
     if (!stat.isFile() || stat.size > MAX_UNTRACKED_FILE_BYTES) continue
     totalBytes += stat.size
     if (totalBytes > MAX_UNTRACKED_BYTES) break
+    const content = await fs.promises.readFile(absolutePath)
     files.push({
       path: normalizeGitPath(relativePath),
-      content: fs.readFileSync(absolutePath).toString('base64')
+      content: content.toString('base64')
     })
   }
   return files
