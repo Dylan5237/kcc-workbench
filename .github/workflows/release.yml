@@ -37,14 +37,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $assets = Get-ChildItem -LiteralPath "dist" -Filter "Kimi-Desktop-*.exe"
+          $assets = Get-ChildItem -LiteralPath "dist" -Filter "KimiCode-Workbench-*.exe"
           if (-not $assets) {
             throw "Portable executable was not generated."
           }
           $arguments = @(
             "release", "create", "${{ github.ref_name }}",
             "--repo", "${{ github.repository }}",
-            "--title", "Kimi Desktop Workbench ${{ github.ref_name }}",
+            "--title", "KimiCode Workbench ${{ github.ref_name }}",
             "--generate-notes"
           )
           if ("${{ github.ref_name }}" -match "-(alpha|beta|rc)") {

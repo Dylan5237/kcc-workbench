@@ -62,7 +62,7 @@ let loginWindow = null
 let loginPromise = null
 let demoMode = false
 
-app.setName('Kimi Desktop')
+app.setName('KimiCode Workbench')
 const isDemoLaunch = process.argv.includes('--demo')
 if (isDemoLaunch) {
   const demoProfile = (argumentValue('--demo-profile=') || 'default')
@@ -70,7 +70,7 @@ if (isDemoLaunch) {
     .slice(0, 40)
   app.setPath(
     'userData',
-    path.join(app.getPath('temp'), `KimiDesktopDemo-${demoProfile || 'default'}`)
+    path.join(app.getPath('temp'), `KimiCodeWorkbenchDemo-${demoProfile || 'default'}`)
   )
 }
 const selfTestRequested = process.argv.some(value =>
@@ -88,7 +88,26 @@ app.on('second-instance', () => {
   mainWindow.focus()
 })
 
+const LEGACY_USER_DATA_NAME = 'Kimi Desktop'
+
+async function migrateLegacyUserData() {
+  if (isDemoLaunch || selfTestRequested) return  // demo 用临时目录、self-test 为诊断模式, 均不迁移
+  try {
+    const currentDir = app.getPath('userData')
+    let existing = []
+    try { existing = await fs.readdir(currentDir) } catch { /* 新目录尚未创建 */ }
+    if (existing.length > 0) return  // 新目录已有数据, 不覆盖
+    const legacyDir = path.join(app.getPath('appData'), LEGACY_USER_DATA_NAME)
+    try { await fs.access(legacyDir) } catch { return }  // 无旧目录可迁移
+    await fs.cp(legacyDir, currentDir, { recursive: true, force: true })
+    console.log(`[migrate] 已从 ${legacyDir} 迁移历史用户数据到 ${currentDir}`)
+  } catch (error) {
+    console.error(`[migrate] 迁移失败, 以空状态启动: ${error.message}`)
+  }
+}
+
 app.whenReady().then(async () => {
+  await migrateLegacyUserData()
   await registerAppProtocol()
 
   const selfTestPath = argumentValue('--self-test-quota=')
@@ -137,7 +156,7 @@ app.whenReady().then(async () => {
   } catch {
     // The dialog below is the final fallback when the diagnostic file cannot be written.
   }
-  dialog.showErrorBox('Kimi Desktop 无法启动', detail)
+  dialog.showErrorBox('KimiCode Workbench 无法启动', detail)
   app.quit()
 })
 
@@ -218,7 +237,7 @@ async function createMainWindow() {
     show: false,
     backgroundColor: '#ffffff',
     icon: path.join(__dirname, '../renderer/assets/kimi-code-logo.png'),
-    title: 'Kimi Desktop',
+    title: 'KimiCode Workbench',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#fafafa',

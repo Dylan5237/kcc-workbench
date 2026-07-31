@@ -19,8 +19,8 @@
     "electron-builder": "26.0.12"
   },
   "build": {
-    "appId": "com.local.kimidesktop",
-    "productName": "Kimi Desktop",
+    "appId": "com.local.kimicodeworkbench",
+    "productName": "KimiCode Workbench",
     "asar": true,
     "directories": {
       "output": "dist"
@@ -40,7 +40,7 @@
           ]
         }
       ],
-      "artifactName": "Kimi-Desktop-${version}-${arch}.${ext}"
+      "artifactName": "KimiCode-Workbench-${version}-${arch}.${ext}"
     }
   },
   "dependencies": {

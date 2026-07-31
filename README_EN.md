@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="Kimi Desktop Workbench">
+  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KimiCode Workbench">
 
-  <h1>Kimi Desktop Workbench</h1>
+  <h1>KimiCode Workbench</h1>
 
   <p><a href="./README.md">简体中文</a> · <strong>English</strong></p>
 
@@ -29,11 +29,11 @@
 </div>
 
 > [!IMPORTANT]
-> Kimi Desktop Workbench is an unofficial community project. It is not affiliated with, sponsored by, or endorsed by Moonshot AI or Kimi. Kimi, Kimi Code, and related names and marks belong to their respective owners.
+> KimiCode Workbench is an unofficial community project. It is not affiliated with, sponsored by, or endorsed by Moonshot AI or Kimi. Kimi, Kimi Code, and related names and marks belong to their respective owners.
 
 ## Why this workbench
 
-Kimi Code already provides a complete terminal and web workflow, but quota information, configuration, and session artifacts live in separate places. Kimi Desktop Workbench does not replace Kimi Code. It adds a unified local desktop layer around it:
+Kimi Code already provides a complete terminal and web workflow, but quota information, configuration, and session artifacts live in separate places. KimiCode Workbench does not replace Kimi Code. It adds a unified local desktop layer around it:
 
 | Use case | What the workbench provides |
 | --- | --- |
@@ -75,7 +75,7 @@ Home (Kimi Web) ── current project context ──▶ File Viewer / Artifacts
 
 ### 2. Download and run
 
-Download the latest `Kimi-Desktop-*-x64.exe` from [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases), then run it directly. Current releases are portable and require no installation.
+Download the latest `KimiCode-Workbench-*-x64.exe` from [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases), then run it directly. Current releases are portable and require no installation.
 
 > [!TIP]
 > On first launch, make sure the Home tab can load Kimi Web. Quota is never synchronized automatically: open the “Quota” widget in the title bar and click “Update”.
@@ -170,7 +170,7 @@ Build an unpacked Windows app:
 
 ```powershell
 npm run build
-& ".\dist\win-unpacked\Kimi Desktop.exe"
+& ".\dist\win-unpacked\KimiCode Workbench.exe"
 ```
 
 Build a portable release (one-click, recommended):

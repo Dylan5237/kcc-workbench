@@ -1,6 +1,6 @@
 # 隐私说明
 
-Kimi Desktop Workbench 是本地桌面工具。以下内容用于说明应用处理的数据及其保存位置。
+KimiCode Workbench 是本地桌面工具。以下内容用于说明应用处理的数据及其保存位置。
 
 ## 本地处理的数据
 
@@ -26,7 +26,9 @@ Kimi Desktop Workbench 是本地桌面工具。以下内容用于说明应用处
 
 ## 删除数据
 
-退出应用后，可以删除 Kimi Desktop 对应的 Electron 应用数据目录来清除额度缓存、Viewer 历史、网页登录会话和时间机器快照。执行前请确认不再需要其中的本地历史数据。
+退出应用后，可以删除 KimiCode Workbench 对应的 Electron 应用数据目录来清除额度缓存、Viewer 历史、网页登录会话和时间机器快照。执行前请确认不再需要其中的本地历史数据。
+
+从旧版 “Kimi Desktop” 升级时，首次启动会自动将历史用户数据从旧目录 `%APPDATA%\Kimi Desktop` 拷贝到新目录 `%APPDATA%\KimiCode Workbench`（拷贝而非移动，旧目录会保留）。如需彻底清除本机数据，请将两个目录一并删除。
 
 ## Issue 与日志
 
@@ -36,4 +38,3 @@ Kimi Desktop Workbench 是本地桌面工具。以下内容用于说明应用处
 - 账号、额度和账单信息
 - 项目源码、系统提示词与 Git patch
 - 用户名、本机绝对路径和会话标识
-

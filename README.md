@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="Kimi Desktop Workbench">
+  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KimiCode Workbench">
 
-  <h1>Kimi Desktop Workbench</h1>
+  <h1>KimiCode Workbench</h1>
 
   <p><strong>简体中文</strong> · <a href="./README_EN.md">English</a></p>
 
@@ -29,11 +29,11 @@
 </div>
 
 > [!IMPORTANT]
-> Kimi Desktop Workbench 是非官方社区项目，与 Moonshot AI / Kimi 官方不存在隶属、合作或背书关系。Kimi、Kimi Code 及相关名称与标识归其权利人所有。
+> KimiCode Workbench 是非官方社区项目，与 Moonshot AI / Kimi 官方不存在隶属、合作或背书关系。Kimi、Kimi Code 及相关名称与标识归其权利人所有。
 
 ## 为什么需要它
 
-Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和会话产物分散在不同入口。Kimi Desktop Workbench 不替代 Kimi Code，而是在本地为它补上一层统一的桌面工作区：
+Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和会话产物分散在不同入口。KimiCode Workbench 不替代 Kimi Code，而是在本地为它补上一层统一的桌面工作区：
 
 | 使用场景 | 工作台提供的体验 |
 | --- | --- |
@@ -75,7 +75,7 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 
 ### 2. 下载并运行
 
-前往 [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases) 下载最新的 `Kimi-Desktop-*-x64.exe`，双击即可运行。当前发布物为免安装便携版。
+前往 [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases) 下载最新的 `KimiCode-Workbench-*-x64.exe`，双击即可运行。当前发布物为免安装便携版。
 
 > [!TIP]
 > 首次进入后，先确认首页能够加载 Kimi Web。额度信息不会自动同步，需要点击标题栏右侧的“额度”，再点击“更新信息”。
@@ -170,7 +170,7 @@ npm run demo -- --demo-profile=manual-test
 
 ```powershell
 npm run build
-& ".\dist\win-unpacked\Kimi Desktop.exe"
+& ".\dist\win-unpacked\KimiCode Workbench.exe"
 ```
 
 构建便携发布包（推荐一键打包）：
