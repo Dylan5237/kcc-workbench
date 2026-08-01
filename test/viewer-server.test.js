@@ -51,6 +51,10 @@ test('starts empty and accepts a project directory injection', async t => {
   await fs.writeFile(path.join(projectDir, 'style.css'), 'body { color: red }')
   await fs.writeFile(path.join(projectDir, 'unsafe.js'), 'alert(1)')
   await fs.writeFile(path.join(projectDir, 'ignored.txt'), 'ignored')
+  await fs.mkdir(path.join(projectDir, 'node_modules', 'dependency'), { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'node_modules', 'dependency', 'README.md'), '# Dependency')
+  await fs.mkdir(path.join(projectDir, 'dist'), { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'dist', 'generated.json'), '{"generated":true}')
 
   const server = await startServer({ port: 0, configDir })
   t.after(async () => {
@@ -133,6 +137,8 @@ test('tracks document changes inside the current artifact session', async t => {
   const projectDir = path.join(tempRoot, 'project')
   await fs.mkdir(projectDir, { recursive: true })
   await fs.writeFile(path.join(projectDir, 'README.md'), '# Before')
+  await fs.mkdir(path.join(projectDir, 'node_modules', 'dependency'), { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'node_modules', 'dependency', 'README.md'), '# Before dependency')
   const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
   t.after(async () => {
     await server.close()
@@ -144,6 +150,7 @@ test('tracks document changes inside the current artifact session', async t => {
     root: projectDir
   })
   await fs.writeFile(path.join(projectDir, 'README.md'), '# After\n\nNew line')
+  await fs.writeFile(path.join(projectDir, 'node_modules', 'dependency', 'README.md'), '# After dependency')
   await new Promise(resolve => setTimeout(resolve, 900))
   const session = await viewerFetch(server, '/api/artifacts')
     .then(response => response.json())

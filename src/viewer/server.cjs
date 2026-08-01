@@ -15,6 +15,12 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024
 const MAX_ASSET_BYTES = 20 * 1024 * 1024
 const MAX_ARTIFACT_CONTENT_BYTES = 512 * 1024
 const MAX_ARTIFACTS = 100
+const MAX_SCANNED_ENTRIES = 20_000
+const MAX_SNAPSHOT_DOCUMENTS = 2_000
+const MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024
+const IGNORED_DIRECTORY_NAMES = new Set([
+  'node_modules', 'dist', 'build', 'coverage', 'out'
+])
 const RESTRICTED_BROWSER_PORTS = new Set([
   1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
   87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
@@ -108,9 +114,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     try {
       watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
         if (!filename) return
+        const normalizedFile = String(filename).replace(/\\/g, '/')
+        if (isIgnoredRelativePath(normalizedFile)) return
         const extension = path.extname(filename).toLowerCase()
         if (!WATCHED_EXTENSIONS.has(extension) && !HTML_ASSET_EXTENSIONS.has(extension)) return
-        const normalizedFile = String(filename).replace(/\\/g, '/')
         clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           broadcast({
@@ -464,7 +471,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   }
 }
 
-async function scanTree(directory, relativePath) {
+async function scanTree(directory, relativePath, budget = { entries: 0 }) {
   const node = {
     name: path.basename(directory),
     path: relativePath,
@@ -472,14 +479,19 @@ async function scanTree(directory, relativePath) {
     children: []
   }
   for (const entry of await fs.promises.readdir(directory, { withFileTypes: true })) {
-    if (entry.name.startsWith('.')) continue
+    if (budget.entries >= MAX_SCANNED_ENTRIES) {
+      node.truncated = true
+      break
+    }
+    budget.entries += 1
+    if (shouldIgnoreDirectoryEntry(entry)) continue
     const childRelativePath = relativePath
       ? `${relativePath}/${entry.name}`
       : entry.name
     const absolutePath = path.join(directory, entry.name)
     if (entry.isDirectory()) {
       try {
-        const child = await scanTree(absolutePath, childRelativePath)
+        const child = await scanTree(absolutePath, childRelativePath, budget)
         if (child.children.length) node.children.push(child)
       } catch {
         // Skip folders that cannot be read.
@@ -520,6 +532,7 @@ function createArtifactSession({ id, label, root } = {}) {
 async function snapshotDocuments(root) {
   const snapshot = new Map()
   if (!root) return snapshot
+  const budget = { entries: 0, documents: 0, bytes: 0 }
   const visit = async (directory, relativeDirectory = '') => {
     let entries = []
     try {
@@ -528,15 +541,22 @@ async function snapshotDocuments(root) {
       return
     }
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue
+      if (budget.entries >= MAX_SCANNED_ENTRIES) return
+      budget.entries += 1
+      if (shouldIgnoreDirectoryEntry(entry)) continue
       const relativePath = relativeDirectory
         ? `${relativeDirectory}/${entry.name}`
         : entry.name
       const absolutePath = path.join(directory, entry.name)
       if (entry.isDirectory()) await visit(absolutePath, relativePath)
       else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        if (budget.documents >= MAX_SNAPSHOT_DOCUMENTS || budget.bytes >= MAX_SNAPSHOT_BYTES) return
         const document = await readArtifactDocument(root, relativePath)
-        if (document) snapshot.set(relativePath, document)
+        if (document && budget.bytes + document.size <= MAX_SNAPSHOT_BYTES) {
+          snapshot.set(relativePath, document)
+          budget.documents += 1
+          budget.bytes += document.size
+        }
       }
     }
   }
@@ -566,6 +586,17 @@ async function readArtifactDocument(root, relativePath) {
 function sameArtifactDocument(left, right) {
   if (!left || !right) return left === right
   return left.content === right.content
+}
+
+function shouldIgnoreDirectoryEntry(entry) {
+  return entry.name.startsWith('.')
+    || (entry.isDirectory() && IGNORED_DIRECTORY_NAMES.has(entry.name.toLowerCase()))
+}
+
+function isIgnoredRelativePath(relativePath) {
+  return normalizeWebPath(relativePath)
+    .split('/')
+    .some(segment => segment.startsWith('.') || IGNORED_DIRECTORY_NAMES.has(segment.toLowerCase()))
 }
 
 function validDirectory(value) {

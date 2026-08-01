@@ -186,7 +186,11 @@ export function patchTomlValue(text, section, key, serializedValue) {
   }
 
   if (sectionRange.exists) {
-    lines.splice(end, 0, `${key} = ${serializedValue}`)
+    let insertionIndex = end
+    while (insertionIndex > start && !lines[insertionIndex - 1]?.trim()) {
+      insertionIndex -= 1
+    }
+    lines.splice(insertionIndex, 0, `${key} = ${serializedValue}`)
     return lines.join('\n')
   }
 
@@ -196,47 +200,105 @@ export function patchTomlValue(text, section, key, serializedValue) {
 }
 
 export function applyModelsToToml(text, models) {
-  const lines = (text || '').replace(/\r\n/g, '\n').split('\n')
-  const kept = []
-  let inModelSection = false
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (/^\[/.test(trimmed)) {
-      inModelSection = /^\[models\./.test(trimmed)
-      if (inModelSection) continue
-    }
-    if (inModelSection) continue
-    kept.push(line)
-  }
-  if (models.length) {
-    if (kept.length && kept.at(-1)?.trim()) kept.push('')
-    for (const model of models) {
-      kept.push(`[models."${model.alias}"]`)
-      kept.push(`model = ${JSON.stringify(model.model || model.alias)}`)
-      if (model.displayName && model.displayName !== model.alias) {
-        kept.push(`display_name = ${JSON.stringify(model.displayName)}`)
-      }
-      if (model.provider) kept.push(`provider = ${JSON.stringify(model.provider)}`)
-      if (model.apiKey) kept.push(`api_key = ${JSON.stringify(model.apiKey)}`)
-      if (model.baseUrl) kept.push(`base_url = ${JSON.stringify(model.baseUrl)}`)
-      if (Number.isInteger(model.maxContextSize) && model.maxContextSize > 0) {
-        kept.push(`max_context_size = ${model.maxContextSize}`)
-      }
-      if (Array.isArray(model.capabilities) && model.capabilities.length) {
-        kept.push(`capabilities = [${model.capabilities.map(item => JSON.stringify(String(item))).join(', ')}]`)
-      }
-      kept.push('')
+  validateModels(models)
+  let next = (text || '').replace(/\r\n/g, '\n')
+  const desiredAliases = new Set(models.map(model => model.alias))
+
+  for (const existing of parseModels(next)) {
+    if (!desiredAliases.has(existing.alias)) {
+      next = removeModelSections(next, existing.alias)
     }
   }
-  while (kept.length && !kept.at(-1)?.trim()) kept.pop()
-  return kept.length ? `${kept.join('\n')}\n` : ''
+
+  for (const model of models) {
+    const section = modelSectionName(model.alias)
+    if (!hasTomlSection(next, section)) {
+      next = appendTomlSection(next, section)
+    }
+    next = setOptionalTomlValue(next, section, 'model', JSON.stringify(model.model || model.alias), true)
+    next = setOptionalTomlValue(next, section, 'display_name', JSON.stringify(model.displayName), Boolean(model.displayName && model.displayName !== model.alias))
+    next = setOptionalTomlValue(next, section, 'provider', JSON.stringify(model.provider), Boolean(model.provider))
+    next = setOptionalTomlValue(next, section, 'api_key', JSON.stringify(model.apiKey), Boolean(model.apiKey))
+    next = setOptionalTomlValue(next, section, 'base_url', JSON.stringify(model.baseUrl), Boolean(model.baseUrl))
+    next = setOptionalTomlValue(next, section, 'max_context_size', String(model.maxContextSize), Number.isInteger(model.maxContextSize) && model.maxContextSize > 0)
+    next = setOptionalTomlValue(
+      next,
+      section,
+      'capabilities',
+      `[${(model.capabilities || []).map(item => JSON.stringify(String(item))).join(', ')}]`,
+      Array.isArray(model.capabilities) && model.capabilities.length > 0
+    )
+  }
+
+  const trimmed = next.trimEnd()
+  return trimmed ? `${trimmed}\n` : ''
 }
 
 function validateModels(models) {
+  if (!Array.isArray(models)) throw new Error('模型列表无效')
+  const aliases = new Set()
   for (const model of models) {
-    if (!model || typeof model.alias !== 'string' || !model.alias.trim()) {
-      throw new Error('模型别名不能为空')
+    if (
+      !model
+      || typeof model.alias !== 'string'
+      || model.alias.length === 0
+      || model.alias.length > 120
+      || model.alias.trim() !== model.alias
+      || /[\u0000-\u001f\u007f]/.test(model.alias)
+    ) {
+      throw new Error('模型别名不能为空、不能包含控制字符或首尾空格，且最长为 120 个字符')
     }
+    if (aliases.has(model.alias)) throw new Error(`模型别名重复：${model.alias}`)
+    aliases.add(model.alias)
+  }
+}
+
+function modelSectionName(alias) {
+  return `models.${JSON.stringify(alias)}`
+}
+
+function hasTomlSection(text, section) {
+  return findSectionRange(text.replace(/\r\n/g, '\n').split('\n'), section).exists
+}
+
+function appendTomlSection(text, section) {
+  const trimmed = text.trimEnd()
+  return `${trimmed}${trimmed ? '\n\n' : ''}[${section}]\n`
+}
+
+function setOptionalTomlValue(text, section, key, serializedValue, present) {
+  if (present) return patchTomlValue(text, section, key, serializedValue)
+  return removeTomlValue(text, section, key)
+}
+
+function removeTomlValue(text, section, key) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  const { exists, start, end } = findSectionRange(lines, section)
+  if (!exists) return text
+  const pattern = new RegExp(`^\\s*${escapeRegex(key)}\\s*=`)
+  return lines.filter((line, index) => index < start || index >= end || !pattern.test(line)).join('\n')
+}
+
+function removeModelSections(text, alias) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  const kept = []
+  let removing = false
+  for (const line of lines) {
+    if (/^\s*\[/.test(line)) {
+      removing = parseModelSectionAlias(line) === alias
+    }
+    if (!removing) kept.push(line)
+  }
+  return kept.join('\n')
+}
+
+function parseModelSectionAlias(line) {
+  const match = String(line).match(/^\s*\[models\.("(?:\\.|[^"])*")(?:\.|\])/)
+  if (!match) return null
+  try {
+    return JSON.parse(match[1])
+  } catch {
+    return null
   }
 }
 
@@ -283,9 +345,14 @@ function parseTomlSectionName(line) {
 
 function parseModels(text) {
   const models = []
-  const pattern = /^\s*\[models\."([^"]+)"\]\s*$/gm
+  const pattern = /^\s*\[models\.("(?:\\.|[^"])*")\]\s*$/gm
   for (const match of text.matchAll(pattern)) {
-    const alias = match[1]
+    let alias
+    try {
+      alias = JSON.parse(match[1])
+    } catch {
+      continue
+    }
     const rest = text.slice(match.index + match[0].length)
     const end = rest.search(/^\s*\[\[?/m)
     const block = end === -1 ? rest : rest.slice(0, end)

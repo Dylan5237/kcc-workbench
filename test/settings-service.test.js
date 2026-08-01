@@ -92,11 +92,54 @@ model = "gpt-3"
   assert.doesNotMatch(next, /gpt-3/)
 })
 
+test('applyModelsToToml preserves unknown model fields and nested tables', () => {
+  const text = `[models."custom"]
+model = "old"
+custom_option = "keep"
+
+[models."custom".headers]
+X-Trace = "enabled"
+`
+  const next = applyModelsToToml(text, [{ alias: 'custom', model: 'new' }])
+  assert.match(next, /model = "new"/)
+  assert.match(next, /custom_option = "keep"/)
+  assert.match(next, /\[models\."custom"\.headers\]\nX-Trace = "enabled"/)
+})
+
+test('applyModelsToToml safely serializes aliases and rejects ambiguous model lists', () => {
+  const next = applyModelsToToml('', [{ alias: 'vendor"blue', model: 'gpt-4' }])
+  assert.match(next, /\[models\."vendor\\"blue"\]/)
+  assert.throws(
+    () => applyModelsToToml('', [{ alias: 'bad\ntelemetry = true', model: 'gpt-4' }]),
+    /控制字符/
+  )
+  assert.throws(
+    () => applyModelsToToml('', [
+      { alias: 'duplicate', model: 'one' },
+      { alias: 'duplicate', model: 'two' }
+    ]),
+    /重复/
+  )
+})
+
+test('applyModelsToToml leaves unsupported unquoted model sections untouched', () => {
+  const text = `[models.legacy]
+model = "legacy"
+custom_option = true
+`
+  const next = applyModelsToToml(text, [{ alias: 'new', model: 'gpt-4' }])
+  assert.match(next, /\[models\.legacy\]\nmodel = "legacy"\ncustom_option = true/)
+  assert.match(next, /\[models\."new"\]/)
+})
+
 test('applyModelsToToml removes all models when empty list passed', () => {
   const text = `default_model = "x"
 
 [models."gone"]
 model = "gpt-4"
+
+[models."gone".headers]
+X-Test = "remove"
 `
   const next = applyModelsToToml(text, [])
   assert.doesNotMatch(next, /\[models/)

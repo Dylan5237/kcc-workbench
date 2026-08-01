@@ -12,3 +12,10 @@ export function isAllowedKimiCodeUrl(value, { viewerPort, kimiUrl, demoMode = fa
     return false
   }
 }
+
+export function createKimiCodeUrlGuard(getOptions) {
+  if (typeof getOptions !== 'function') {
+    throw new TypeError('getOptions must be a function')
+  }
+  return value => isAllowedKimiCodeUrl(value, getOptions() || {})
+}

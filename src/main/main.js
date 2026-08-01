@@ -22,7 +22,8 @@ import { LocalKimiService } from './local-kimi-service.js'
 import { SettingsService } from './settings-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
-import { isAllowedKimiCodeUrl } from './url-trust.js'
+import { createKimiCodeUrlGuard } from './url-trust.js'
+import { createGracefulShutdownHandler } from './graceful-shutdown.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -62,6 +63,12 @@ let settingsService = null
 let loginWindow = null
 let loginPromise = null
 let demoMode = false
+
+const isTrustedKimiCodeUrl = createKimiCodeUrlGuard(() => ({
+  viewerPort: viewerServer?.port,
+  kimiUrl: localKimiService?.url,
+  demoMode
+}))
 
 app.setName('KimiCode Workbench')
 const isDemoLaunch = process.argv.includes('--demo')
@@ -174,11 +181,18 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
-app.on('before-quit', () => {
-  quotaService?.dispose()
-  localKimiService?.stop()
-  viewerServer?.close()
+const handleBeforeQuit = createGracefulShutdownHandler({
+  quit: () => app.quit(),
+  async shutdown() {
+    quotaService?.dispose()
+    localKimiService?.stop()
+    const server = viewerServer
+    viewerServer = null
+    await server?.close()
+  },
+  onError: error => console.error('Graceful shutdown failed:', error)
 })
+app.on('before-quit', handleBeforeQuit)
 
 async function registerAppProtocol() {
   protocol.handle('app', async request => {
@@ -212,11 +226,7 @@ function configureRemoteSession() {
   configurePermissionPolicy(remoteSession, webContents => isAllowedKimiLoginUrl(webContents.getURL()))
   configurePermissionPolicy(
     session.defaultSession,
-    webContents => isAllowedKimiCodeUrl(webContents.getURL(), {
-      viewerPort: viewerServer?.port,
-      kimiUrl: localKimiService?.url,
-      demoMode
-    })
+    webContents => isTrustedKimiCodeUrl(webContents.getURL())
   )
 }
 
@@ -336,7 +346,7 @@ function createKimiView() {
   mainWindow.contentView.addChildView(kimiView)
 
   kimiView.webContents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedKimiCodeUrl(url)) {
+    if (isTrustedKimiCodeUrl(url)) {
       kimiView.webContents.loadURL(url)
     } else if (isSafeExternalUrl(url)) {
       shell.openExternal(url)
@@ -345,7 +355,7 @@ function createKimiView() {
   })
 
   kimiView.webContents.on('will-navigate', (event, url) => {
-    if (isAllowedKimiCodeUrl(url)) return
+    if (isTrustedKimiCodeUrl(url)) return
     event.preventDefault()
     if (isSafeExternalUrl(url)) shell.openExternal(url)
   })
