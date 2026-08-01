@@ -6,7 +6,8 @@ import test from 'node:test'
 import {
   SettingsService,
   parseManagedConfig,
-  patchTomlValue
+  patchTomlValue,
+  applyModelsToToml
 } from '../src/main/settings-service.js'
 
 test('reads managed fields without changing unknown configuration', () => {
@@ -52,6 +53,54 @@ effort = "high"
     () => patchTomlValue(text, 'thinking', 'enabled', 'false'),
     /重复节/
   )
+})
+
+test('applyModelsToToml adds models and preserves non-model content', () => {
+  const text = `default_model = "kimi-code/k3"
+
+[thinking]
+enabled = true
+`
+  const next = applyModelsToToml(text, [
+    {
+      alias: 'my-gpt',
+      model: 'gpt-4',
+      provider: 'openai-compatible',
+      apiKey: 'sk-x',
+      baseUrl: 'https://api.x.com/v1'
+    }
+  ])
+  assert.match(next, /default_model = "kimi-code\/k3"/)
+  assert.match(next, /\[thinking\]\nenabled = true/)
+  assert.match(next, /\[models\."my-gpt"\]/)
+  assert.match(next, /model = "gpt-4"/)
+  assert.match(next, /provider = "openai-compatible"/)
+  assert.match(next, /api_key = "sk-x"/)
+  assert.match(next, /base_url = "https:\/\/api.x.com\/v1"/)
+})
+
+test('applyModelsToToml updates an existing model in place', () => {
+  const text = `[models."old"]
+model = "gpt-3"
+`
+  const next = applyModelsToToml(text, [
+    { alias: 'old', model: 'gpt-4o', displayName: 'GPT-4o', maxContextSize: 128000, capabilities: ['text'] }
+  ])
+  assert.match(next, /\[models\."old"\]\nmodel = "gpt-4o"\ndisplay_name = "GPT-4o"/)
+  assert.match(next, /max_context_size = 128000/)
+  assert.match(next, /capabilities = \["text"\]/)
+  assert.doesNotMatch(next, /gpt-3/)
+})
+
+test('applyModelsToToml removes all models when empty list passed', () => {
+  const text = `default_model = "x"
+
+[models."gone"]
+model = "gpt-4"
+`
+  const next = applyModelsToToml(text, [])
+  assert.doesNotMatch(next, /\[models/)
+  assert.match(next, /default_model = "x"/)
 })
 
 test('saves into an isolated home and creates backups', async t => {

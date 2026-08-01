@@ -48,6 +48,27 @@ document.querySelector('#addSkillDirectory').addEventListener('click', () => {
 document.querySelector('#addAgentDirectory').addEventListener('click', () => {
   selectDirectoryFor(elements.extraAgentDirs)
 })
+document.querySelector('#addModelBtn').addEventListener('click', () => {
+  const editor = document.querySelector('#modelEditor')
+  if (editor.className === 'empty-state') {
+    editor.className = ''
+    editor.innerHTML = ''
+  }
+  editor.insertAdjacentHTML('beforeend', modelCardHtml({
+    alias: '', model: '', displayName: '', provider: '', apiKey: '', baseUrl: '', maxContextSize: null, capabilities: []
+  }))
+  markDirty()
+})
+document.addEventListener('input', event => {
+  if (event.target.closest('[data-model-field]')) markDirty()
+})
+document.addEventListener('click', event => {
+  const removeButton = event.target.closest('.model-remove')
+  if (removeButton) {
+    removeButton.closest('.model-card').remove()
+    markDirty()
+  }
+})
 
 load()
 
@@ -143,6 +164,10 @@ function collect() {
   const payload = {
     config: changedConfig(completeConfig, state.config || {})
   }
+  const models = collectModels()
+  if (!modelsEqual(models, state.models || [])) {
+    payload.models = models
+  }
   if (elements.systemPrompt.value !== state.systemPrompt) {
     payload.systemPrompt = elements.systemPrompt.value
   }
@@ -150,6 +175,38 @@ function collect() {
     payload.agentsInstructions = elements.agentsInstructions.value
   }
   return payload
+}
+
+function collectModels() {
+  return [...document.querySelectorAll('.model-card')].map(card => {
+    const fieldValue = key => card.querySelector(`[data-model-field="${key}"]`)?.value?.trim() ?? ''
+    const maxContextSize = fieldValue('maxContextSize') ? Number.parseInt(fieldValue('maxContextSize'), 10) : undefined
+    return {
+      alias: fieldValue('alias'),
+      model: fieldValue('model'),
+      displayName: fieldValue('displayName'),
+      provider: fieldValue('provider'),
+      apiKey: fieldValue('apiKey'),
+      baseUrl: fieldValue('baseUrl'),
+      maxContextSize: Number.isFinite(maxContextSize) ? maxContextSize : undefined,
+      capabilities: fieldValue('capabilities').split(',').map(item => item.trim()).filter(Boolean)
+    }
+  })
+}
+
+function modelsEqual(left, right) {
+  if (left.length !== right.length) return false
+  const normalize = model => JSON.stringify([
+    model.alias || '',
+    model.model || '',
+    model.displayName || '',
+    model.provider || '',
+    model.apiKey || '',
+    model.baseUrl || '',
+    model.maxContextSize || null,
+    model.capabilities || []
+  ])
+  return left.every((model, index) => normalize(model) === normalize(right[index]))
 }
 
 async function save() {
@@ -191,23 +248,42 @@ function renderModels(models, selectedAlias) {
     options.push({ alias: selectedAlias, displayName: selectedAlias })
   }
   elements.defaultModel.innerHTML = options
-    .map(model => `<option value="${escapeHtml(model.alias)}">${escapeHtml(model.displayName)}${model.alias ? ` · ${escapeHtml(model.alias)}` : ''}</option>`)
+    .map(model => `<option value="${escapeHtml(model.alias)}">${escapeHtml(model.displayName || model.alias)}${model.alias ? ` · ${escapeHtml(model.alias)}` : ''}</option>`)
     .join('')
   elements.defaultModel.value = selectedAlias || ''
-  const list = document.querySelector('#modelList')
+  renderModelEditor(models)
+}
+
+function renderModelEditor(models) {
+  const editor = document.querySelector('#modelEditor')
   if (!models.length) {
-    list.className = 'empty-state'
-    list.textContent = '没有发现自定义模型'
+    editor.className = 'empty-state'
+    editor.textContent = '没有自定义模型。点击"添加模型"开始。'
     return
   }
-  list.className = ''
-  list.innerHTML = models.map(model => `
-    <div class="list-row">
-      <strong>${escapeHtml(model.displayName)}</strong>
-      <span class="state-chip">${escapeHtml(model.alias)}</span>
-      <small>${escapeHtml(model.model)}${model.maxContextSize ? ` · ${model.maxContextSize} context` : ''}</small>
+  editor.className = ''
+  editor.innerHTML = models.map(modelCardHtml).join('')
+}
+
+function modelCardHtml(model) {
+  return `
+    <div class="model-card">
+      <div class="model-card-head">
+        <span class="model-card-name">${escapeHtml(model.displayName || model.alias) || '未命名模型'}</span>
+        <button class="model-remove" type="button" title="删除此模型">删除</button>
+      </div>
+      <div class="model-grid">
+        <label><span>别名</span><input data-model-field="alias" value="${escapeHtml(model.alias || '')}" placeholder="my-model" spellcheck="false"></label>
+        <label><span>模型 ID</span><input data-model-field="model" value="${escapeHtml(model.model || '')}" placeholder="gpt-4" spellcheck="false"></label>
+        <label><span>显示名</span><input data-model-field="displayName" value="${escapeHtml(model.displayName || '')}" placeholder="选填" spellcheck="false"></label>
+        <label><span>Provider</span><input data-model-field="provider" value="${escapeHtml(model.provider || '')}" placeholder="openai-compatible" spellcheck="false"></label>
+        <label><span>API Key</span><input data-model-field="apiKey" value="${escapeHtml(model.apiKey || '')}" placeholder="sk-..." spellcheck="false"></label>
+        <label><span>Base URL</span><input data-model-field="baseUrl" value="${escapeHtml(model.baseUrl || '')}" placeholder="https://api.example.com/v1" spellcheck="false"></label>
+        <label><span>上下文大小</span><input data-model-field="maxContextSize" type="number" min="0" value="${model.maxContextSize ?? ''}" placeholder="选填"></label>
+        <label><span>能力（逗号分隔）</span><input data-model-field="capabilities" value="${escapeHtml((model.capabilities || []).join(', '))}" placeholder="text" spellcheck="false"></label>
+      </div>
     </div>
-  `).join('')
+  `
 }
 
 function renderSkills(skills) {

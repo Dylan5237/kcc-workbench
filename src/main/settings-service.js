@@ -108,24 +108,32 @@ export class SettingsService {
     }
   }
 
-  async save({ config = {}, systemPrompt, agentsInstructions }) {
+  async save({ config = {}, models, systemPrompt, agentsInstructions }) {
     validateConfig(config)
+    if (Array.isArray(models)) validateModels(models)
     await fs.mkdir(this.kimiCodeHome, { recursive: true })
     const configPath = path.join(this.kimiCodeHome, 'config.toml')
-    if (MANAGED_FIELDS.some(([fieldPath]) => getPath(config, fieldPath) !== undefined)) {
+    const shouldPatchFields = MANAGED_FIELDS.some(([fieldPath]) => getPath(config, fieldPath) !== undefined)
+    const shouldApplyModels = Array.isArray(models)
+    if (shouldPatchFields || shouldApplyModels) {
       const currentConfig = await readText(configPath)
       let nextConfig = currentConfig
-      for (const [fieldPath, type] of MANAGED_FIELDS) {
-        const value = getPath(config, fieldPath)
-        if (value === undefined) continue
-        const parts = fieldPath.split('.')
-        const key = parts.pop()
-        nextConfig = patchTomlValue(
-          nextConfig,
-          parts.join('.'),
-          key,
-          serializeTomlValue(value, type)
-        )
+      if (shouldPatchFields) {
+        for (const [fieldPath, type] of MANAGED_FIELDS) {
+          const value = getPath(config, fieldPath)
+          if (value === undefined) continue
+          const parts = fieldPath.split('.')
+          const key = parts.pop()
+          nextConfig = patchTomlValue(
+            nextConfig,
+            parts.join('.'),
+            key,
+            serializeTomlValue(value, type)
+          )
+        }
+      }
+      if (shouldApplyModels) {
+        nextConfig = applyModelsToToml(nextConfig, models)
       }
       await writeWithBackup(configPath, ensureTrailingNewline(nextConfig))
     }
@@ -187,6 +195,51 @@ export function patchTomlValue(text, section, key, serializedValue) {
   return lines.join('\n')
 }
 
+export function applyModelsToToml(text, models) {
+  const lines = (text || '').replace(/\r\n/g, '\n').split('\n')
+  const kept = []
+  let inModelSection = false
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (/^\[/.test(trimmed)) {
+      inModelSection = /^\[models\./.test(trimmed)
+      if (inModelSection) continue
+    }
+    if (inModelSection) continue
+    kept.push(line)
+  }
+  if (models.length) {
+    if (kept.length && kept.at(-1)?.trim()) kept.push('')
+    for (const model of models) {
+      kept.push(`[models."${model.alias}"]`)
+      kept.push(`model = ${JSON.stringify(model.model || model.alias)}`)
+      if (model.displayName && model.displayName !== model.alias) {
+        kept.push(`display_name = ${JSON.stringify(model.displayName)}`)
+      }
+      if (model.provider) kept.push(`provider = ${JSON.stringify(model.provider)}`)
+      if (model.apiKey) kept.push(`api_key = ${JSON.stringify(model.apiKey)}`)
+      if (model.baseUrl) kept.push(`base_url = ${JSON.stringify(model.baseUrl)}`)
+      if (Number.isInteger(model.maxContextSize) && model.maxContextSize > 0) {
+        kept.push(`max_context_size = ${model.maxContextSize}`)
+      }
+      if (Array.isArray(model.capabilities) && model.capabilities.length) {
+        kept.push(`capabilities = [${model.capabilities.map(item => JSON.stringify(String(item))).join(', ')}]`)
+      }
+      kept.push('')
+    }
+  }
+  while (kept.length && !kept.at(-1)?.trim()) kept.pop()
+  return kept.length ? `${kept.join('\n')}\n` : ''
+}
+
+function validateModels(models) {
+  for (const model of models) {
+    if (!model || typeof model.alias !== 'string' || !model.alias.trim()) {
+      throw new Error('模型别名不能为空')
+    }
+  }
+}
+
 function findTomlValue(text, section, key) {
   const lines = text.replace(/\r\n/g, '\n').split('\n')
   const { start, end } = findSectionRange(lines, section)
@@ -238,8 +291,11 @@ function parseModels(text) {
     const block = end === -1 ? rest : rest.slice(0, end)
     models.push({
       alias,
-      model: parseStringValue(findLineValue(block, 'model')) || alias,
-      displayName: parseStringValue(findLineValue(block, 'display_name')) || alias,
+      model: parseStringValue(findLineValue(block, 'model')),
+      displayName: parseStringValue(findLineValue(block, 'display_name')),
+      provider: parseStringValue(findLineValue(block, 'provider')),
+      apiKey: parseStringValue(findLineValue(block, 'api_key')),
+      baseUrl: parseStringValue(findLineValue(block, 'base_url')),
       maxContextSize: parseIntegerValue(findLineValue(block, 'max_context_size')),
       capabilities: parseArrayValue(findLineValue(block, 'capabilities'))
     })

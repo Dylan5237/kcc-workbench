@@ -89,8 +89,11 @@
           <label class="field"><span><strong>思考内容保留</strong><small>控制历史中的思考内容</small></span><select id="thinkingKeep"><option value="">默认</option><option>all</option><option>none</option></select></label>
         </div>
         <div class="card list-card">
-          <div class="card-title"><strong>已发现模型</strong><small>从 config.toml 读取，不会在此修改模型定义</small></div>
-          <div id="modelList" class="empty-state">没有发现自定义模型</div>
+          <div class="card-title model-title">
+            <div><strong>自定义模型</strong><small>添加第三方模型，配置 Provider / API Key / Base URL，保存后写入 config.toml</small></div>
+            <button id="addModelBtn" class="browse-button" type="button">+ 添加模型</button>
+          </div>
+          <div id="modelEditor" class="empty-state">没有自定义模型。点击"添加模型"开始。</div>
         </div>
       </section>
 

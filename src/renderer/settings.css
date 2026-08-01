@@ -77,6 +77,16 @@ input:not(.switch), select { width: 240px; height: 34px; padding: 0 10px; }
 .list-row:last-child { border-bottom: 0; }
 .list-row small { grid-column: 1 / -1; }
 .state-chip { align-self: center; padding: 3px 7px; color: #23743d; font-size: 10px; background: #ecf8f0; border-radius: 999px; }
+.model-title { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.model-card { padding: 16px 17px 18px; border-bottom: 1px solid #ededed; }
+.model-card:last-child { border-bottom: 0; }
+.model-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.model-card-name { font-size: 13px; font-weight: 650; }
+.model-remove { padding: 4px 9px; color: #a13c33; font-size: 11px; background: #fdf2f0; border: 1px solid #f0d5d0; border-radius: 7px; }
+.model-remove:hover { background: #fbe7e3; }
+.model-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.model-grid label { display: flex; flex-direction: column; gap: 6px; color: #555; font-size: 12px; }
+.model-grid input { width: 100%; }
 .path-row { display: flex; align-items: center; justify-content: space-between; min-height: 60px; gap: 20px; border-bottom: 1px solid #ededed; font-size: 12px; }
 .path-row:last-child { border-bottom: 0; }
 .path-row code { overflow: hidden; max-width: 70%; color: #555; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
