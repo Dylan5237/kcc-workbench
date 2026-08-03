@@ -47,10 +47,10 @@ Kimi Code already provides a complete terminal and web workflow, but quota infor
 
 | | Capability | Description |
 | --- | --- | --- |
-| **01** | **Kimi Web desktop workspace** | Starts or reuses `kimi web` inside a persistent Home tab, with a file viewer and visual settings. |
+| **01** | **Kimi Web desktop workspace** | Starts or reuses `kimi web` inside a persistent Home tab, with a one-click restart of the local service, plus a file viewer and visual settings. |
 | **02** | **Coding Plan quota** | Synchronizes total quota, Kimi / Code shares, five-hour usage, seven-day usage, and reset times only when requested. |
 | **03** | **Quota Autopilot** | Stores local quota samples and estimates depletion risk from consumption velocity, turning a percentage into a clearer pacing signal. |
-| **04** | **Visual system configuration** | Manages models, thinking, Agent behavior, permissions, MCP, Skills, Hooks (read-only in this release), workspaces, and system prompts; nothing is written until you save. |
+| **04** | **Visual system configuration** | Manages models (including third-party models), thinking, Agent behavior, permissions, MCP, Skills, Hooks (read-only in this release), workspaces, and system prompts; nothing is written until you save. |
 | **05** | **Artifact and file viewer** | Watches the project directory, renders Markdown / Mermaid, JSON, and HTML, and supports filtering, source views, line diffs, and native Windows file copy. |
 | **06** | **Task time machine** | Persists artifact checkpoints, replays historical content and diffs, and creates an isolated branch + worktree from a checkpoint in Git projects. |
 
@@ -63,6 +63,8 @@ Home (Kimi Web) ── current project context ──▶ File Viewer / Artifacts
        │
        └── System Settings ──────────────────▶ Visual Kimi Code configuration
 ```
+
+When the Home tab fails to load or you need to restart the local service, click “Restart Kimi Web Service” in the Home toolbar.
 
 ## Quick start
 
@@ -105,6 +107,7 @@ If the current project cannot be detected, File Viewer keeps the last opened dir
 <summary><strong>Visual configuration</strong></summary>
 
 - General settings, models and thinking, Agent execution, permissions, and tools.
+- Model editor: add, modify, or remove third-party `[models."alias"]` entries (model / display_name / provider / api_key / base_url / max_context_size / capabilities) with safe alias validation and preservation of unknown configuration.
 - MCP services, Skills, Hooks, workspaces, and advanced diagnostics.
 - User-level `SYSTEM.md` and global `AGENTS.md` system prompts.
 - Every edit requires an explicit save, with a `.bak` backup created before overwriting.

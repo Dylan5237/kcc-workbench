@@ -47,10 +47,10 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 
 | | 能力 | 说明 |
 | --- | --- | --- |
-| **01** | **Kimi Web 桌面工作区** | 自动启动或复用 `kimi web`，在固定首页中延续 Kimi Code 会话；同时提供文件查看器和系统设置。 |
+| **01** | **Kimi Web 桌面工作区** | 自动启动或复用 `kimi web`，在固定首页中延续 Kimi Code 会话，可一键重启本地服务；同时提供文件查看器和系统设置。 |
 | **02** | **Coding Plan 额度** | 按需同步总额度、Kimi / Code 分项、5 小时与 7 天额度；不会在后台自动抓取。 |
 | **03** | **Quota Autopilot** | 在本地保存额度样本，根据消耗速度估算风险，让“剩余百分比”变成更直观的使用节奏提示。 |
-| **04** | **可视化系统配置** | 管理模型、思考、Agent、权限、MCP、Skills、Hooks（本版仅只读）、工作区和系统提示词；仅在主动保存时写入。 |
+| **04** | **可视化系统配置** | 管理模型（支持第三方模型）、思考、Agent、权限、MCP、Skills、Hooks（本版仅只读）、工作区和系统提示词；仅在主动保存时写入。 |
 | **05** | **产物与文件查看器** | 实时监听项目目录，渲染 Markdown / Mermaid、JSON 和 HTML，并支持筛选、源文件视图、逐行 Diff 与 Windows 原生文件复制。 |
 | **06** | **任务时间机器** | 持久化会话产物检查点，回看历史内容与 Diff；在 Git 项目中可从检查点创建隔离的 branch + worktree。 |
 
@@ -63,6 +63,8 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
        │
        └── 系统设置 ────────────────▶ Kimi Code 可视化配置
 ```
+
+首页加载失败或需要重启本地服务时，可点击首页工具栏的“重启 Kimi Web 服务”按钮。
 
 ## 快速开始
 
@@ -105,6 +107,7 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 <summary><strong>可视化配置</strong></summary>
 
 - 常规、模型与思考、Agent 执行、权限与工具。
+- 模型编辑器：增删改 `[models."alias"]` 第三方模型（model / display_name / provider / api_key / base_url / max_context_size / capabilities），安全别名校验并保留未知配置。
 - MCP 服务、Skills、Hooks、工作区与高级诊断。
 - 用户级 `SYSTEM.md` 和全局 `AGENTS.md` 系统提示词。
 - 所有编辑均需手动保存；覆盖前生成 `.bak` 备份。
