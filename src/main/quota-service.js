@@ -2,7 +2,6 @@ import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { buildForecast } from './forecast-service.js'
 import { normalizeSnapshot } from './quota-snapshot.js'
-import { scrapeQuota } from './quota-worker.js'
 
 export class QuotaService {
   constructor({
@@ -10,13 +9,15 @@ export class QuotaService {
     partition,
     demoMode = false,
     loginHandler = null,
-    onStateChange = () => {}
+    onStateChange = () => {},
+    scraper = null
   }) {
     this.filePath = path.join(userDataPath, 'quota.json')
     this.partition = partition
     this.demoMode = demoMode
     this.loginHandler = loginHandler
     this.onStateChange = onStateChange
+    this.scraper = scraper
     this.refreshPromise = null
     this.data = {
       version: 2,
@@ -65,15 +66,16 @@ export class QuotaService {
       if (this.demoMode) {
         extracted = createDemoSnapshot()
       } else {
+        const scraper = this.scraper || (await loadDefaultScraper())
         try {
-          extracted = await scrapeQuota(this.partition)
+          extracted = await scraper(this.partition)
         } catch (error) {
           if (error?.code !== 'KIMI_LOGIN_REQUIRED' || !this.loginHandler) {
             throw error
           }
           await this.loginHandler()
           this.rebuildState('syncing')
-          extracted = await scrapeQuota(this.partition)
+          extracted = await scraper(this.partition)
         }
       }
       const snapshot = this.demoMode
@@ -137,6 +139,12 @@ export class QuotaService {
     await fs.rm(this.filePath, { force: true })
     await fs.rename(tempPath, this.filePath)
   }
+}
+
+// quota-worker 依赖 Electron 的 BrowserWindow, 惰性加载使 quota-service 可在纯 Node 下单元测试。
+async function loadDefaultScraper() {
+  const { scrapeQuota } = await import('./quota-worker.js')
+  return scrapeQuota
 }
 
 function createDemoData() {
