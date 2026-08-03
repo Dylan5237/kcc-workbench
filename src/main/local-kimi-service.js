@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, execFile } from 'node:child_process'
 import { createServer } from 'node:net'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
@@ -84,6 +84,13 @@ export class LocalKimiService {
     })
 
     await Promise.race([waitUntilReady(url), exitPromise])
+
+    // 就绪后校验端口监听者确为本子进程, 拒绝本机其他进程抢先绑定同一端口提供的伪造服务(RT-002)。
+    const ownership = await verifyPortOwnership(this.port, this.child)
+    if (ownership === 'other') {
+      throw new Error('Kimi Web 端口被其他进程抢先占用，疑似伪造服务，已拒绝接入')
+    }
+
     await this.writeLog(`Kimi Web is ready at ${url}\n`)
     return url
   }
@@ -147,6 +154,43 @@ function reserveLoopbackPort() {
       })
     })
   })
+}
+
+// 确认 127.0.0.1:{port} 的监听套接字归 child 所有。
+// 返回 'self' 端口归本子进程; 'other' 端口被其他进程监听且本子进程已退出(绑定失败, 判定伪造);
+// 'unknown' 无法判定(本子进程仍存活, 可能由 kimi 派生子进程监听, 放行避免误伤)。
+async function verifyPortOwnership(port, child, timeoutMs = 1500) {
+  const deadline = Date.now() + timeoutMs
+  while (true) {
+    const owner = await readPortOwner(port, child.pid)
+    if (owner === 'self') return 'self'
+    if (owner === 'other' && child.exitCode !== null) return 'other'
+    if (Date.now() >= deadline) return 'unknown'
+    await delay(250)
+  }
+}
+
+async function readPortOwner(port, expectedPid) {
+  try {
+    const stdout = await new Promise((resolve, reject) => {
+      execFile('netstat', ['-ano'], { windowsHide: true }, (error, output) => {
+        if (error) reject(error)
+        else resolve(String(output))
+      })
+    })
+    const prefix = `127.0.0.1:${port}`
+    for (const line of stdout.split(/\r?\n/)) {
+      if (!line.includes(prefix)) continue
+      const tokens = line.trim().split(/\s+/)
+      if (tokens.length < 5 || tokens[2] !== '0.0.0.0:0') continue  // 仅监听套接字, 忽略已建立连接
+      const pid = Number.parseInt(tokens[4], 10)
+      if (!Number.isInteger(pid)) continue
+      return pid === expectedPid ? 'self' : 'other'
+    }
+    return 'none'
+  } catch {
+    return 'unknown'
+  }
 }
 
 function delay(milliseconds) {
