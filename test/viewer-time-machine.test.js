@@ -81,6 +81,58 @@ test('rejects unsafe branch names', () => {
   assert.equal(validateBranchName('kimi-time/step-1'), 'kimi-time/step-1')
 })
 
+test('merges checkpoint changes into a deduplicated artifact list', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-time-artifacts-'))
+  const configDir = path.join(tempRoot, 'config')
+  t.after(() => fs.rm(tempRoot, { recursive: true, force: true }))
+
+  const machine = createTimeMachine({ configDir })
+  await machine.setContext({ id: 'kimi:merge', label: '测试任务', root: tempRoot })
+  machine.recordChange({
+    artifact: {
+      id: 'a1', path: 'doc.md', name: 'doc.md', ext: '.md', type: 'created',
+      timestamp: 1000, size: 2, stats: { added: 2, removed: 0 },
+      diff: [{ type: 'add', text: 'xx' }]
+    },
+    beforeContent: '',
+    afterContent: 'xx'
+  })
+  machine.recordChange({
+    artifact: {
+      id: 'a2', path: 'plan.md', name: 'plan.md', ext: '.md', type: 'created',
+      timestamp: 2000, size: 3, stats: { added: 3, removed: 0 }, diff: []
+    },
+    beforeContent: '',
+    afterContent: 'yyy'
+  })
+  machine.recordChange({
+    artifact: {
+      id: 'a3', path: 'doc.md', name: 'doc.md', ext: '.md', type: 'modified',
+      timestamp: 3000, size: 4, stats: { added: 2, removed: 2 }, diff: []
+    },
+    beforeContent: 'xx',
+    afterContent: 'xxxx'
+  })
+  await machine.flush()
+
+  const changes = machine.getArtifactChanges()
+  assert.equal(changes.length, 2)
+  const doc = changes.find(change => change.path === 'doc.md')
+  // 检查点合并按本轮起始内容推导类型: 从空创建 -> created; id/timestamp 取最新一次变更
+  assert.equal(doc.id, 'a3')
+  assert.equal(doc.type, 'created')
+  assert.equal(doc.timestamp, 3000)
+  assert.equal(Object.hasOwn(doc, 'afterContent'), false)
+  assert.equal(Object.hasOwn(doc, 'beforeContent'), false)
+
+  // 重启后从磁盘重建列表仍然可用
+  const reloaded = createTimeMachine({ configDir })
+  await reloaded.setContext({ id: 'kimi:merge', label: '测试任务', root: tempRoot })
+  assert.equal(reloaded.getArtifactChanges().length, 2)
+  await reloaded.close()
+  await machine.close()
+})
+
 test('rejects restore paths that traverse a directory link', async t => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-time-link-'))
   const target = path.join(tempRoot, 'target')

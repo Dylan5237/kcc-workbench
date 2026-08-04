@@ -162,6 +162,42 @@ test('tracks document changes inside the current artifact session', async t => {
   assert.ok(session.changes[0].stats.removed > 0)
 })
 
+test('rebuilds the current-round artifact list from persisted checkpoints', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-persist-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Before')
+
+  const first = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  await first.setConversationContext({ id: 'session:round-1', label: '测试会话', root: projectDir })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# After\n\nNew line')
+  await fs.writeFile(path.join(projectDir, 'plan.md'), '# Plan')
+  // 等待 artifact 防抖(350ms)落盘, 再由 close() 冲刷时间机 checkpoint
+  await new Promise(resolve => setTimeout(resolve, 900))
+  await first.close()
+
+  // 模拟应用重启: 用同一 configDir 重新拉起, 检查点从磁盘恢复
+  const second = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  t.after(async () => {
+    await second.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+  await second.setConversationContext({ id: 'session:round-1', label: '测试会话', root: projectDir })
+  const session = await viewerFetch(second, '/api/artifacts').then(response => response.json())
+  assert.equal(session.id, 'session:round-1')
+  assert.equal(session.changes.length, 2)
+  const paths = session.changes.map(change => change.path).sort()
+  assert.deepEqual(paths, ['README.md', 'plan.md'])
+  const readme = session.changes.find(change => change.path === 'README.md')
+  const plan = session.changes.find(change => change.path === 'plan.md')
+  assert.equal(readme.type, 'modified')
+  assert.equal(plan.type, 'created')
+  assert.ok(Object.hasOwn(readme, 'diff'))
+  assert.ok(readme.stats.added > 0)
+  assert.ok(Object.hasOwn(readme, 'afterContent') === false)
+})
+
 test('rejects unauthenticated API calls and forged hosts', async t => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-auth-'))
   const server = await startServer({ port: 0, configDir: path.join(tempRoot, 'config') })

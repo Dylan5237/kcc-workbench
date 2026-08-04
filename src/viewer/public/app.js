@@ -1283,6 +1283,9 @@
   connectEvents();
   setInterval(checkCurrentFileFreshness, 5000);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) checkCurrentFileFreshness();
+    if (document.hidden) return;
+    checkCurrentFileFreshness();
+    loadArtifacts();
+    loadTimeMachine();
   });
 })();

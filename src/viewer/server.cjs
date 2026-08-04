@@ -176,11 +176,17 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       root
     })
     artifactSnapshot = await snapshotDocuments(root)
-    await timeMachine.setContext({
+    const sessionState = await timeMachine.setContext({
       id: artifactSession.id,
       label: artifactSession.label,
       root
     })
+    // 用持久化检查点回填"本轮产物", 避免应用重启或上下文切换后数量归零;
+    // startedAt 对齐时间机器会话, 让界面显示本轮的原始起始时刻。
+    if (sessionState?.session?.startedAt) {
+      artifactSession.startedAt = sessionState.session.startedAt
+    }
+    artifactSession.changes = timeMachine.getArtifactChanges(MAX_ARTIFACTS)
     broadcast({ type: 'artifact-session', session: publicArtifactSession() })
     return true
   }

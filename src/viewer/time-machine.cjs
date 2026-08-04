@@ -5,6 +5,7 @@ const { createLineDiff } = require('./diff.cjs')
 
 const MAX_SESSIONS = 20
 const MAX_CHECKPOINTS = 40
+const MAX_ARTIFACTS = 100
 const MAX_PATCH_BYTES = 8 * 1024 * 1024
 const MAX_UNTRACKED_BYTES = 10 * 1024 * 1024
 const MAX_UNTRACKED_FILE_BYTES = 2 * 1024 * 1024
@@ -106,6 +107,23 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 3
     }
   }
 
+  // 将当前会话的持久化检查点合并为"本轮产物"列表: 每个路径取最新一次变更,
+  // 按时间倒序, 去掉回放所需的 before/after 内容。
+  function getArtifactChanges(limit = MAX_ARTIFACTS) {
+    if (!activeSession) return []
+    const byPath = new Map()
+    for (const checkpoint of activeSession.checkpoints) {
+      for (const change of checkpoint.changes) {
+        if (byPath.has(change.path)) continue
+        byPath.set(change.path, change)
+      }
+    }
+    return [...byPath.values()]
+      .sort((left, right) => right.timestamp - left.timestamp)
+      .slice(0, limit)
+      .map(({ beforeContent, afterContent, ...artifact }) => artifact)
+  }
+
   function getCheckpoint(checkpointId) {
     if (!activeSession) return null
     const checkpoint = activeSession.checkpoints.find(item => item.id === checkpointId)
@@ -178,6 +196,7 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 3
     recordChange,
     flush,
     getState,
+    getArtifactChanges,
     getCheckpoint,
     forkCheckpoint,
     close
