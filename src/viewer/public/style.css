@@ -445,6 +445,7 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
 .markdown-body img { max-width: 100%; }
 .markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
 .mermaid-diagram {
+  position: relative;
   width: 100%;
   margin: 20px 0;
   padding: 18px;
@@ -787,6 +788,37 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 .html-security { color: var(--text-dim); font-size: 12px; }
+.mermaid-copy-btn {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 14px;
+  color: var(--text);
+  background: #fff;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.mermaid-copy-btn:hover { background: #f4f4f4; border-color: #c7c7c7; }
+.mermaid-copy-float {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.mermaid-diagram:hover .mermaid-copy-float { opacity: 1; }
+.mermaid-source {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #1e1e2e;
+  color: #e4e4ef;
+  font: 13px/1.7 Consolas, "JetBrains Mono", monospace;
+  white-space: pre;
+  overflow-x: auto;
+}
 .html-body {
   width: 100%;
   max-width: 1280px;

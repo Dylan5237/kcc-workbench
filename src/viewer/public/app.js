@@ -752,6 +752,14 @@
       const source = code.textContent;
       const host = document.createElement('div');
       host.className = 'mermaid-diagram';
+      if (window.electronAPI?.copyPng) {
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'mermaid-copy-btn mermaid-copy-float';
+        copyButton.textContent = '复制图片';
+        copyButton.onclick = () => copyMermaidToClipboard(host);
+        host.appendChild(copyButton);
+      }
       code.parentElement.replaceWith(host);
       try {
         const id = `mermaid-diagram-${Date.now()}-${mermaidSequence += 1}`;
@@ -771,9 +779,41 @@
 
   function renderMermaidFile(source, target) {
     const container = target || viewerEl;
+    if (!target) {
+      const pathKey = currentPath || '';
+      const mode = mermaidModeByPath.get(pathKey) || 'diagram';
+      container.replaceChildren();
+      const toolbar = document.createElement('div');
+      toolbar.className = 'html-toolbar mermaid-toolbar';
+      toolbar.innerHTML = `
+        <div class="html-tabs">
+          <button data-mode="diagram" class="${mode === 'diagram' ? 'active' : ''}">图</button>
+          <button data-mode="source" class="${mode === 'source' ? 'active' : ''}">源文件</button>
+        </div>
+        ${window.electronAPI?.copyPng ? '<button type="button" class="mermaid-copy-btn" title="复制流程图到剪贴板">复制图片</button>' : ''}`;
+      toolbar.querySelectorAll('.html-tabs button').forEach(button => {
+        button.onclick = () => {
+          mermaidModeByPath.set(pathKey, button.dataset.mode);
+          renderMermaidFile(source);
+        };
+      });
+      toolbar.querySelector('.mermaid-copy-btn')?.addEventListener('click', () => {
+        const host = container.querySelector('.mermaid-diagram');
+        if (host) copyMermaidToClipboard(host);
+      });
+      container.appendChild(toolbar);
+      if (mode === 'source') {
+        const pre = document.createElement('pre');
+        pre.className = 'mermaid-source';
+        pre.textContent = source;
+        container.appendChild(pre);
+        return;
+      }
+    }
     const host = document.createElement('div');
     host.className = 'mermaid-diagram';
-    container.replaceChildren(host);
+    if (target) container.replaceChildren(host);
+    else container.appendChild(host);
     if (!window.mermaid) {
       host.classList.add('mermaid-error');
       host.innerHTML = '<strong>Mermaid 渲染器未加载</strong>';
@@ -792,6 +832,34 @@
           <span>${escapeHtml(error?.message || String(error))}</span>
           <pre><code>${escapeHtml(source)}</code></pre>`;
       });
+  }
+
+  const mermaidModeByPath = new Map();
+
+  async function copyMermaidToClipboard(diagramElement) {
+    const svg = diagramElement.querySelector('svg');
+    if (!svg || !window.electronAPI?.copyPng) return;
+    const viewBox = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+    const naturalWidth = viewBox.length === 4 && viewBox[2] > 0 ? viewBox[2] : svg.getBoundingClientRect().width;
+    const naturalHeight = viewBox.length === 4 && viewBox[3] > 0 ? viewBox[3] : svg.getBoundingClientRect().height;
+    const scale = Math.max(1, Math.min(3, 4096 / Math.max(naturalWidth, naturalHeight)));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(naturalHeight * scale));
+    const image = new Image();
+    image.decoding = 'async';
+    const source = new XMLSerializer().serializeToString(svg);
+    image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source);
+    await image.decode();
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('无法生成 PNG');
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    await window.electronAPI.copyPng(bytes);
+    toast('流程图已复制到剪贴板');
   }
 
   function sizeMermaidSvg(container) {

@@ -2,9 +2,11 @@ import {
   app,
   BaseWindow,
   BrowserWindow,
+  clipboard,
   dialog,
   WebContentsView,
   ipcMain,
+  nativeImage,
   net,
   protocol,
   screen,
@@ -552,6 +554,7 @@ function wireIpc() {
   ipcMain.removeHandler('viewer:set-root')
   ipcMain.removeHandler('viewer:fork-checkpoint')
   ipcMain.removeHandler('viewer:copy-files')
+  ipcMain.removeHandler('viewer:copy-png')
   ipcMain.removeHandler('settings:get-state')
   ipcMain.removeHandler('settings:save')
   ipcMain.removeHandler('settings:select-directory')
@@ -672,6 +675,14 @@ function wireIpc() {
       }
     }
     await copyPathsToWindowsClipboard(safePaths)
+    return true
+  })
+  ipcMain.handle('viewer:copy-png', async (event, pngBytes) => {
+    requireSender(event, viewerView.webContents)
+    if (!pngBytes || !(pngBytes instanceof Uint8Array) || pngBytes.length === 0 || pngBytes.length > 50 * 1024 * 1024) {
+      throw new Error('无效的图片数据')
+    }
+    clipboard.writeImage(nativeImage.createFromBuffer(Buffer.from(pngBytes)))
     return true
   })
   ipcMain.handle('viewer:trash-item', async (event, paths) => {
