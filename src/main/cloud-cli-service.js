@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { net } from 'electron'
 
@@ -41,19 +42,7 @@ export class CloudCliService {
 
   async startProcess() {
     this.port = await reserveLoopbackPort()
-    const cliEntry = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      '..',
-      '..',
-      'node_modules',
-      '@cloudcli-ai',
-      'cloudcli',
-      'dist-server',
-      'server',
-      'modules',
-      'cli',
-      'cli.js'
-    )
+    const cliEntry = resolveCloudCliEntry()
     const url = this.url
     const nodeExecutable = resolveNodeExecutable()
     await this.writeLog(`Using node: ${nodeExecutable}\n`)
@@ -103,6 +92,25 @@ export class CloudCliService {
       // 日志失败不阻塞主流程
     }
   }
+}
+
+function resolveCloudCliEntry() {
+  const relative = path.join(
+    'node_modules',
+    '@cloudcli-ai',
+    'cloudcli',
+    'dist-server',
+    'server',
+    'modules',
+    'cli',
+    'cli.js'
+  )
+  // 打包后 CloudCLI 在 app.asar.unpacked 下, 系统 Node 无法读取 asar, 必须用真实路径
+  if (process.resourcesPath) {
+    const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', relative)
+    if (existsSync(unpacked)) return unpacked
+  }
+  return path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', relative)
 }
 
 function resolveNodeExecutable() {

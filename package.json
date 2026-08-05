@@ -25,6 +25,12 @@
     "productName": "KCC Workbench",
     "npmRebuild": false,
     "asar": true,
+    "asarUnpack": [
+      "node_modules/@cloudcli-ai/**",
+      "node_modules/better-sqlite3/**",
+      "node_modules/elkjs/**",
+      "node_modules/@mermaid-js/**"
+    ],
     "directories": {
       "output": "dist"
     },
