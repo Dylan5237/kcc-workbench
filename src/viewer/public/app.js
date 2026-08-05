@@ -806,8 +806,9 @@
     const protectedSvg = svg.replace(
       /<foreignObject[\s\S]*?<\/foreignObject>/gi,
       (match) => {
+        const openingTag = match.match(/<foreignObject[^>]*>/i)?.[0] || '<foreignObject>';
         const inner = match
-          .replace(/^<foreignObject[^>]*>/i, '')
+          .replace(openingTag, '')
           .replace(/<\/foreignObject>$/i, '');
         foreignContents.push(window.DOMPurify.sanitize(inner, {
           USE_PROFILES: { html: true },
@@ -815,12 +816,16 @@
           FORBID_ATTR: ['srcdoc', 'formaction'],
           ALLOW_DATA_ATTR: false
         }));
-        return `<foreignObject data-foreign-index="${foreignContents.length - 1}"></foreignObject>`;
+        const preserved = openingTag.replace(
+          /<foreignObject/i,
+          `<foreignObject data-foreign-index="${foreignContents.length - 1}"`
+        );
+        return `${preserved}</foreignObject>`;
       }
     );
     const sanitizedSvg = window.DOMPurify.sanitize(protectedSvg, {
       ADD_TAGS: ['foreignObject'],
-      ADD_ATTR: ['xlink:href', 'data-foreign-index'],
+      ADD_ATTR: ['xlink:href', 'data-foreign-index', 'width', 'height'],
       FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
       ALLOW_DATA_ATTR: true
     });
