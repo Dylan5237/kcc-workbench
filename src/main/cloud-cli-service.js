@@ -55,7 +55,9 @@ export class CloudCliService {
       'cli.js'
     )
     const url = this.url
-    this.child = spawn(resolveNodeExecutable(), [cliEntry], {
+    const nodeExecutable = resolveNodeExecutable()
+    await this.writeLog(`Using node: ${nodeExecutable}\n`)
+    this.child = spawn(nodeExecutable, [cliEntry], {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
@@ -104,9 +106,11 @@ export class CloudCliService {
 }
 
 function resolveNodeExecutable() {
+  // CloudCLI 的原生依赖(如 better-sqlite3)按用户当前系统 Node ABI 编译,
+  // 必须用同一个 Node 运行; 用 Electron 内置 Node 会因 NODE_MODULE_VERSION 不匹配失败。
   if (process.env.CLOUDCLI_NODE_PATH) return process.env.CLOUDCLI_NODE_PATH
   if (process.env.npm_node_execpath) return process.env.npm_node_execpath
-  return process.env.NODE_EXECUTABLE_PATH || process.execPath
+  return process.env.NODE_EXECUTABLE_PATH || 'node'
 }
 
 async function isReady(url) {
