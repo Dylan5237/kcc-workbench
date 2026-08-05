@@ -56,6 +56,7 @@
       securityLevel: 'strict',
       theme: 'neutral',
       suppressErrorRendering: true,
+      useMaxWidth: false,
     });
   }
 
@@ -756,6 +757,7 @@
         const id = `mermaid-diagram-${Date.now()}-${mermaidSequence += 1}`;
         const { svg, bindFunctions } = await window.mermaid.render(id, source);
         host.innerHTML = sanitizeMermaidSvg(svg);
+        sizeMermaidSvg(host);
         bindFunctions?.(host);
       } catch (error) {
         host.classList.add('mermaid-error');
@@ -780,6 +782,7 @@
     window.mermaid.render(`mermaid-file-${Date.now()}-${mermaidSequence += 1}`, source)
       .then(({ svg, bindFunctions }) => {
         host.innerHTML = sanitizeMermaidSvg(svg);
+        sizeMermaidSvg(host);
         bindFunctions?.(host);
       })
       .catch(error => {
@@ -789,6 +792,16 @@
           <span>${escapeHtml(error?.message || String(error))}</span>
           <pre><code>${escapeHtml(source)}</code></pre>`;
       });
+  }
+
+  function sizeMermaidSvg(container) {
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+    const viewBox = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+    if (viewBox.length !== 4 || !viewBox[2] || !viewBox[3]) return;
+    svg.setAttribute('width', String(viewBox[2]));
+    svg.setAttribute('height', String(viewBox[3]));
+    svg.style.maxWidth = 'none';
   }
 
   function showMermaidError(code, message) {

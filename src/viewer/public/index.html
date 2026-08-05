@@ -13,10 +13,10 @@
     /* Mermaid 在 Electron 下对 table-cell 标签测量会坍缩, 强制块级布局让标签宽度参与 dagre 布局 */
     foreignObject div {
       display: block !important;
+      width: fit-content !important;
       min-width: 60px !important;
       white-space: nowrap !important;
       overflow: visible !important;
-      width: auto !important;
     }
     foreignObject span.nodeLabel,
     foreignObject span.edgeLabel {

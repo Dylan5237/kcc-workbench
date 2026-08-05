@@ -456,7 +456,6 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
 }
 .mermaid-diagram svg {
   display: block;
-  max-width: 100%;
   height: auto;
   margin: 0 auto;
 }
