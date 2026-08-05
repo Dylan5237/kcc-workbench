@@ -38,6 +38,11 @@
     </nav>
 
     <div class="titlebar-actions">
+      <select id="engineSelect" class="engine-select" title="Switch AI engine" aria-label="Switch AI engine">
+        <option value="kimi">Kimi Code</option>
+        <option value="claude">Claude Code</option>
+        <option value="codex">Codex</option>
+      </select>
       <button id="restartKimiBtn" class="restart-btn" type="button" title="重启 Kimi Web 服务" hidden>↻ 重启首页</button>
       <button id="quotaButton" class="quota-pill" type="button" aria-expanded="false">
         <span id="quotaStatusDot" class="status-dot status-insufficient"></span>

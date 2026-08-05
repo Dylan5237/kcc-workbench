@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('desktopShell', {
   goForward: () => ipcRenderer.invoke('nav:forward'),
   reload: () => ipcRenderer.invoke('nav:reload'),
   restartWeb: () => ipcRenderer.invoke('kimi:restart-web'),
+  switchEngine: engine => ipcRenderer.invoke('engine:switch', engine),
+  getEngine: () => ipcRenderer.invoke('engine:get-state'),
   onQuotaState: callback => {
     const handler = (_event, state) => callback(state)
     ipcRenderer.on('quota:state', handler)

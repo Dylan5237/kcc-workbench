@@ -21,6 +21,7 @@ import { QuotaService } from './quota-service.js'
 import { runQuotaFixtureSelfTest } from './quota-worker.js'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
 import { LocalKimiService } from './local-kimi-service.js'
+import { CloudCliService } from './cloud-cli-service.js'
 import { SettingsService } from './settings-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
@@ -62,7 +63,9 @@ let quotaVisible = false
 let quotaPreferredHeight = 620
 let quotaService = null
 let localKimiService = null
+let cloudCliService = null
 let settingsService = null
+let activeEngine = 'kimi'
 let viewerContextSync = null
 let loginWindow = null
 let loginPromise = null
@@ -73,6 +76,18 @@ const isTrustedKimiCodeUrl = createKimiCodeUrlGuard(() => ({
   kimiUrl: localKimiService?.url,
   demoMode
 }))
+
+function isTrustedCloudCliUrl(url) {
+  try {
+    const target = new URL(url)
+    const cloudUrl = cloudCliService?.url
+    if (!cloudUrl) return false
+    const allowed = new URL(cloudUrl)
+    return target.origin === allowed.origin
+  } catch {
+    return false
+  }
+}
 
 app.setName('KimiCode Workbench')
 const isDemoLaunch = process.argv.includes('--demo')
@@ -153,6 +168,9 @@ app.whenReady().then(async () => {
     homePath: app.getPath('home'),
     logPath: path.join(app.getPath('userData'), 'kimi-web.log'),
     getPermissionMode: async () => (await settingsService.getState()).config.default_permission_mode
+  })
+  cloudCliService = new CloudCliService({
+    logPath: path.join(app.getPath('userData'), 'cloudcli-web.log')
   })
   viewerServer = await startViewerServer({
     port: 0,
@@ -359,7 +377,7 @@ function createKimiView() {
   mainWindow.contentView.addChildView(kimiView)
 
   kimiView.webContents.setWindowOpenHandler(({ url }) => {
-    if (isTrustedKimiCodeUrl(url)) {
+    if (isTrustedKimiCodeUrl(url) || isTrustedCloudCliUrl(url)) {
       kimiView.webContents.loadURL(url)
     } else if (isSafeExternalUrl(url)) {
       shell.openExternal(url)
@@ -368,7 +386,7 @@ function createKimiView() {
   })
 
   kimiView.webContents.on('will-navigate', (event, url) => {
-    if (isTrustedKimiCodeUrl(url)) return
+    if (isTrustedKimiCodeUrl(url) || isTrustedCloudCliUrl(url)) return
     event.preventDefault()
     if (isSafeExternalUrl(url)) shell.openExternal(url)
   })
@@ -596,8 +614,24 @@ function wireIpc() {
   })
   ipcMain.handle('kimi:restart-web', async event => {
     requireSender(event, shellView.webContents)
-    localKimiService.stop()
+    if (activeEngine === 'kimi') localKimiService.stop()
+    else cloudCliService.stop()
     await connectLocalKimiView()
+  })
+  ipcMain.handle('engine:switch', async (event, nextEngine) => {
+    requireSender(event, shellView.webContents)
+    if (!['kimi', 'claude', 'codex'].includes(nextEngine) || nextEngine === activeEngine) {
+      return { engine: activeEngine }
+    }
+    if (activeEngine === 'kimi') localKimiService.stop()
+    else cloudCliService.stop()
+    activeEngine = nextEngine
+    await connectLocalKimiView()
+    return { engine: activeEngine }
+  })
+  ipcMain.handle('engine:get-state', event => {
+    requireSender(event, shellView.webContents)
+    return { engine: activeEngine }
   })
   ipcMain.handle('quota:get-state', event => {
     requireSender(event, quotaView.webContents)
@@ -877,7 +911,9 @@ async function connectLocalKimiView() {
   if (!kimiView || kimiView.webContents.isDestroyed()) return
   await kimiView.webContents.loadURL('app://shell/service-loading.html')
   try {
-    const url = await localKimiService.start()
+    const url = activeEngine === 'kimi'
+      ? await localKimiService.start()
+      : await cloudCliService.start()
     if (!kimiView || kimiView.webContents.isDestroyed()) return
     await kimiView.webContents.loadURL(url)
     viewerContextSync?.request(0)

@@ -107,6 +107,16 @@ body {
   margin-left: auto;
 }
 
+.engine-select {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text);
+  background: #fff;
+  cursor: pointer;
+}
+
 .restart-btn {
   -webkit-app-region: no-drag;
   display: flex;
