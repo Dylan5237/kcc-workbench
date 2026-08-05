@@ -6,7 +6,7 @@ const { createLineDiff } = require('./diff.cjs')
 const { createTimeMachine } = require('./time-machine.cjs')
 
 const PUBLIC_ROOT = path.join(__dirname, 'public')
-const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm'])
+const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm', '.mmd', '.mermaid'])
 const HTML_ASSET_EXTENSIONS = new Set([
   '.css', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico',
   '.woff', '.woff2', '.ttf', '.otf'

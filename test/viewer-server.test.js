@@ -44,6 +44,8 @@ test('starts empty and accepts a project directory injection', async t => {
   await fs.mkdir(projectDir, { recursive: true })
   await fs.writeFile(path.join(projectDir, 'README.md'), '# Hello')
   await fs.writeFile(path.join(projectDir, 'data.json'), '{"ok":true}')
+  await fs.writeFile(path.join(projectDir, 'diagram.mmd'), 'flowchart LR\nA --> B')
+  await fs.writeFile(path.join(projectDir, 'sequence.mermaid'), 'sequenceDiagram\nA->>B: ping')
   await fs.writeFile(
     path.join(projectDir, 'index.html'),
     '<html><head><link rel="stylesheet" href="style.css"></head><body><script>alert(1)</script>Hello</body></html>'
@@ -71,11 +73,15 @@ test('starts empty and accepts a project directory injection', async t => {
   assert.equal(tree.root, projectDir)
   assert.deepEqual(
     tree.tree.children.map(item => item.name).sort(),
-    ['README.md', 'data.json', 'index.html']
+    ['README.md', 'data.json', 'diagram.mmd', 'index.html', 'sequence.mermaid']
   )
 
   const markdown = await viewerFetch(server, '/api/file?p=README.md').then(response => response.json())
   assert.equal(markdown.content, '# Hello')
+  const mermaidFile = await viewerFetch(server, '/api/file?p=diagram.mmd').then(response => response.json())
+  assert.equal(mermaidFile.content, 'flowchart LR\nA --> B')
+  const mermaidAlt = await viewerFetch(server, '/api/file?p=sequence.mermaid').then(response => response.json())
+  assert.equal(mermaidAlt.content, 'sequenceDiagram\nA->>B: ping')
   const metadata = await viewerFetch(server, '/api/file-meta?p=README.md').then(response => response.json())
   assert.equal(metadata.path, 'README.md')
   assert.equal(metadata.size, Buffer.byteLength('# Hello'))

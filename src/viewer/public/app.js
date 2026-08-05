@@ -314,6 +314,13 @@
       await renderMermaidBlocks(markdownBody);
       return;
     }
+    if (change.ext === '.mmd' || change.ext === '.mermaid') {
+      const snapshotContainer = document.createElement('div');
+      snapshotContainer.className = 'snapshot-document';
+      body.appendChild(snapshotContainer);
+      renderMermaidFile(content, snapshotContainer);
+      return;
+    }
     if (change.ext === '.json') {
       try {
         body.innerHTML += `<div class="json-view snapshot-document">${highlightJson(JSON.stringify(JSON.parse(content), null, 2))}</div>`;
@@ -597,7 +604,9 @@
 
     const keepScroll = silent ? viewerEl.scrollTop : 0;
 
-    if (file.ext === '.md') {
+    if (file.ext === '.mmd' || file.ext === '.mermaid') {
+      renderMermaidFile(file.content);
+    } else if (file.ext === '.md') {
       const markdownBody = document.createElement('div');
       markdownBody.className = 'markdown-body';
       markdownBody.innerHTML = sanitizeMarkdown(marked.parse(file.content));
@@ -628,7 +637,7 @@
   function showEmpty() {
     clearLiveFileState();
     fileHeaderEl.classList.add('hidden');
-    viewerEl.innerHTML = `<div class="empty-hint"><p>← 从左侧选择一个 <code>.md</code>、<code>.json</code> 或 <code>.html</code> 文件</p><p class="sub">文件修改后会自动刷新</p></div>`;
+    viewerEl.innerHTML = `<div class="empty-hint"><p>← 从左侧选择一个 <code>.md</code>、<code>.json</code>、<code>.html</code> 或 <code>.mmd</code> 文件</p><p class="sub">文件修改后会自动刷新</p></div>`;
   }
 
   function showFileStatus(message, variant, autoHide) {
@@ -756,6 +765,30 @@
           <pre><code>${escapeHtml(source)}</code></pre>`;
       }
     }
+  }
+
+  function renderMermaidFile(source, target) {
+    const container = target || viewerEl;
+    const host = document.createElement('div');
+    host.className = 'mermaid-diagram';
+    container.replaceChildren(host);
+    if (!window.mermaid) {
+      host.classList.add('mermaid-error');
+      host.innerHTML = '<strong>Mermaid 渲染器未加载</strong>';
+      return;
+    }
+    window.mermaid.render(`mermaid-file-${Date.now()}-${mermaidSequence += 1}`, source)
+      .then(({ svg, bindFunctions }) => {
+        host.innerHTML = sanitizeMermaidSvg(svg);
+        bindFunctions?.(host);
+      })
+      .catch(error => {
+        host.classList.add('mermaid-error');
+        host.innerHTML = `
+          <strong>Mermaid 图表解析失败</strong>
+          <span>${escapeHtml(error?.message || String(error))}</span>
+          <pre><code>${escapeHtml(source)}</code></pre>`;
+      });
   }
 
   function showMermaidError(code, message) {
