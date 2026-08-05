@@ -51,13 +51,23 @@
 
   marked.setOptions({ breaks: true, gfm: true });
   if (window.mermaid) {
+    window.__layoutReady = import('/vendor/layout-elk.mjs')
+      .then(module => {
+        window.mermaid.registerLayoutLoaders(module.default || []);
+      })
+      .catch(error => {
+        console.warn('ELK layout engine failed to load:', error);
+      });
     window.mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
       theme: 'neutral',
       suppressErrorRendering: true,
       useMaxWidth: false,
+      layout: 'elk',
     });
+  } else {
+    window.__layoutReady = Promise.resolve();
   }
 
   // ---------- 文件树 ----------
@@ -762,6 +772,7 @@
       }
       code.parentElement.replaceWith(host);
       try {
+        await window.__layoutReady;
         const id = `mermaid-diagram-${Date.now()}-${mermaidSequence += 1}`;
         const { svg, bindFunctions } = await window.mermaid.render(id, source);
         host.innerHTML = sanitizeMermaidSvg(svg);
@@ -777,7 +788,7 @@
     }
   }
 
-  function renderMermaidFile(source, target) {
+  async function renderMermaidFile(source, target) {
     const container = target || viewerEl;
     if (!target) {
       const pathKey = currentPath || '';
@@ -819,19 +830,22 @@
       host.innerHTML = '<strong>Mermaid 渲染器未加载</strong>';
       return;
     }
-    window.mermaid.render(`mermaid-file-${Date.now()}-${mermaidSequence += 1}`, source)
-      .then(({ svg, bindFunctions }) => {
-        host.innerHTML = sanitizeMermaidSvg(svg);
-        sizeMermaidSvg(host);
-        bindFunctions?.(host);
-      })
-      .catch(error => {
-        host.classList.add('mermaid-error');
-        host.innerHTML = `
-          <strong>Mermaid 图表解析失败</strong>
-          <span>${escapeHtml(error?.message || String(error))}</span>
-          <pre><code>${escapeHtml(source)}</code></pre>`;
-      });
+    try {
+      await window.__layoutReady;
+      const { svg, bindFunctions } = await window.mermaid.render(
+        `mermaid-file-${Date.now()}-${mermaidSequence += 1}`,
+        source
+      );
+      host.innerHTML = sanitizeMermaidSvg(svg);
+      sizeMermaidSvg(host);
+      bindFunctions?.(host);
+    } catch (error) {
+      host.classList.add('mermaid-error');
+      host.innerHTML = `
+        <strong>Mermaid 图表解析失败</strong>
+        <span>${escapeHtml(error?.message || String(error))}</span>
+        <pre><code>${escapeHtml(source)}</code></pre>`;
+    }
   }
 
   const mermaidModeByPath = new Map();
