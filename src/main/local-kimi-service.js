@@ -3,14 +3,16 @@ import { createServer } from 'node:net'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { net } from 'electron'
+import { buildKimiWebArgs } from './local-kimi-args.js'
 
 const HOST = '127.0.0.1'
 const MAX_LOG_BYTES = 5 * 1024 * 1024
 
 export class LocalKimiService {
-  constructor({ homePath, logPath }) {
+  constructor({ homePath, logPath, getPermissionMode = async () => undefined }) {
     this.homePath = homePath
     this.logPath = logPath
+    this.getPermissionMode = getPermissionMode
     this.child = null
     this.ownsProcess = false
     this.startPromise = null
@@ -47,14 +49,10 @@ export class LocalKimiService {
       || path.join(this.homePath, '.local', 'bin', 'kimi.exe')
     this.port = await reserveLoopbackPort()
     const url = this.url
+    const args = buildKimiWebArgs(await this.getPermissionMode(), this.port)
 
-    await this.writeLog(`Starting ${executable} web on ${url}\n`)
-    this.child = spawn(executable, [
-      'web',
-      '--host', HOST,
-      '--port', String(this.port),
-      '--no-open'
-    ], {
+    await this.writeLog(`Starting ${executable} ${args.join(' ')} on ${url}\n`)
+    this.child = spawn(executable, args, {
       cwd: this.homePath,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],

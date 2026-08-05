@@ -24,6 +24,7 @@ import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
 import { createKimiCodeUrlGuard } from './url-trust.js'
 import { createGracefulShutdownHandler } from './graceful-shutdown.js'
+import { createBackgroundContextSync } from './viewer-context-sync.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -60,6 +61,7 @@ let quotaPreferredHeight = 620
 let quotaService = null
 let localKimiService = null
 let settingsService = null
+let viewerContextSync = null
 let loginWindow = null
 let loginPromise = null
 let demoMode = false
@@ -147,7 +149,8 @@ app.whenReady().then(async () => {
   await quotaService.initialize()
   localKimiService = new LocalKimiService({
     homePath: app.getPath('home'),
-    logPath: path.join(app.getPath('userData'), 'kimi-web.log')
+    logPath: path.join(app.getPath('userData'), 'kimi-web.log'),
+    getPermissionMode: async () => (await settingsService.getState()).config.default_permission_mode
   })
   viewerServer = await startViewerServer({
     port: 0,
@@ -264,8 +267,14 @@ async function createMainWindow() {
   createShellView()
   wireIpc()
   await shellView.webContents.loadURL('app://shell/shell.html')
+  viewerContextSync = createBackgroundContextSync({
+    sync: syncViewerConversationContext,
+    pollMs: 3000,
+    onError: error => console.warn('Unable to sync the current Kimi conversation:', error)
+  })
   createKimiView()
   createViewerView()
+  viewerContextSync.start()
   createSettingsView()
   createQuotaView()
 
@@ -298,6 +307,8 @@ async function createMainWindow() {
     saveWindowState().catch(() => {})
   })
   mainWindow.on('closed', () => {
+    viewerContextSync?.stop()
+    viewerContextSync = null
     quotaVisible = false
     if (loginWindow && !loginWindow.isDestroyed()) {
       loginWindow.close()
@@ -367,9 +378,17 @@ function createKimiView() {
     'did-stop-loading',
     'page-title-updated'
   ]) {
-    kimiView.webContents.on(eventName, sendNavigationState)
+    kimiView.webContents.on(eventName, () => {
+      sendNavigationState()
+      if (['did-navigate', 'did-navigate-in-page', 'did-stop-loading', 'page-title-updated'].includes(eventName)) {
+        viewerContextSync?.request()
+      }
+    })
   }
-  kimiView.webContents.on('focus', closeQuotaPopup)
+  kimiView.webContents.on('focus', () => {
+    closeQuotaPopup()
+    viewerContextSync?.request(0)
+  })
 
   if (demoMode) {
     kimiView.webContents.loadURL('app://shell/demo-kimi.html')
@@ -482,14 +501,7 @@ async function switchTab(nextTab) {
   activeTab = nextTab
 
   if (activeTab === 'viewer') {
-    const context = await detectKimiWorkspaceContext()
-    if (context?.projectDirectory) {
-      await viewerServer.setConversationContext({
-        id: context.sessionId ? `kimi:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
-        label: context.sessionId ? '当前 Kimi 对话' : '当前工作区',
-        root: context.projectDirectory
-      })
-    }
+    await syncViewerConversationContext()
   }
   if (activeTab === 'settings') {
     settingsService.setProjectDirectory(await detectKimiProjectDirectory())
@@ -702,7 +714,13 @@ function wireIpc() {
   })
   ipcMain.handle('settings:save', async (event, payload) => {
     requireSender(event, settingsView.webContents)
-    return settingsService.save(payload || {})
+    const previousMode = (await settingsService.getState()).config.default_permission_mode
+    const nextState = await settingsService.save(payload || {})
+    if (nextState.config.default_permission_mode !== previousMode) {
+      localKimiService.stop()
+      await connectLocalKimiView()
+    }
+    return nextState
   })
   ipcMain.handle('settings:select-directory', async event => {
     requireSender(event, settingsView.webContents)
@@ -741,6 +759,18 @@ function navigationState() {
 
 async function detectKimiProjectDirectory() {
   return (await detectKimiWorkspaceContext())?.projectDirectory || null
+}
+
+async function syncViewerConversationContext() {
+  if (!viewerServer) return false
+  const context = await detectKimiWorkspaceContext()
+  if (!context?.projectDirectory) return false
+  await viewerServer.setConversationContext({
+    id: context.sessionId ? `kimi:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
+    label: context.sessionId ? '当前 Kimi 对话' : '当前工作区',
+    root: context.projectDirectory
+  })
+  return true
 }
 
 async function detectKimiWorkspaceContext() {
@@ -839,6 +869,7 @@ async function connectLocalKimiView() {
     const url = await localKimiService.start()
     if (!kimiView || kimiView.webContents.isDestroyed()) return
     await kimiView.webContents.loadURL(url)
+    viewerContextSync?.request(0)
   } catch (error) {
     console.error(error)
     if (!kimiView || kimiView.webContents.isDestroyed()) return
