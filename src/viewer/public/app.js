@@ -56,7 +56,6 @@
       securityLevel: 'strict',
       theme: 'neutral',
       suppressErrorRendering: true,
-      flowchart: { htmlLabels: false },
     });
   }
 
@@ -770,12 +769,36 @@
 
   function sanitizeMermaidSvg(svg) {
     if (!window.DOMPurify) return '';
-    return window.DOMPurify.sanitize(svg, {
+    const foreignContents = [];
+    const protectedSvg = svg.replace(
+      /<foreignObject[\s\S]*?<\/foreignObject>/gi,
+      (match) => {
+        const inner = match
+          .replace(/^<foreignObject[^>]*>/i, '')
+          .replace(/<\/foreignObject>$/i, '');
+        foreignContents.push(window.DOMPurify.sanitize(inner, {
+          USE_PROFILES: { html: true },
+          FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'style', 'link', 'meta'],
+          FORBID_ATTR: ['srcdoc', 'formaction'],
+          ALLOW_DATA_ATTR: false
+        }));
+        return `<foreignObject data-foreign-index="${foreignContents.length - 1}"></foreignObject>`;
+      }
+    );
+    const sanitizedSvg = window.DOMPurify.sanitize(protectedSvg, {
       ADD_TAGS: ['foreignObject'],
-      ADD_ATTR: ['xlink:href'],
+      ADD_ATTR: ['xlink:href', 'data-foreign-index'],
       FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
-      ALLOW_DATA_ATTR: false
+      ALLOW_DATA_ATTR: true
     });
+    const container = document.createElement('div');
+    container.innerHTML = sanitizedSvg;
+    for (const node of container.querySelectorAll('foreignObject[data-foreign-index]')) {
+      const index = Number(node.getAttribute('data-foreign-index'));
+      node.innerHTML = foreignContents[index] || '';
+      node.removeAttribute('data-foreign-index');
+    }
+    return container.innerHTML;
   }
 
   // ---------- JSON 三视图:表格 / 树形 / 原文 ----------
