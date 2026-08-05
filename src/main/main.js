@@ -89,7 +89,7 @@ function isTrustedCloudCliUrl(url) {
   }
 }
 
-app.setName('KimiCode Workbench')
+app.setName('KCC Workbench')
 const isDemoLaunch = process.argv.includes('--demo')
 if (isDemoLaunch) {
   const demoProfile = (argumentValue('--demo-profile=') || 'default')
@@ -187,7 +187,7 @@ app.whenReady().then(async () => {
   } catch {
     // The dialog below is the final fallback when the diagnostic file cannot be written.
   }
-  dialog.showErrorBox('KimiCode Workbench 无法启动', detail)
+  dialog.showErrorBox('KCC Workbench 无法启动', detail)
   app.quit()
 })
 
@@ -275,7 +275,7 @@ async function createMainWindow() {
     show: false,
     backgroundColor: '#ffffff',
     icon: path.join(__dirname, '../renderer/assets/kimi-code-logo.png'),
-    title: 'KimiCode Workbench',
+    title: 'KCC Workbench',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#fafafa',

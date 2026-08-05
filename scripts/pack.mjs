@@ -99,7 +99,7 @@ async function cleanDist(dir) {
       const retryable = ['EBUSY', 'EPERM', 'ENOTEMPTY'].includes(error.code)
       if (!retryable || attempt >= 2) {
         throw retryable
-          ? new Error('dist/ 被占用, 请先关闭运行中的 KimiCode Workbench 后重试')
+          ? new Error('dist/ 被占用, 请先关闭运行中的 KCC Workbench 后重试')
           : error
       }
       console.log(`\n⚠  dist/ 被占用(${error.code}), 1s 后重试...`)

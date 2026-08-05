@@ -1,5 +1,5 @@
 {
-  "name": "kimi-code-workbench",
+  "name": "kcc-workbench",
   "version": "1.0.0-beta.2",
   "description": "Unofficial local desktop workbench for Kimi Code with quota forecasting, visual configuration, artifact diffs, file previews, and task time travel",
   "main": "src/main/main.js",
@@ -21,8 +21,9 @@
     "esbuild": "^0.25.0"
   },
   "build": {
-    "appId": "com.local.kimicodeworkbench",
-    "productName": "KimiCode Workbench",
+    "appId": "com.local.kccworkbench",
+    "productName": "KCC Workbench",
+    "npmRebuild": false,
     "asar": true,
     "directories": {
       "output": "dist"
@@ -42,7 +43,7 @@
           ]
         }
       ],
-      "artifactName": "KimiCode-Workbench-${version}-${arch}.${ext}"
+      "artifactName": "KCC-Workbench-${version}-${arch}.${ext}"
     }
   },
   "dependencies": {
