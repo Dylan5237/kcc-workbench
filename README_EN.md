@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/assets/kcc-workbench-logo.png" width="88" height="88" alt="KCC Workbench">
+  <img src="./docs/assets/kcc-workbench-logo-20260810.png" width="88" height="88" alt="KCC Workbench">
 
   <h1>KCC Workbench</h1>
 
