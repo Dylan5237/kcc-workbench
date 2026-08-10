@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src 'unsafe-inline'"
+    content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'"
   >
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CloudCLI 启动失败</title>
@@ -27,13 +27,26 @@
       background: #f2f2f2;
       border-radius: 4px;
     }
+    #error-summary {
+      margin-top: 18px;
+      padding: 10px 12px;
+      color: #a33a2b;
+      background: #fff4f1;
+      border: 1px solid #f3c8bf;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+    }
+    [hidden] { display: none; }
   </style>
 </head>
 <body>
   <main>
     <h1>CloudCLI 启动失败</h1>
-    <p>请确认本机使用 Node.js 22，并且 <code>node -p "process.versions.modules"</code> 返回 <code>127</code>，然后点击标题栏的刷新按钮重试。</p>
+    <p id="error-summary">CloudCLI 服务未能启动。</p>
+    <p id="node-hint" hidden>检测到 Node.js 运行时或原生模块 ABI 异常。请确认本机使用 Node.js 22，并且 <code>node -p "process.versions.modules"</code> 返回 <code>127</code>。</p>
+    <p>排除问题后，点击标题栏的刷新按钮重试。</p>
     <p>详细错误已写入应用数据目录的 <code>cloudcli-web.log</code>。</p>
   </main>
+  <script src="./service-error-cloudcli.js"></script>
 </body>
 </html>

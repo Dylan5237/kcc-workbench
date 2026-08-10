@@ -1144,7 +1144,10 @@ async function connectCloudCliView() {
   } catch (error) {
     console.error(error)
     if (!cloudCliView || cloudCliView.webContents.isDestroyed()) return
-    await cloudCliView.webContents.loadURL('app://shell/service-error-cloudcli.html')
+    const detail = error instanceof Error ? error.message : String(error)
+    const errorUrl = new URL('app://shell/service-error-cloudcli.html')
+    errorUrl.searchParams.set('detail', detail.slice(0, 1200))
+    await cloudCliView.webContents.loadURL(errorUrl.toString())
   }
 }
 

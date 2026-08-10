@@ -26,8 +26,7 @@
     "npmRebuild": false,
     "asar": true,
     "asarUnpack": [
-      "node_modules/@cloudcli-ai/**",
-      "node_modules/better-sqlite3/**"
+      "node_modules/**"
     ],
     "directories": {
       "output": "dist"
