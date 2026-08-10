@@ -1,12 +1,12 @@
 <div align="center">
-  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KCC Workbench">
+  <img src="./docs/assets/kcc-workbench-logo.png" width="88" height="88" alt="KCC Workbench">
 
   <h1>KCC Workbench</h1>
 
   <p><a href="./README.md">简体中文</a> · <strong>English</strong></p>
 
-  <p><strong>An unofficial local desktop workbench for Kimi Code, Claude Code, and Codex</strong></p>
-  <p>Keep Kimi Web and CloudCLI sessions alive while sharing one file, artifact, and time-machine Viewer.</p>
+  <p><strong>Seamlessly switch between Kimi Code, Claude Code, and Codex in one GUI</strong></p>
+  <p>Then turn generated files into readable, reviewable, and recoverable work with a human-friendly AI artifact Viewer.</p>
 
   <p>
     <a href="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
@@ -31,13 +31,23 @@
 > [!IMPORTANT]
 > KCC Workbench is an unofficial community project. It is not affiliated with, sponsored by, or endorsed by Moonshot AI, Anthropic, OpenAI, or the CloudCLI project. Related names and marks belong to their respective owners.
 
+## Two defining features
+
+> **01 · Kimi Code / Claude Code / Codex, seamless switching, one GUI**
+>
+> Kimi Web and CloudCLI run as separate persistent views. Use Kimi Code, Claude Code, and Codex in the same desktop window; click the top-left logo or press `Alt+Q` to switch entry points without reopening windows or reloading active sessions.
+
+> **02 · A human-friendly AI artifact Viewer**
+>
+> The Viewer follows the selected session's project directory and turns scattered AI-generated files into a live tree, rendered previews, source views, and line-by-line diffs. Markdown, Mermaid, JSON, HTML, image copy, current-round artifacts, and Time Machine all live in one interface—so people can understand, review, and recover the work.
+
 ## Why this workbench
 
 Kimi Code, Claude Code, and Codex each provide complete workflows, but their entry points, sessions, and artifacts are separate. KCC Workbench adds one local shell: Kimi uses the local Kimi Web service, while Claude Code and Codex run through the bundled CloudCLI package.
 
 | Use case | What the workbench provides |
 | --- | --- |
-| Switching among Kimi, Claude Code, and Codex | Keeps separate Kimi and CloudCLI views alive and switches visibility without reloading either page |
+| Switching among Kimi, Claude Code, and Codex | Gives all three coding agents one GUI while keeping Kimi and CloudCLI views alive without reloading either page |
 | Not knowing how long your Coding Plan quota will last | Synchronizes quota on demand and estimates depletion risk from local usage history |
 | Configuration files that are hard to discover and easy to mis-edit | Exposes common settings in a visual interface with explicit saves and backups |
 | Session-generated files scattered across a project | Combines a live file tree, friendly previews, line diffs, and native file copy |
@@ -47,11 +57,11 @@ Kimi Code, Claude Code, and Codex each provide complete workflows, but their ent
 
 | | Capability | Description |
 | --- | --- | --- |
-| **01** | **KCC dual-engine Home** | Keeps Kimi Web and CloudCLI (Claude Code / Codex) in separate persistent views; switch via the top-left logo or `Alt+Q` without reloading sessions. |
+| **01** | **Three coding agents, one GUI** | Use Kimi Code / Claude Code / Codex in one window; Kimi Web and CloudCLI stay alive independently, and the top-left logo or `Alt+Q` switches entry points without reloading sessions. |
 | **02** | **Coding Plan quota** | On the Kimi engine, synchronizes total quota, Kimi / Code shares, five-hour usage, seven-day usage, and reset times only when requested. |
 | **03** | **Quota Autopilot** | Stores local quota samples and estimates depletion risk from consumption velocity, turning a percentage into a clearer pacing signal. |
 | **04** | **Visual Kimi configuration** | On the Kimi engine, manages models, thinking, Agent behavior, permissions, MCP, Skills, Hooks (read-only in this release), workspaces, and system prompts; nothing is written until you save. |
-| **05** | **Shared Viewer** | Follows the selected Kimi or CloudCLI session directory, renders Markdown / Mermaid, JSON, and HTML, and supports filtering, source views, line diffs, and native Windows file copy. |
+| **05** | **Human-friendly AI artifact Viewer** | Follows the selected Kimi or CloudCLI session directory, renders Markdown / Mermaid, JSON, and HTML, and supports filtering, source/preview switching, line diffs, image copy, and native Windows file copy. |
 | **06** | **Task time machine** | Persists artifact checkpoints, replays historical content and diffs, and creates an isolated branch + worktree from a checkpoint in Git projects. |
 
 ### Two persistent engines, one shared Viewer

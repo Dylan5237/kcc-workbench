@@ -1,12 +1,12 @@
 <div align="center">
-  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KCC Workbench">
+  <img src="./docs/assets/kcc-workbench-logo.png" width="88" height="88" alt="KCC Workbench">
 
   <h1>KCC Workbench</h1>
 
   <p><strong>简体中文</strong> · <a href="./README_EN.md">English</a></p>
 
-  <p><strong>Kimi Code / Claude Code / Codex 的非官方本地桌面工作台</strong></p>
-  <p>在 Kimi Web 与 CloudCLI 之间保留会话切换，并共享文件查看器、会话产物与时间机器。</p>
+  <p><strong>一个 GUI，无缝切换 Kimi Code / Claude Code / Codex</strong></p>
+  <p>再用一个人类友好的 AI 产物 Viewer，把生成文件变成可阅读、可比较、可回溯的工作成果。</p>
 
   <p>
     <a href="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
@@ -31,13 +31,23 @@
 > [!IMPORTANT]
 > KCC Workbench 是非官方社区项目，与 Moonshot AI、Anthropic、OpenAI 或 CloudCLI 项目不存在隶属、合作或背书关系。相关名称与标识归各自权利人所有。
 
+## 两个核心特性
+
+> **01 · Kimi Code / Claude Code / Codex，无缝切换，同一个 GUI**
+>
+> Kimi Web 与 CloudCLI 作为独立常驻视图运行。在同一个桌面窗口里使用 Kimi Code、Claude Code 和 Codex；点击左上角 Logo 或按 `Alt+Q` 切换入口，不必反复打开窗口，也不会重载已经打开的会话。
+
+> **02 · 人类友好的 AI 产物 Viewer**
+>
+> Viewer 自动跟随当前会话的项目目录，把散落的 AI 生成文件组织成实时文件树、渲染预览、源码视图和逐行 Diff。Markdown、Mermaid、JSON、HTML、图片复制、本轮产物与时间机器集中在一个界面里，让人真正看得懂、审得动、找得回。
+
 ## 为什么需要它
 
 Kimi Code、Claude Code 和 Codex 各自具备完整工作流，但入口、会话和产物分散。KCC Workbench 不替代这些工具，而是在本地提供统一桌面壳：Kimi 使用本机 Kimi Web，Claude Code / Codex 由随包的 CloudCLI 承载。
 
 | 使用场景 | 工作台提供的体验 |
 | --- | --- |
-| 在 Kimi、Claude Code、Codex 之间切换 | Kimi 与 CloudCLI 使用独立常驻视图，切换不重载当前页面 |
+| 在 Kimi、Claude Code、Codex 之间切换 | 三套 Coding Agent 共用一个 GUI；Kimi 与 CloudCLI 独立常驻，切换不重载当前页面 |
 | 不清楚 Coding Plan 还能用多久 | 手动同步额度，结合历史消耗预测耗尽风险 |
 | 配置文件难查、难改、容易误操作 | 用可视化页面管理常用选项，保存前明确确认并备份 |
 | 会话生成的文件散落在项目中 | 实时聚合文件树、友好预览、逐行 Diff 与原生复制 |
@@ -47,11 +57,11 @@ Kimi Code、Claude Code 和 Codex 各自具备完整工作流，但入口、会�
 
 | | 能力 | 说明 |
 | --- | --- | --- |
-| **01** | **KCC 双引擎首页** | Kimi Web 与 CloudCLI（Claude Code / Codex）各自常驻；点击左上角 Logo 或按 `Alt+Q` 切换，不重新加载会话。 |
+| **01** | **三套 Coding Agent，一个 GUI** | 在同一个窗口使用 Kimi Code / Claude Code / Codex；Kimi Web 与 CloudCLI 各自常驻，点击左上角 Logo 或按 `Alt+Q` 切换入口，不重新加载会话。 |
 | **02** | **Coding Plan 额度** | Kimi 引擎下按需同步总额度、Kimi / Code 分项、5 小时与 7 天额度；不会在后台自动抓取。 |
 | **03** | **Quota Autopilot** | 在本地保存额度样本，根据消耗速度估算风险，让“剩余百分比”变成更直观的使用节奏提示。 |
 | **04** | **Kimi 可视化配置** | Kimi 引擎下管理模型、思考、Agent、权限、MCP、Skills、Hooks（本版仅只读）、工作区和系统提示词；仅在主动保存时写入。 |
-| **05** | **共享 Viewer** | 跟随当前 Kimi 或 CloudCLI 会话目录，渲染 Markdown / Mermaid、JSON 和 HTML，并支持筛选、源码视图、逐行 Diff 与 Windows 原生文件复制。 |
+| **05** | **人类友好的 AI 产物 Viewer** | 跟随当前 Kimi 或 CloudCLI 会话目录，渲染 Markdown / Mermaid、JSON 和 HTML，并支持筛选、源码/预览切换、逐行 Diff、图片复制与 Windows 原生文件复制。 |
 | **06** | **任务时间机器** | 持久化会话产物检查点，回看历史内容与 Diff；在 Git 项目中可从检查点创建隔离的 branch + worktree。 |
 
 ### 两个常驻引擎，共用一个 Viewer
