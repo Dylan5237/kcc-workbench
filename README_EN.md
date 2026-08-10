@@ -195,9 +195,10 @@ Build a portable release (one-click, recommended):
 
 ```powershell
 npm run pack          # one-click: test -> clean dist -> package -> report artifact path and size
+npm run pack -- fast  # fast: skip tests/portable compression -> dist-fast/win-unpacked
 ```
 
-You can also double-click `pack.bat` in the repo root; add `-- --no-test` to skip tests when repackaging. The underlying command `npm run dist` calls electron-builder directly without tests or cleanup.
+Run `pack.bat fast` from the repository root for day-to-day validation, then launch `dist-fast/win-unpacked/KCC Workbench.exe`; double-clicking `pack.bat` still performs the full portable build. Use `pack.bat --no-test` when only the test phase should be skipped. Fast mode still cleans its own `dist-fast/` directory, so it does not reuse stale output.
 
 Pushes and pull requests run tests and a Windows build in GitHub Actions. Tags matching `v*` trigger the portable release workflow.
 

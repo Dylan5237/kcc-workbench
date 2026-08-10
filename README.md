@@ -195,9 +195,10 @@ npm run build
 
 ```powershell
 npm run pack          # 一键：跑测试 -> 清理 dist -> 打包 -> 报告产物路径与大小
+npm run pack -- fast  # 快速：跳过测试/portable 压缩 -> dist-fast/win-unpacked
 ```
 
-也可直接双击仓库根目录的 `pack.bat`；仅需重新打包可加 `-- --no-test` 跳过测试。底层命令 `npm run dist` 直接调用 electron-builder，不跑测试也不清理。
+也可在仓库根目录运行 `pack.bat fast` 做日常快速验证，直接启动 `dist-fast/win-unpacked/KCC Workbench.exe`；双击 `pack.bat` 仍执行正式 portable 打包。完整打包仅需跳过测试时可用 `pack.bat --no-test`。快速模式仍会清理自己的 `dist-fast/`，不会复用陈旧产物。
 
 推送和 Pull Request 会在 GitHub Actions 的 Windows 环境中执行测试与构建；推送 `v*` 标签会触发便携版 Release 工作流。
 

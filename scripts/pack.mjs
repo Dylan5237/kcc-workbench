@@ -4,6 +4,7 @@
 // 打包阶段自绘进度条(进度% + 旋转符 + 计时 + 当前阶段), 避免 electron-builder 长时间无输出被判卡死。
 // 用法:
 //   npm run pack                  # 完整流程(测试+清理+打包)
+//   npm run pack -- fast          # 快速流程(跳过测试+清理dist-fast+生成unpacked目录)
 //   npm run pack -- --no-test     # 跳过测试
 //   npm run pack -- --no-clean    # 保留旧 dist/(增量打包)
 import { execSync, spawn } from 'node:child_process'
@@ -11,8 +12,21 @@ import { existsSync, rmSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 const flags = process.argv.slice(2)
-const skipTest = flags.includes('--no-test')
+const fastMode = flags.includes('fast') || flags.includes('--fast')
+const showHelp = flags.includes('--help') || flags.includes('-h')
+const skipTest = fastMode || flags.includes('--no-test')
 const skipClean = flags.includes('--no-clean')
+
+if (showHelp) {
+  console.log(`KCC Workbench pack
+
+Usage:
+  npm run pack                  Full portable build: test, clean dist, package
+  npm run pack -- fast          Fast unpacked build: clean dist-fast, skip tests
+  npm run pack -- --no-test     Full portable build without tests
+  npm run pack -- --no-clean    Keep the selected output directory before build`)
+  process.exit(0)
+}
 
 function run(command, label) {
   console.log(`\n▶ ${label}`)
@@ -110,20 +124,27 @@ async function cleanDist(dir) {
 
 async function main() {
   if (skipTest) {
-    console.log('\n⏭  跳过测试(--no-test)')
+    console.log(fastMode ? '\n⚡ 快速模式跳过测试' : '\n⏭  跳过测试(--no-test)')
   } else {
     run('npm test', '运行测试(失败则中止打包)')
   }
 
-  const distDir = path.resolve('dist')
+  const outputName = fastMode ? 'dist-fast' : 'dist'
+  const distDir = path.resolve(outputName)
   if (skipClean) {
-    console.log('\n⏭  跳过清理(--no-clean)')
+    console.log(`\n⏭  跳过清理 ${outputName}/ (--no-clean)`)
   } else if (existsSync(distDir)) {
-    console.log('\n▶ 清理旧产物 dist/')
+    console.log(`\n▶ 清理旧产物 ${outputName}/`)
     await cleanDist(distDir)
   }
 
-  await runWithProgress('npm run dist', '打包 portable exe(electron-builder --win x64)')
+  const buildCommand = fastMode
+    ? `npm run build -- --config.directories.output=${outputName}`
+    : 'npm run dist'
+  const buildLabel = fastMode
+    ? '快速生成 unpacked 应用(跳过 portable 压缩)'
+    : '打包 portable exe(electron-builder --win x64)'
+  await runWithProgress(buildCommand, buildLabel)
 
   function findExe(dir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -143,9 +164,9 @@ async function main() {
   const exe = existsSync(distDir) ? findExe(distDir) : null
   if (exe) {
     const mb = (statSync(exe).size / 1024 / 1024).toFixed(1)
-    console.log(`\n✓ 打包完成: ${path.relative(process.cwd(), exe)}  (${mb} MB)`)
+    console.log(`\n✓ ${fastMode ? '快速构建' : '打包'}完成: ${path.relative(process.cwd(), exe)}  (${mb} MB)`)
   } else {
-    console.log('\n✗ 未在 dist/ 找到产物 exe，请检查上方 electron-builder 输出')
+    console.log(`\n✗ 未在 ${outputName}/ 找到产物 exe，请检查上方 electron-builder 输出`)
     process.exit(1)
   }
 }
