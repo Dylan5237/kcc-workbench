@@ -20,6 +20,7 @@ import { promises as fs } from 'node:fs'
 import { QuotaService } from './quota-service.js'
 import { runQuotaFixtureSelfTest } from './quota-worker.js'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
+import { loadQuotaPage } from './quota-navigation.js'
 import { LocalKimiService } from './local-kimi-service.js'
 import { CloudCliService } from './cloud-cli-service.js'
 import {
@@ -42,7 +43,6 @@ const TITLEBAR_HEIGHT = 44
 const POPUP_WIDTH = 382
 const WINDOW_CONTROLS_WIDTH = 142
 const SESSION_PARTITION = 'persist:kimi'
-const QUOTA_URL = 'https://www.kimi.com/membership/subscription?tab=quota'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -1235,7 +1235,7 @@ function openKimiLoginWindow() {
       loginWindow.show()
       loginWindow.focus()
     })
-    loginWindow.loadURL(QUOTA_URL).catch(finish)
+    loadQuotaPage(loginWindow).catch(finish)
   })
 
   return loginPromise

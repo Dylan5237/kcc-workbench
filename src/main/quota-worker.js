@@ -1,7 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
-
-const QUOTA_URL = 'https://www.kimi.com/membership/subscription?tab=quota'
+import { loadQuotaPage } from './quota-navigation.js'
 
 export async function scrapeQuota(partition) {
   const worker = new BrowserWindow({
@@ -26,7 +25,7 @@ export async function scrapeQuota(partition) {
   worker.webContents.setUserAgent(sanitizedUserAgent)
 
   try {
-    await worker.loadURL(QUOTA_URL)
+    await loadQuotaPage(worker)
     const deadline = Date.now() + 40_000
     let lastResult = null
     while (Date.now() < deadline) {
