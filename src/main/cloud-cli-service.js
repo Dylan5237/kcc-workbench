@@ -28,6 +28,11 @@ export class CloudCliService {
     this.startPromise = this.startProcess()
     try {
       return await this.startPromise
+    } catch (error) {
+      const detail = error instanceof Error ? error.stack || error.message : String(error)
+      await this.writeLog(`CloudCLI start failed:\n${detail}\n`)
+      await this.stop()
+      throw error
     } finally {
       this.startPromise = null
     }
@@ -64,6 +69,7 @@ export class CloudCliService {
       }
     })
     let output = ''
+    let spawnError = null
     this.child.stdout.on('data', chunk => {
       output = `${output}${chunk}`.slice(-20000)
     })
@@ -71,11 +77,15 @@ export class CloudCliService {
       output = `${output}${chunk}`.slice(-20000)
     })
     this.child.on('error', error => {
+      spawnError = error
       output = `${output}\n${error.stack || error}`.slice(-20000)
     })
 
     const deadline = Date.now() + 45_000
     while (Date.now() < deadline) {
+      if (spawnError) {
+        throw new Error(`CloudCLI 进程无法启动: ${output}`)
+      }
       if (this.child.exitCode !== null) {
         throw new Error(`CloudCLI 服务提前退出: ${output}`)
       }
