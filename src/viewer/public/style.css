@@ -33,14 +33,10 @@ html, body {
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 650; white-space: nowrap; }
 .logo {
-  display: grid;
+  display: block;
   width: 28px;
   height: 28px;
-  place-items: center;
-  color: #fff;
-  background: #171717;
   border-radius: 8px;
-  font: 11px Consolas, monospace;
 }
 .root-bar {
   flex: 1;
