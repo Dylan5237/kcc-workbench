@@ -2,8 +2,12 @@ const quotaButton = document.querySelector('#quotaButton')
 const quotaPercent = document.querySelector('#quotaPercent')
 const quotaStatusDot = document.querySelector('#quotaStatusDot')
 const restartKimiBtn = document.querySelector('#restartKimiBtn')
-const engineSelect = document.querySelector('#engineSelect')
+const engineToggle = document.querySelector('#engineToggle')
+const brandEngine = document.querySelector('#brandEngine')
 const workspaceTabs = [...document.querySelectorAll('.workspace-tab')]
+const settingsTab = document.querySelector('[data-tab="settings"]')
+let activeTab = 'kimi'
+let activeEngine = 'kimi'
 
 quotaButton.addEventListener('click', () => window.desktopShell.toggleQuota())
 restartKimiBtn.addEventListener('click', async () => {
@@ -14,13 +18,13 @@ restartKimiBtn.addEventListener('click', async () => {
     restartKimiBtn.disabled = false
   }
 })
-engineSelect.addEventListener('change', async () => {
-  engineSelect.disabled = true
+engineToggle.addEventListener('click', async () => {
+  engineToggle.disabled = true
   try {
-    const result = await window.desktopShell.switchEngine(engineSelect.value)
-    engineSelect.value = result.engine
+    const result = await window.desktopShell.toggleEngine()
+    renderEngine(result.engine)
   } finally {
-    engineSelect.disabled = false
+    engineToggle.disabled = false
   }
 })
 for (const tab of workspaceTabs) {
@@ -28,26 +32,46 @@ for (const tab of workspaceTabs) {
 }
 
 window.desktopShell.onQuotaState(renderQuota)
-window.desktopShell.onTabChanged(state => renderActiveTab(state.activeTab))
+window.desktopShell.onTabChanged(state => {
+  renderActiveTab(state.activeTab)
+  if (state.activeEngine) renderEngine(state.activeEngine)
+})
+window.desktopShell.onEngineChanged(state => renderEngine(state.engine))
 window.desktopShell.onQuotaVisibility(visible => {
   quotaButton.setAttribute('aria-expanded', String(Boolean(visible)))
 })
 
 window.desktopShell.getState().then(state => {
   renderActiveTab(state.activeTab)
+  renderEngine(state.activeEngine)
   renderQuota(state.quota)
 })
-window.desktopShell.getEngine().then(state => {
-  engineSelect.value = state.engine
-})
 
-function renderActiveTab(activeTab) {
+function renderActiveTab(nextTab) {
+  activeTab = nextTab
   for (const tab of workspaceTabs) {
     const active = tab.dataset.tab === activeTab
     tab.classList.toggle('active', active)
     tab.setAttribute('aria-current', active ? 'page' : 'false')
   }
-  restartKimiBtn.hidden = activeTab !== 'kimi'
+  renderKimiOnlyActions()
+}
+
+function renderEngine(nextEngine) {
+  activeEngine = nextEngine === 'cloudcli' ? 'cloudcli' : 'kimi'
+  const isKimi = activeEngine === 'kimi'
+  brandEngine.textContent = isKimi ? 'Kimi' : 'CloudCLI'
+  engineToggle.title = isKimi ? '切换到 CloudCLI（Alt+Q）' : '切换到 Kimi Code（Alt+Q）'
+  engineToggle.setAttribute('aria-label', engineToggle.title)
+  renderKimiOnlyActions()
+}
+
+function renderKimiOnlyActions() {
+  const visible = activeTab === 'kimi' && activeEngine === 'kimi'
+  restartKimiBtn.hidden = !visible
+  quotaButton.hidden = !visible
+  settingsTab.hidden = activeEngine !== 'kimi'
+  if (!visible) quotaButton.setAttribute('aria-expanded', 'false')
 }
 
 function renderQuota(state) {

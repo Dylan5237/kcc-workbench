@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('desktopShell', {
   reload: () => ipcRenderer.invoke('nav:reload'),
   restartWeb: () => ipcRenderer.invoke('kimi:restart-web'),
   switchEngine: engine => ipcRenderer.invoke('engine:switch', engine),
+  toggleEngine: () => ipcRenderer.invoke('engine:toggle'),
   getEngine: () => ipcRenderer.invoke('engine:get-state'),
   onQuotaState: callback => {
     const handler = (_event, state) => callback(state)
@@ -29,5 +30,10 @@ contextBridge.exposeInMainWorld('desktopShell', {
     const handler = (_event, state) => callback(state)
     ipcRenderer.on('shell:tab-changed', handler)
     return () => ipcRenderer.removeListener('shell:tab-changed', handler)
+  },
+  onEngineChanged: callback => {
+    const handler = (_event, state) => callback(state)
+    ipcRenderer.on('engine:changed', handler)
+    return () => ipcRenderer.removeListener('engine:changed', handler)
   }
 })

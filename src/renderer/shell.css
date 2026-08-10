@@ -36,10 +36,27 @@ body {
 }
 
 .brand {
+  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 132px;
+  height: 36px;
+  padding: 0 8px 0 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+}
+
+.brand:hover {
+  background: #eceff3;
+}
+
+.brand:disabled {
+  opacity: 0.65;
 }
 
 .brand-mark {
@@ -107,14 +124,17 @@ body {
   margin-left: auto;
 }
 
-.engine-select {
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text);
-  background: #fff;
-  cursor: pointer;
+.brand-engine {
+  padding: 2px 6px;
+  color: #666;
+  font-size: 10px;
+  font-weight: 600;
+  background: #e8e8e8;
+  border-radius: 999px;
+}
+
+.kimi-only[hidden] {
+  display: none !important;
 }
 
 .restart-btn {

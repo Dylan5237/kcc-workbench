@@ -7,13 +7,14 @@ import { net } from 'electron'
 
 const HOST = '127.0.0.1'
 const READY_PATTERN = /CloudCLI Server - Ready|Server URL/i
+const DEFAULT_PORT = 42100
 
 export class CloudCliService {
-  constructor({ logPath, env = {} }) {
+  constructor({ logPath, env = {}, port = DEFAULT_PORT }) {
     this.logPath = logPath
     this.env = env
+    this.port = port
     this.child = null
-    this.port = null
     this.startPromise = null
   }
 
@@ -32,16 +33,20 @@ export class CloudCliService {
     }
   }
 
-  stop() {
+  async stop() {
     if (this.child && !this.child.killed) {
       this.child.kill()
     }
+    await new Promise(resolve => {
+      if (!this.child || this.child.exitCode !== null) return resolve()
+      this.child.once('exit', resolve)
+      setTimeout(resolve, 5000)
+    })
     this.child = null
-    this.port = null
   }
 
   async startProcess() {
-    this.port = await reserveLoopbackPort()
+    await this.ensureAvailablePort()
     const cliEntry = resolveCloudCliEntry()
     const url = this.url
     const nodeExecutable = resolveNodeExecutable()
@@ -83,6 +88,19 @@ export class CloudCliService {
     throw new Error(`等待 CloudCLI 就绪超时: ${output.slice(-2000)}`)
   }
 
+  async ensureAvailablePort() {
+    if (!this.port || await isPortAvailable(this.port)) return
+    for (let offset = 1; offset < 100; offset += 1) {
+      const candidate = DEFAULT_PORT + offset
+      if (await isPortAvailable(candidate)) {
+        this.port = candidate
+        await this.writeLog(`Port ${DEFAULT_PORT} busy, using ${candidate}\n`)
+        return
+      }
+    }
+    throw new Error('无法为 CloudCLI 分配可用端口')
+  }
+
   async writeLog(text) {
     try {
       const { promises: fs } = await import('node:fs')
@@ -119,6 +137,17 @@ function resolveNodeExecutable() {
   if (process.env.CLOUDCLI_NODE_PATH) return process.env.CLOUDCLI_NODE_PATH
   if (process.env.npm_node_execpath) return process.env.npm_node_execpath
   return process.env.NODE_EXECUTABLE_PATH || 'node'
+}
+
+async function isPortAvailable(port) {
+  return new Promise(resolve => {
+    const server = createServer()
+    server.unref()
+    server.once('error', () => resolve(false))
+    server.listen(port, HOST, () => {
+      server.close(() => resolve(true))
+    })
+  })
 }
 
 async function isReady(url) {

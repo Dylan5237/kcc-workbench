@@ -22,6 +22,11 @@ import { runQuotaFixtureSelfTest } from './quota-worker.js'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
 import { LocalKimiService } from './local-kimi-service.js'
 import { CloudCliService } from './cloud-cli-service.js'
+import {
+  detectCloudCliContext,
+  extractCloudCliSessionContext,
+  parseCloudCliSessionId
+} from './cloudcli-context.js'
 import { SettingsService } from './settings-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
@@ -54,6 +59,7 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow = null
 let shellView = null
 let kimiView = null
+let cloudCliView = null
 let viewerView = null
 let settingsView = null
 let quotaView = null
@@ -67,6 +73,8 @@ let cloudCliService = null
 let settingsService = null
 let activeEngine = 'kimi'
 let viewerContextSync = null
+let viewerContextLogPath = null
+let lastViewerContextLog = { signature: '', timestamp: 0 }
 let loginWindow = null
 let loginPromise = null
 let demoMode = false
@@ -145,6 +153,7 @@ app.whenReady().then(async () => {
   }
 
   demoMode = process.argv.includes('--demo')
+  viewerContextLogPath = path.join(app.getPath('userData'), 'viewer-context.log')
   const settingsSandboxed = demoMode || process.argv.includes('--settings-sandbox')
   const kimiCodeHome = settingsSandboxed
     ? path.join(app.getPath('userData'), 'kimi-code-settings-sandbox')
@@ -209,6 +218,7 @@ const handleBeforeQuit = createGracefulShutdownHandler({
   async shutdown() {
     quotaService?.dispose()
     localKimiService?.stop()
+    await cloudCliService?.stop()
     const server = viewerServer
     viewerServer = null
     await server?.close()
@@ -293,6 +303,7 @@ async function createMainWindow() {
     onError: error => console.warn('Unable to sync the current Kimi conversation:', error)
   })
   createKimiView()
+  createCloudCliView()
   createViewerView()
   viewerContextSync.start()
   createSettingsView()
@@ -333,7 +344,7 @@ async function createMainWindow() {
     if (loginWindow && !loginWindow.isDestroyed()) {
       loginWindow.close()
     }
-    for (const view of [shellView, kimiView, viewerView, settingsView, quotaView]) {
+    for (const view of [shellView, kimiView, cloudCliView, viewerView, settingsView, quotaView]) {
       if (view && !view.webContents.isDestroyed()) {
         view.webContents.close()
       }
@@ -341,6 +352,7 @@ async function createMainWindow() {
     shellView = null
     quotaView = null
     kimiView = null
+    cloudCliView = null
     viewerView = null
     settingsView = null
     mainWindow = null
@@ -360,6 +372,7 @@ function createShellView() {
     }
   })
   shellView.setBackgroundColor('#fafafa')
+  registerEngineShortcut(shellView)
   mainWindow.contentView.addChildView(shellView)
 }
 
@@ -374,10 +387,11 @@ function createKimiView() {
     }
   })
   kimiView.setBackgroundColor('#ffffff')
+  registerEngineShortcut(kimiView)
   mainWindow.contentView.addChildView(kimiView)
 
   kimiView.webContents.setWindowOpenHandler(({ url }) => {
-    if (isTrustedKimiCodeUrl(url) || isTrustedCloudCliUrl(url)) {
+    if (isTrustedKimiCodeUrl(url)) {
       kimiView.webContents.loadURL(url)
     } else if (isSafeExternalUrl(url)) {
       shell.openExternal(url)
@@ -386,7 +400,7 @@ function createKimiView() {
   })
 
   kimiView.webContents.on('will-navigate', (event, url) => {
-    if (isTrustedKimiCodeUrl(url) || isTrustedCloudCliUrl(url)) return
+    if (isTrustedKimiCodeUrl(url)) return
     event.preventDefault()
     if (isSafeExternalUrl(url)) shell.openExternal(url)
   })
@@ -417,6 +431,45 @@ function createKimiView() {
   }
 }
 
+function createCloudCliView() {
+  cloudCliView = new WebContentsView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false
+    }
+  })
+  cloudCliView.setBackgroundColor('#ffffff')
+  registerEngineShortcut(cloudCliView)
+
+  cloudCliView.webContents.setWindowOpenHandler(({ url }) => {
+    if (isTrustedCloudCliUrl(url)) {
+      cloudCliView.webContents.loadURL(url)
+    } else if (isSafeExternalUrl(url)) {
+      shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
+  cloudCliView.webContents.on('will-navigate', (event, url) => {
+    if (isTrustedCloudCliUrl(url)) return
+    event.preventDefault()
+    if (isSafeExternalUrl(url)) shell.openExternal(url)
+  })
+  for (const eventName of ['did-navigate', 'did-navigate-in-page', 'did-stop-loading']) {
+    cloudCliView.webContents.on(eventName, () => {
+      if (activeEngine === 'cloudcli') sendNavigationState()
+      viewerContextSync?.request()
+    })
+  }
+  cloudCliView.webContents.on('focus', () => {
+    closeQuotaPopup()
+    viewerContextSync?.request(0)
+  })
+  connectCloudCliView()
+}
+
 function createViewerView() {
   viewerView = new WebContentsView({
     webPreferences: {
@@ -428,6 +481,7 @@ function createViewerView() {
     }
   })
   viewerView.setBackgroundColor('#ffffff')
+  registerEngineShortcut(viewerView)
   viewerView.webContents.on('focus', closeQuotaPopup)
   viewerView.webContents.setWindowOpenHandler(({ url }) => {
     if (isSafeExternalUrl(url)) shell.openExternal(url)
@@ -454,6 +508,7 @@ function createSettingsView() {
     }
   })
   settingsView.setBackgroundColor('#f6f6f6')
+  registerEngineShortcut(settingsView)
   settingsView.webContents.on('focus', closeQuotaPopup)
   settingsView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   settingsView.webContents.on('will-navigate', event => event.preventDefault())
@@ -471,11 +526,12 @@ function createQuotaView() {
     }
   })
   quotaView.setBackgroundColor('#00000000')
+  registerEngineShortcut(quotaView)
   quotaView.webContents.loadURL('app://shell/quota.html')
 }
 
 function layoutViews() {
-  if (!mainWindow || !shellView || !kimiView || !viewerView || !settingsView) return
+  if (!mainWindow || !shellView || !kimiView || !cloudCliView || !viewerView || !settingsView) return
   const [width, height] = mainWindow.getContentSize()
   shellView.setBounds({
     x: 0,
@@ -490,6 +546,7 @@ function layoutViews() {
     height: Math.max(0, height - TITLEBAR_HEIGHT)
   }
   kimiView.setBounds(contentBounds)
+  cloudCliView.setBounds(contentBounds)
   viewerView.setBounds(contentBounds)
   settingsView.setBounds(contentBounds)
 
@@ -505,12 +562,13 @@ function layoutViews() {
 }
 
 async function switchTab(nextTab) {
-  if (!mainWindow || !shellView || !kimiView || !viewerView || !settingsView) return
+  if (!mainWindow || !shellView || !kimiView || !cloudCliView || !viewerView || !settingsView) return
   if (!['kimi', 'viewer', 'settings'].includes(nextTab) || nextTab === activeTab) return
+  if (nextTab === 'settings' && activeEngine !== 'kimi') return
   closeQuotaPopup()
 
   const views = {
-    kimi: kimiView,
+    kimi: activeEngineView(),
     viewer: viewerView,
     settings: settingsView
   }
@@ -531,7 +589,56 @@ async function switchTab(nextTab) {
   nextView.webContents.focus()
   shellView.webContents.send('shell:tab-changed', {
     activeTab,
+    activeEngine,
     viewerRoot: viewerServer.root
+  })
+}
+
+async function switchEngine(nextEngine) {
+  if (!['kimi', 'cloudcli'].includes(nextEngine) || nextEngine === activeEngine) {
+    return { engine: activeEngine }
+  }
+  const previousView = activeEngineView()
+  closeQuotaPopup()
+  activeEngine = nextEngine
+  const nextView = activeEngineView()
+  if (activeTab === 'settings' && activeEngine === 'cloudcli' && mainWindow) {
+    mainWindow.contentView.removeChildView(settingsView)
+    mainWindow.contentView.addChildView(nextView)
+    activeTab = 'kimi'
+    layoutViews()
+    nextView.webContents.focus()
+    shellView?.webContents.send('shell:tab-changed', {
+      activeTab,
+      activeEngine,
+      viewerRoot: viewerServer.root
+    })
+  } else if (activeTab === 'kimi' && mainWindow) {
+    mainWindow.contentView.removeChildView(previousView)
+    mainWindow.contentView.addChildView(nextView)
+    layoutViews()
+    nextView.webContents.focus()
+  }
+  sendNavigationState()
+  shellView?.webContents.send('engine:changed', { engine: activeEngine })
+  await syncViewerConversationContext()
+  return { engine: activeEngine }
+}
+
+function toggleEngine() {
+  return switchEngine(activeEngine === 'kimi' ? 'cloudcli' : 'kimi')
+}
+
+function activeEngineView() {
+  return activeEngine === 'cloudcli' ? cloudCliView : kimiView
+}
+
+function registerEngineShortcut(view) {
+  view.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.isAutoRepeat || !input.alt || input.control || input.meta) return
+    if (String(input.key).toLowerCase() !== 'q') return
+    event.preventDefault()
+    toggleEngine().catch(error => console.error('Unable to switch engine:', error))
   })
 }
 
@@ -564,6 +671,10 @@ function wireIpc() {
   ipcMain.removeHandler('nav:back')
   ipcMain.removeHandler('nav:forward')
   ipcMain.removeHandler('nav:reload')
+  ipcMain.removeHandler('kimi:restart-web')
+  ipcMain.removeHandler('engine:switch')
+  ipcMain.removeHandler('engine:toggle')
+  ipcMain.removeHandler('engine:get-state')
   ipcMain.removeHandler('quota:get-state')
   ipcMain.removeHandler('quota:refresh')
   ipcMain.removeHandler('quota:close')
@@ -583,6 +694,7 @@ function wireIpc() {
       quota: quotaService.getState(),
       navigation: navigationState(),
       activeTab,
+      activeEngine,
       viewerRoot: viewerServer.root
     }
   })
@@ -596,38 +708,36 @@ function wireIpc() {
   })
   ipcMain.handle('nav:back', event => {
     requireSender(event, shellView.webContents)
-    const history = kimiView.webContents.navigationHistory
+    const history = activeEngineView().webContents.navigationHistory
     if (history.canGoBack()) history.goBack()
   })
   ipcMain.handle('nav:forward', event => {
     requireSender(event, shellView.webContents)
-    const history = kimiView.webContents.navigationHistory
+    const history = activeEngineView().webContents.navigationHistory
     if (history.canGoForward()) history.goForward()
   })
   ipcMain.handle('nav:reload', event => {
     requireSender(event, shellView.webContents)
-    if (kimiView.webContents.getURL().startsWith('app://shell/service-')) {
-      connectLocalKimiView()
+    const engineView = activeEngineView()
+    if (engineView.webContents.getURL().startsWith('app://shell/service-')) {
+      if (activeEngine === 'kimi') connectLocalKimiView()
+      else connectCloudCliView()
     } else {
-      kimiView.webContents.reload()
+      engineView.webContents.reload()
     }
   })
   ipcMain.handle('kimi:restart-web', async event => {
     requireSender(event, shellView.webContents)
-    if (activeEngine === 'kimi') localKimiService.stop()
-    else cloudCliService.stop()
+    localKimiService.stop()
     await connectLocalKimiView()
   })
   ipcMain.handle('engine:switch', async (event, nextEngine) => {
     requireSender(event, shellView.webContents)
-    if (!['kimi', 'claude', 'codex'].includes(nextEngine) || nextEngine === activeEngine) {
-      return { engine: activeEngine }
-    }
-    if (activeEngine === 'kimi') localKimiService.stop()
-    else cloudCliService.stop()
-    activeEngine = nextEngine
-    await connectLocalKimiView()
-    return { engine: activeEngine }
+    return switchEngine(nextEngine)
+  })
+  ipcMain.handle('engine:toggle', async event => {
+    requireSender(event, shellView.webContents)
+    return toggleEngine()
   })
   ipcMain.handle('engine:get-state', event => {
     requireSender(event, shellView.webContents)
@@ -783,7 +893,8 @@ function sendNavigationState() {
 }
 
 function navigationState() {
-  if (!kimiView || kimiView.webContents.isDestroyed()) {
+  const engineView = activeEngineView()
+  if (!engineView || engineView.webContents.isDestroyed()) {
     return {
       canGoBack: false,
       canGoForward: false,
@@ -792,13 +903,13 @@ function navigationState() {
       url: ''
     }
   }
-  const history = kimiView.webContents.navigationHistory
+  const history = engineView.webContents.navigationHistory
   return {
     canGoBack: history.canGoBack(),
     canGoForward: history.canGoForward(),
-    isLoading: kimiView.webContents.isLoading(),
-    title: kimiView.webContents.getTitle() || 'Kimi',
-    url: kimiView.webContents.getURL()
+    isLoading: engineView.webContents.isLoading(),
+    title: engineView.webContents.getTitle() || (activeEngine === 'cloudcli' ? 'CloudCLI' : 'Kimi'),
+    url: engineView.webContents.getURL()
   }
 }
 
@@ -808,14 +919,114 @@ async function detectKimiProjectDirectory() {
 
 async function syncViewerConversationContext() {
   if (!viewerServer) return false
-  const context = await detectKimiWorkspaceContext()
-  if (!context?.projectDirectory) return false
+  const detection = activeEngine === 'cloudcli'
+    ? await detectCloudCliWorkspaceContext()
+    : { context: await detectKimiWorkspaceContext(), routeSessionId: null }
+  const context = detection.context
+  if (!context?.projectDirectory) {
+    await logViewerContext('context-miss', {
+      engine: activeEngine,
+      cloudCliUrl: activeEngine === 'cloudcli' ? cloudCliView?.webContents.getURL() : undefined,
+      routeSessionId: detection.routeSessionId,
+      apiStatus: detection.apiStatus,
+      apiError: detection.apiError,
+      fallback: detection.fallback
+    })
+    return false
+  }
+  const prefix = activeEngine === 'cloudcli' ? 'cloudcli' : 'kimi'
+  const label = activeEngine === 'cloudcli' ? '当前 CloudCLI 会话' : '当前 Kimi 对话'
+  const previousRoot = viewerServer.root
   await viewerServer.setConversationContext({
-    id: context.sessionId ? `kimi:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
-    label: context.sessionId ? '当前 Kimi 对话' : '当前工作区',
+    id: context.sessionId ? `${prefix}:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
+    label: context.sessionId ? label : '当前工作区',
     root: context.projectDirectory
   })
+  await logViewerContext('context-applied', {
+    engine: activeEngine,
+    source: context.source || (activeEngine === 'cloudcli' ? 'jsonl-activity' : 'kimi-api'),
+    provider: context.provider,
+    sessionId: context.sessionId,
+    routeSessionId: detection.routeSessionId,
+    apiStatus: detection.apiStatus,
+    apiError: detection.apiError,
+    fallback: detection.fallback,
+    projectDirectory: context.projectDirectory,
+    previousRoot,
+    viewerRoot: viewerServer.root
+  })
   return true
+}
+
+async function detectCloudCliWorkspaceContext() {
+  const cloudCliUrl = cloudCliView?.webContents.getURL() || ''
+  const routeSessionId = parseCloudCliSessionId(cloudCliUrl)
+  let apiStatus = null
+  let apiError = null
+
+  if (routeSessionId && cloudCliView && !cloudCliView.webContents.isDestroyed()) {
+    try {
+      const result = await cloudCliView.webContents.executeJavaScript(`
+        (async () => {
+          const sessionId = ${JSON.stringify(routeSessionId)}
+          const token = localStorage.getItem('auth-token')
+          const response = await fetch('/api/providers/sessions/' + encodeURIComponent(sessionId), {
+            headers: token ? { Authorization: 'Bearer ' + token } : {}
+          })
+          const text = await response.text()
+          let payload = null
+          try { payload = JSON.parse(text) } catch {}
+          return { ok: response.ok, status: response.status, payload }
+        })()
+      `, true)
+      apiStatus = result?.status ?? null
+      const routeContext = result?.ok
+        ? extractCloudCliSessionContext(result.payload, routeSessionId)
+        : null
+      const projectDirectory = await existingDirectory(routeContext?.projectDirectory)
+      if (routeContext && projectDirectory) {
+        return {
+          context: { ...routeContext, projectDirectory },
+          routeSessionId,
+          apiStatus,
+          fallback: false
+        }
+      }
+      if (result?.ok && routeContext && !projectDirectory) apiError = 'project-directory-missing'
+      else if (!result?.ok) apiError = 'session-api-request-failed'
+      else apiError = 'session-api-payload-missing-project'
+    } catch (error) {
+      apiError = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  const fallbackContext = await detectCloudCliContext()
+  return {
+    context: fallbackContext ? { ...fallbackContext, source: 'jsonl-activity' } : null,
+    routeSessionId,
+    apiStatus,
+    apiError,
+    fallback: true
+  }
+}
+
+async function logViewerContext(event, details) {
+  if (!viewerContextLogPath) return
+  const entry = {
+    timestamp: new Date().toISOString(),
+    event,
+    ...Object.fromEntries(Object.entries(details || {}).filter(([, value]) => value !== undefined))
+  }
+  const signature = JSON.stringify({ event, ...details })
+  const now = Date.now()
+  if (signature === lastViewerContextLog.signature && now - lastViewerContextLog.timestamp < 60_000) return
+  lastViewerContextLog = { signature, timestamp: now }
+  try {
+    await fs.mkdir(path.dirname(viewerContextLogPath), { recursive: true })
+    await fs.appendFile(viewerContextLogPath, `${JSON.stringify(entry)}\n`, 'utf8')
+  } catch (error) {
+    console.warn('Unable to write Viewer context log:', error)
+  }
 }
 
 async function detectKimiWorkspaceContext() {
@@ -911,9 +1122,7 @@ async function connectLocalKimiView() {
   if (!kimiView || kimiView.webContents.isDestroyed()) return
   await kimiView.webContents.loadURL('app://shell/service-loading.html')
   try {
-    const url = activeEngine === 'kimi'
-      ? await localKimiService.start()
-      : await cloudCliService.start()
+    const url = await localKimiService.start()
     if (!kimiView || kimiView.webContents.isDestroyed()) return
     await kimiView.webContents.loadURL(url)
     viewerContextSync?.request(0)
@@ -921,6 +1130,21 @@ async function connectLocalKimiView() {
     console.error(error)
     if (!kimiView || kimiView.webContents.isDestroyed()) return
     await kimiView.webContents.loadURL('app://shell/service-error.html')
+  }
+}
+
+async function connectCloudCliView() {
+  if (!cloudCliView || cloudCliView.webContents.isDestroyed()) return
+  await cloudCliView.webContents.loadURL('app://shell/service-loading.html')
+  try {
+    const url = await cloudCliService.start()
+    if (!cloudCliView || cloudCliView.webContents.isDestroyed()) return
+    await cloudCliView.webContents.loadURL(url)
+    viewerContextSync?.request(0)
+  } catch (error) {
+    console.error(error)
+    if (!cloudCliView || cloudCliView.webContents.isDestroyed()) return
+    await cloudCliView.webContents.loadURL('app://shell/service-error.html')
   }
 }
 
