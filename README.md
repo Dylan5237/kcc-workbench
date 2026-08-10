@@ -1,18 +1,18 @@
 <div align="center">
-  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KimiCode Workbench">
+  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KCC Workbench">
 
-  <h1>KimiCode Workbench</h1>
+  <h1>KCC Workbench</h1>
 
   <p><strong>简体中文</strong> · <a href="./README_EN.md">English</a></p>
 
-  <p><strong>Kimi Code 的非官方本地桌面工作台</strong></p>
-  <p>把 Kimi Web、Coding Plan 额度、可视化配置、会话产物与时间机器放进一个 Windows 应用。</p>
+  <p><strong>Kimi Code / Claude Code / Codex 的非官方本地桌面工作台</strong></p>
+  <p>在 Kimi Web 与 CloudCLI 之间保留会话切换，并共享文件查看器、会话产物与时间机器。</p>
 
   <p>
     <a href="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
     <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows" alt="Windows 10 / 11">
     <img src="https://img.shields.io/badge/status-Beta-F59E0B" alt="Beta">
-    <img src="https://img.shields.io/badge/license-UNLICENSED-lightgrey" alt="UNLICENSED">
+    <img src="https://img.shields.io/badge/license-MIT-2EA44F" alt="MIT License">
   </p>
 
   <p>
@@ -29,15 +29,15 @@
 </div>
 
 > [!IMPORTANT]
-> KimiCode Workbench 是非官方社区项目，与 Moonshot AI / Kimi 官方不存在隶属、合作或背书关系。Kimi、Kimi Code 及相关名称与标识归其权利人所有。
+> KCC Workbench 是非官方社区项目，与 Moonshot AI、Anthropic、OpenAI 或 CloudCLI 项目不存在隶属、合作或背书关系。相关名称与标识归各自权利人所有。
 
 ## 为什么需要它
 
-Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和会话产物分散在不同入口。KimiCode Workbench 不替代 Kimi Code，而是在本地为它补上一层统一的桌面工作区：
+Kimi Code、Claude Code 和 Codex 各自具备完整工作流，但入口、会话和产物分散。KCC Workbench 不替代这些工具，而是在本地提供统一桌面壳：Kimi 使用本机 Kimi Web，Claude Code / Codex 由随包的 CloudCLI 承载。
 
 | 使用场景 | 工作台提供的体验 |
 | --- | --- |
-| 在浏览器与终端之间切换 | 自动启动并嵌入本机 Kimi Web，保留原有会话体验 |
+| 在 Kimi、Claude Code、Codex 之间切换 | Kimi 与 CloudCLI 使用独立常驻视图，切换不重载当前页面 |
 | 不清楚 Coding Plan 还能用多久 | 手动同步额度，结合历史消耗预测耗尽风险 |
 | 配置文件难查、难改、容易误操作 | 用可视化页面管理常用选项，保存前明确确认并备份 |
 | 会话生成的文件散落在项目中 | 实时聚合文件树、友好预览、逐行 Diff 与原生复制 |
@@ -47,24 +47,24 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 
 | | 能力 | 说明 |
 | --- | --- | --- |
-| **01** | **Kimi Web 桌面工作区** | 自动启动或复用 `kimi web`，在固定首页中延续 Kimi Code 会话，可一键重启本地服务；同时提供文件查看器和系统设置。 |
-| **02** | **Coding Plan 额度** | 按需同步总额度、Kimi / Code 分项、5 小时与 7 天额度；不会在后台自动抓取。 |
+| **01** | **KCC 双引擎首页** | Kimi Web 与 CloudCLI（Claude Code / Codex）各自常驻；点击左上角 Logo 或按 `Alt+Q` 切换，不重新加载会话。 |
+| **02** | **Coding Plan 额度** | Kimi 引擎下按需同步总额度、Kimi / Code 分项、5 小时与 7 天额度；不会在后台自动抓取。 |
 | **03** | **Quota Autopilot** | 在本地保存额度样本，根据消耗速度估算风险，让“剩余百分比”变成更直观的使用节奏提示。 |
-| **04** | **可视化系统配置** | 管理模型（支持第三方模型）、思考、Agent、权限、MCP、Skills、Hooks（本版仅只读）、工作区和系统提示词；仅在主动保存时写入。 |
-| **05** | **产物与文件查看器** | 实时监听项目目录，渲染 Markdown / Mermaid、JSON 和 HTML，并支持筛选、源文件视图、逐行 Diff 与 Windows 原生文件复制。 |
+| **04** | **Kimi 可视化配置** | Kimi 引擎下管理模型、思考、Agent、权限、MCP、Skills、Hooks（本版仅只读）、工作区和系统提示词；仅在主动保存时写入。 |
+| **05** | **共享 Viewer** | 跟随当前 Kimi 或 CloudCLI 会话目录，渲染 Markdown / Mermaid、JSON 和 HTML，并支持筛选、源码视图、逐行 Diff 与 Windows 原生文件复制。 |
 | **06** | **任务时间机器** | 持久化会话产物检查点，回看历史内容与 Diff；在 Git 项目中可从检查点创建隔离的 branch + worktree。 |
 
-### 一个窗口，三种固定工作视图
+### 两个常驻引擎，共用一个 Viewer
 
 ```text
-首页（Kimi Web） ── 当前项目上下文 ──▶ 文件查看器 / 会话产物 / 时间机器
-       │
-       ├── 点击额度组件 ────────────▶ Coding Plan 手动同步与预测
-       │
-       └── 系统设置 ────────────────▶ Kimi Code 可视化配置
+Kimi Web ─────┐
+              ├── 当前会话目录 ──▶ 文件查看器 / 会话产物 / 时间机器
+CloudCLI ─────┘
+
+Kimi 专属：Coding Plan 额度 / 重启首页 / 系统设置
 ```
 
-首页加载失败或需要重启本地服务时，可点击首页工具栏的“重启 Kimi Web 服务”按钮。
+点击左上角 Logo 或按 `Alt+Q` 在 Kimi 与 CloudCLI 间切换。设置、重启首页和额度只在 Kimi 首页显示。
 
 ## 快速开始
 
@@ -73,23 +73,25 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 - Windows 10 / 11 x64
 - 已安装 Kimi Code CLI
 - 在 PowerShell 中运行 `kimi web` 可以正常打开本地 Web UI
+- 无需全局安装 CloudCLI；`@cloudcli-ai/cloudcli` 已作为应用依赖打包
+- **当前仍需本机提供兼容的 Node.js 22 runtime 才能启动 CloudCLI**；Node 缺失或 ABI 不匹配时 Kimi 仍可用，但 CloudCLI 会进入错误页
 - 使用额度同步时，可以访问 `https://www.kimi.com`
 
 ### 2. 下载并运行
 
-前往 [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases) 下载最新的 `KimiCode-Workbench-*-x64.exe`，双击即可运行。当前发布物为免安装便携版。
+前往 [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases) 下载对应版本的 Windows 便携包。KCC 版本的产物名为 `KCC-Workbench-*-x64.exe`。
 
 > [!TIP]
-> 首次进入后，先确认首页能够加载 Kimi Web。额度信息不会自动同步，需要点击标题栏右侧的“额度”，再点击“更新信息”。
+> 首次进入后先确认 Kimi 首页可用，再切到 CloudCLI 完成其账号设置或登录。额度信息不会自动同步，只在 Kimi 首页手动更新。
 
 ### 3. 开始使用
 
-1. 在“首页”创建或打开 Kimi Code 会话。
-2. 切换到“文件查看器”，工作台会优先使用当前会话对应的项目目录。
+1. 在首页打开 Kimi 会话，或切到 CloudCLI 打开 Claude Code / Codex 会话。
+2. 切换到“文件查看器”，工作台会优先使用当前引擎所选会话的项目目录。
 3. 在“本轮产物”中查看新增、修改、删除和逐行 Diff。
-4. 需要调整 Kimi Code 时进入“系统设置”；检查改动后再点击“保存设置”。
+4. 需要调整 Kimi Code 时切回 Kimi，再进入“系统设置”；检查改动后点击“保存设置”。
 
-如果无法识别当前项目，文件查看器会保留上次打开的目录；没有历史目录时保持为空，等待手动选择。
+Kimi 通过会话 API 解析工作目录；CloudCLI 优先使用 `/session/:id` 与其同源会话详情 API，JSONL 活动仅作回退。如果仍无法识别，Viewer 保留上次目录。诊断记录位于 `%APPDATA%\KCC Workbench\viewer-context.log`。
 
 ## 功能细节
 
@@ -106,6 +108,7 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 <details>
 <summary><strong>可视化配置</strong></summary>
 
+- 仅服务 Kimi Code；CloudCLI 激活时设置入口隐藏且主进程拒绝打开。
 - 常规、模型与思考、Agent 执行、权限与工具。
 - 模型编辑器：增删改 `[models."alias"]` 第三方模型（model / display_name / provider / api_key / base_url / max_context_size / capabilities），安全别名校验并保留未知配置。
 - MCP 服务、Skills、Hooks、工作区与高级诊断。
@@ -129,7 +132,7 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 <details>
 <summary><strong>任务时间机器</strong></summary>
 
-- 按 Kimi 会话持久化产物检查点。
+- 按当前 Kimi / CloudCLI 会话持久化产物检查点。
 - 回放 Markdown、JSON、HTML 的历史内容和文件级 Diff。
 - Git 项目保存受限大小的 patch 与未跟踪文件快照。
 - 从任意检查点创建隔离的 branch + worktree 继续开发。
@@ -142,6 +145,8 @@ Kimi Code 已经具备完整的终端与 Web 工作流，但额度、配置和�
 | 数据或操作 | 处理方式 |
 | --- | --- |
 | Kimi Web | 首页只连接本机 `127.0.0.1（随机端口）`，网络行为由本机 Kimi Code 服务负责 |
+| CloudCLI | 应用启动随包的本地 CloudCLI 服务；提供商请求、账号和认证由 CloudCLI 及其配置负责 |
+| Viewer 上下文日志 | 本地记录引擎、会话标识、项目绝对路径和 API/回退状态，不记录 Token 或 Cookie |
 | 额度登录状态 | 由 Electron Chromium 持久会话管理，不写入额度历史文件 |
 | 额度同步 | 仅在用户点击更新时访问 Kimi 额度页面 |
 | 配置修改 | 仅在点击保存后写入，覆盖前创建 `.bak` 备份 |
@@ -173,7 +178,7 @@ npm run demo -- --demo-profile=manual-test
 
 ```powershell
 npm run build
-& ".\dist\win-unpacked\KimiCode Workbench.exe"
+& ".\dist\win-unpacked\KCC Workbench.exe"
 ```
 
 构建便携发布包（推荐一键打包）：
@@ -210,6 +215,13 @@ npm run pack          # 一键：跑测试 -> 清理 dist -> 打包 -> 报告产
 </details>
 
 <details>
+<summary><strong>必须全局安装 CloudCLI 吗？</strong></summary>
+
+不需要，CloudCLI npm 依赖已随应用打包。但当前版本尚未内置 Node runtime，仍要求本机有兼容的 Node.js 22；这是发布前需要消除的已知限制。
+
+</details>
+
+<details>
 <summary><strong>时间机器会直接回滚项目吗？</strong></summary>
 
 不会。它提供历史回放；需要继续开发时，会在 Git 仓库中创建新的隔离 worktree，而不是覆盖当前目录。
@@ -218,7 +230,7 @@ npm run pack          # 一键：跑测试 -> 清理 dist -> 打包 -> 报告产
 
 ## 项目状态与参与
 
-项目目前处于 **Beta** 阶段，优先保证 Windows 上的本地单用户工作流。欢迎通过：
+项目目前处于 **Beta** 阶段，优先保证 Windows 上的本地单用户工作流。KCC 双引擎改造当前位于功能分支，合并并发布前仍需完成真实登录 CloudCLI 会话的 Viewer 路径验收与 Node runtime 打包。欢迎通过：
 
 - [GitHub Issues](https://github.com/Dylan5237/kimi-code-workbench/issues) 报告 Bug 或提出功能建议
 - [Pull Requests](https://github.com/Dylan5237/kimi-code-workbench/pulls) 提交聚焦、可验证的改进
@@ -226,10 +238,10 @@ npm run pack          # 一键：跑测试 -> 清理 dist -> 打包 -> 报告产
 
 ## 许可
 
-当前仓库标记为 `UNLICENSED`。代码公开可见不代表授予复制、修改、分发或商业使用许可；后续如切换到开源许可证，将通过独立版本说明。
+本项目自有代码采用 [MIT License](./LICENSE)。随包第三方组件（包括 CloudCLI）仍适用各自许可证；分发二进制时必须同时满足这些许可证要求。
 
 ---
 
 <div align="center">
-  <sub>Built for a focused Kimi Code workflow on Windows.</sub>
+  <sub>Kimi Code · Claude Code · Codex, in one local Windows workbench.</sub>
 </div>

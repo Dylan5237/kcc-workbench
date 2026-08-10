@@ -1,18 +1,18 @@
 <div align="center">
-  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KimiCode Workbench">
+  <img src="./docs/assets/app-icon.png" width="88" height="88" alt="KCC Workbench">
 
-  <h1>KimiCode Workbench</h1>
+  <h1>KCC Workbench</h1>
 
   <p><a href="./README.md">简体中文</a> · <strong>English</strong></p>
 
-  <p><strong>An unofficial local desktop workbench for Kimi Code</strong></p>
-  <p>Bring Kimi Web, Coding Plan quota tracking, visual configuration, session artifacts, and time travel into one Windows app.</p>
+  <p><strong>An unofficial local desktop workbench for Kimi Code, Claude Code, and Codex</strong></p>
+  <p>Keep Kimi Web and CloudCLI sessions alive while sharing one file, artifact, and time-machine Viewer.</p>
 
   <p>
     <a href="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
     <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows" alt="Windows 10 / 11">
     <img src="https://img.shields.io/badge/status-Beta-F59E0B" alt="Beta">
-    <img src="https://img.shields.io/badge/license-UNLICENSED-lightgrey" alt="UNLICENSED">
+    <img src="https://img.shields.io/badge/license-MIT-2EA44F" alt="MIT License">
   </p>
 
   <p>
@@ -29,15 +29,15 @@
 </div>
 
 > [!IMPORTANT]
-> KimiCode Workbench is an unofficial community project. It is not affiliated with, sponsored by, or endorsed by Moonshot AI or Kimi. Kimi, Kimi Code, and related names and marks belong to their respective owners.
+> KCC Workbench is an unofficial community project. It is not affiliated with, sponsored by, or endorsed by Moonshot AI, Anthropic, OpenAI, or the CloudCLI project. Related names and marks belong to their respective owners.
 
 ## Why this workbench
 
-Kimi Code already provides a complete terminal and web workflow, but quota information, configuration, and session artifacts live in separate places. KimiCode Workbench does not replace Kimi Code. It adds a unified local desktop layer around it:
+Kimi Code, Claude Code, and Codex each provide complete workflows, but their entry points, sessions, and artifacts are separate. KCC Workbench adds one local shell: Kimi uses the local Kimi Web service, while Claude Code and Codex run through the bundled CloudCLI package.
 
 | Use case | What the workbench provides |
 | --- | --- |
-| Switching between the browser and terminal | Starts and embeds the local Kimi Web UI while preserving the original session experience |
+| Switching among Kimi, Claude Code, and Codex | Keeps separate Kimi and CloudCLI views alive and switches visibility without reloading either page |
 | Not knowing how long your Coding Plan quota will last | Synchronizes quota on demand and estimates depletion risk from local usage history |
 | Configuration files that are hard to discover and easy to mis-edit | Exposes common settings in a visual interface with explicit saves and backups |
 | Session-generated files scattered across a project | Combines a live file tree, friendly previews, line diffs, and native file copy |
@@ -47,24 +47,24 @@ Kimi Code already provides a complete terminal and web workflow, but quota infor
 
 | | Capability | Description |
 | --- | --- | --- |
-| **01** | **Kimi Web desktop workspace** | Starts or reuses `kimi web` inside a persistent Home tab, with a one-click restart of the local service, plus a file viewer and visual settings. |
-| **02** | **Coding Plan quota** | Synchronizes total quota, Kimi / Code shares, five-hour usage, seven-day usage, and reset times only when requested. |
+| **01** | **KCC dual-engine Home** | Keeps Kimi Web and CloudCLI (Claude Code / Codex) in separate persistent views; switch via the top-left logo or `Alt+Q` without reloading sessions. |
+| **02** | **Coding Plan quota** | On the Kimi engine, synchronizes total quota, Kimi / Code shares, five-hour usage, seven-day usage, and reset times only when requested. |
 | **03** | **Quota Autopilot** | Stores local quota samples and estimates depletion risk from consumption velocity, turning a percentage into a clearer pacing signal. |
-| **04** | **Visual system configuration** | Manages models (including third-party models), thinking, Agent behavior, permissions, MCP, Skills, Hooks (read-only in this release), workspaces, and system prompts; nothing is written until you save. |
-| **05** | **Artifact and file viewer** | Watches the project directory, renders Markdown / Mermaid, JSON, and HTML, and supports filtering, source views, line diffs, and native Windows file copy. |
+| **04** | **Visual Kimi configuration** | On the Kimi engine, manages models, thinking, Agent behavior, permissions, MCP, Skills, Hooks (read-only in this release), workspaces, and system prompts; nothing is written until you save. |
+| **05** | **Shared Viewer** | Follows the selected Kimi or CloudCLI session directory, renders Markdown / Mermaid, JSON, and HTML, and supports filtering, source views, line diffs, and native Windows file copy. |
 | **06** | **Task time machine** | Persists artifact checkpoints, replays historical content and diffs, and creates an isolated branch + worktree from a checkpoint in Git projects. |
 
-### One window, three fixed work views
+### Two persistent engines, one shared Viewer
 
 ```text
-Home (Kimi Web) ── current project context ──▶ File Viewer / Artifacts / Time Machine
-       │
-       ├── open quota widget ────────────────▶ Manual Coding Plan sync and forecast
-       │
-       └── System Settings ──────────────────▶ Visual Kimi Code configuration
+Kimi Web ─────┐
+              ├── selected session root ──▶ File Viewer / Artifacts / Time Machine
+CloudCLI ─────┘
+
+Kimi-only: Coding Plan quota / Restart Home / System Settings
 ```
 
-When the Home tab fails to load or you need to restart the local service, click “Restart Kimi Web Service” in the Home toolbar.
+Click the top-left logo or press `Alt+Q` to switch engines. Settings, Restart Home, and Quota appear only on Kimi Home.
 
 ## Quick start
 
@@ -73,23 +73,25 @@ When the Home tab fails to load or you need to restart the local service, click 
 - Windows 10 / 11 x64
 - Kimi Code CLI installed
 - `kimi web` can start the local Web UI from PowerShell
+- No global CloudCLI installation is required; `@cloudcli-ai/cloudcli` is packaged with the app
+- **CloudCLI currently still requires a compatible system Node.js 22 runtime**; when Node is missing or ABI-incompatible, Kimi remains usable but CloudCLI shows an error page
 - Access to `https://www.kimi.com` when synchronizing quota
 
 ### 2. Download and run
 
-Download the latest `KimiCode-Workbench-*-x64.exe` from [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases), then run it directly. Current releases are portable and require no installation.
+Download the Windows portable asset for the desired version from [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases). KCC builds use the name `KCC-Workbench-*-x64.exe`.
 
 > [!TIP]
-> On first launch, make sure the Home tab can load Kimi Web. Quota is never synchronized automatically: open the “Quota” widget in the title bar and click “Update”.
+> On first launch, verify Kimi Home, then switch to CloudCLI and complete its account setup or sign-in. Quota is never synchronized automatically and is available only on Kimi Home.
 
 ### 3. Start working
 
-1. Create or open a Kimi Code session from Home.
-2. Switch to File Viewer. The workbench will prefer the project directory associated with the current conversation.
+1. Open a Kimi session from Home, or switch to CloudCLI and open a Claude Code / Codex session.
+2. Switch to File Viewer. The workbench prefers the selected session directory for the active engine.
 3. Open Current Artifacts to inspect created, modified, and deleted files with line diffs.
-4. Open System Settings when you need to adjust Kimi Code, review the changes, and explicitly save them.
+4. Switch back to Kimi before opening System Settings; review changes and explicitly save them.
 
-If the current project cannot be detected, File Viewer keeps the last opened directory. It remains empty when no previous directory exists, allowing you to select one manually.
+Kimi resolves its workspace through the Kimi session API. CloudCLI prefers `/session/:id` plus its authenticated same-origin session-details API; JSONL activity is fallback only. If detection still fails, Viewer keeps the last root. Diagnostics are written to `%APPDATA%\KCC Workbench\viewer-context.log`.
 
 ## Feature details
 
@@ -106,6 +108,7 @@ If the current project cannot be detected, File Viewer keeps the last opened dir
 <details>
 <summary><strong>Visual configuration</strong></summary>
 
+- This feature is Kimi-only. When CloudCLI is active, the Settings entry is hidden and the main process rejects direct navigation.
 - General settings, models and thinking, Agent execution, permissions, and tools.
 - Model editor: add, modify, or remove third-party `[models."alias"]` entries (model / display_name / provider / api_key / base_url / max_context_size / capabilities) with safe alias validation and preservation of unknown configuration.
 - MCP services, Skills, Hooks, workspaces, and advanced diagnostics.
@@ -129,7 +132,7 @@ If the current project cannot be detected, File Viewer keeps the last opened dir
 <details>
 <summary><strong>Task time machine</strong></summary>
 
-- Persists artifact checkpoints per Kimi conversation.
+- Persists artifact checkpoints per active Kimi or CloudCLI conversation.
 - Replays historical Markdown, JSON, and HTML content with file-level diffs.
 - Stores size-limited patches and untracked-file snapshots for Git projects.
 - Creates an isolated branch + worktree from any checkpoint for continued development.
@@ -142,6 +145,8 @@ If the current project cannot be detected, File Viewer keeps the last opened dir
 | Data or operation | How it is handled |
 | --- | --- |
 | Kimi Web | Home connects only to local `127.0.0.1 (random port)`; network behavior is owned by the local Kimi Code service |
+| CloudCLI | Starts the bundled local CloudCLI service; provider requests, accounts, and authentication are governed by CloudCLI and its configuration |
+| Viewer context log | Locally records engine, session identifier, absolute project path, and API/fallback status; it does not record tokens or cookies |
 | Quota login state | Managed by a persistent Electron Chromium session and never written to quota history |
 | Quota synchronization | Visits the Kimi quota page only after a user-initiated update |
 | Configuration changes | Written only after an explicit save, with a `.bak` backup created first |
@@ -173,7 +178,7 @@ Build an unpacked Windows app:
 
 ```powershell
 npm run build
-& ".\dist\win-unpacked\KimiCode Workbench.exe"
+& ".\dist\win-unpacked\KCC Workbench.exe"
 ```
 
 Build a portable release (one-click, recommended):
@@ -210,6 +215,13 @@ No. Browsing and editing a draft do not write any file. Changes are written only
 </details>
 
 <details>
+<summary><strong>Do I need to install CloudCLI globally?</strong></summary>
+
+No. The CloudCLI npm dependency is packaged with the app. The current release does not yet bundle a Node runtime, so a compatible Node.js 22 installation is still required; this is a known release limitation.
+
+</details>
+
+<details>
 <summary><strong>Does Time Machine roll back my project in place?</strong></summary>
 
 No. It provides historical playback. When you continue from a checkpoint in a Git repository, it creates an isolated worktree instead of overwriting the current directory.
@@ -218,7 +230,7 @@ No. It provides historical playback. When you continue from a checkpoint in a Gi
 
 ## Project status and participation
 
-The project is currently in **Beta** and prioritizes local, single-user workflows on Windows. You can participate through:
+The project is currently in **Beta** and prioritizes local, single-user workflows on Windows. The KCC dual-engine work is on a feature branch; before merge and release it still needs a real signed-in CloudCLI Viewer-path acceptance and a bundled Node runtime. You can participate through:
 
 - [GitHub Issues](https://github.com/Dylan5237/kimi-code-workbench/issues) for bug reports and feature requests
 - [Pull Requests](https://github.com/Dylan5237/kimi-code-workbench/pulls) for focused, verifiable improvements
@@ -226,10 +238,10 @@ The project is currently in **Beta** and prioritizes local, single-user workflow
 
 ## License
 
-This repository is currently marked `UNLICENSED`. Public source visibility does not grant permission to copy, modify, distribute, or use the code commercially. Any future transition to an open-source license will be announced in a dedicated release.
+The project's own code is licensed under the [MIT License](./LICENSE). Bundled third-party components, including CloudCLI, remain subject to their own licenses; binary distribution must comply with those terms as well.
 
 ---
 
 <div align="center">
-  <sub>Built for a focused Kimi Code workflow on Windows.</sub>
+  <sub>Kimi Code · Claude Code · Codex, in one local Windows workbench.</sub>
 </div>

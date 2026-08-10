@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- KCC 双引擎首页：Kimi Code 与 CloudCLI（Claude Code / Codex）使用独立常驻视图，可通过左上角 Logo 或 `Alt+Q` 切换
+- CloudCLI 当前路由会话到 Viewer 项目目录的同步，以及 `%APPDATA%\KCC Workbench\viewer-context.log` 诊断日志
+- Viewer 支持 `.mmd` / `.mermaid` 文件、Mermaid 图片复制、源码/图表切换和 ELK 布局
+
+### Changed
+
+- 产品名与 Windows 产物名改为 KCC Workbench / `KCC-Workbench-*.exe`
+- 设置、重启首页和额度仅在 Kimi 引擎可用
+
+### Known limitations
+
+- CloudCLI npm 依赖已随应用打包，但兼容的系统 Node.js 22 runtime 尚未内置；缺失或 ABI 不匹配时 CloudCLI 无法启动
+- CloudCLI 路由会话同步已通过单元测试和未登录回退日志验收，真实登录配置下的 API 200 路径仍待发布前人工验收
+
 ## 1.0.0-beta.2
 
 产品更名为 KimiCode Workbench，完成首轮对抗性安全审查（RT-001~017）修复，并新增第三方模型编辑器。

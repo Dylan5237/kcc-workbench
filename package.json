@@ -1,11 +1,11 @@
 {
   "name": "kcc-workbench",
   "version": "1.0.0-beta.2",
-  "description": "Unofficial local desktop workbench for Kimi Code with quota forecasting, visual configuration, artifact diffs, file previews, and task time travel",
+  "description": "Unofficial local Windows workbench for Kimi Code and CloudCLI (Claude Code / Codex) with a shared artifact Viewer",
   "main": "src/main/main.js",
   "type": "module",
   "author": "Dylan5237",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
     "demo": "electron . --demo",
