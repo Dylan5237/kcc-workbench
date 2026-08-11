@@ -228,7 +228,7 @@ No. Browsing and editing a draft do not write any file. Changes are written only
 <details>
 <summary><strong>Do I need to install CloudCLI globally?</strong></summary>
 
-No. The CloudCLI npm dependency is packaged with the app. The current release does not yet bundle a Node runtime, so a compatible Node.js 22 installation is still required; this is a known release limitation.
+No. The CloudCLI npm dependency is packaged with the app. The current release does not yet bundle a Node runtime, so a compatible Node.js 22 installation is still required; this is a known limitation retained in 1.0.0 and planned for removal in a later release.
 
 </details>
 

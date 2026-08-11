@@ -228,7 +228,7 @@ npm run pack -- fast  # 快速：跳过测试/zip 压缩 -> dist-fast/win-unpack
 <details>
 <summary><strong>必须全局安装 CloudCLI 吗？</strong></summary>
 
-不需要，CloudCLI npm 依赖已随应用打包。但当前版本尚未内置 Node runtime，仍要求本机有兼容的 Node.js 22；这是发布前需要消除的已知限制。
+不需要，CloudCLI npm 依赖已随应用打包。但当前版本尚未内置 Node runtime，仍要求本机有兼容的 Node.js 22；这是 1.0.0 仍保留的已知限制，后续版本计划消除。
 
 </details>
 
