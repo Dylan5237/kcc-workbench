@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 一键重新打包为 portable exe。
+// 一键重新打包为 zip/unpacked 发布产物。
 // 默认流程: 运行测试 -> 清理 dist/ -> electron-builder 打包 -> 报告产物路径与大小。
 // 打包阶段自绘进度条(进度% + 旋转符 + 计时 + 当前阶段), 避免 electron-builder 长时间无输出被判卡死。
 // 用法:
@@ -21,9 +21,9 @@ if (showHelp) {
   console.log(`KCC Workbench pack
 
 Usage:
-  npm run pack                  Full portable build: test, clean dist, package
+  npm run pack                  Full zip build: test, clean dist, package
   npm run pack -- fast          Fast unpacked build: clean dist-fast, skip tests
-  npm run pack -- --no-test     Full portable build without tests
+  npm run pack -- --no-test     Full zip build without tests
   npm run pack -- --no-clean    Keep the selected output directory before build`)
   process.exit(0)
 }
@@ -43,7 +43,7 @@ const PHASES = [
   [/completed installing native dependencies/i, 32, '原生依赖就绪'],
   [/\bpackaging\b/i, 45, '打包 asar'],
   [/updating asar/i, 50, '更新 asar 校验'],
-  [/building.*target=portable/i, 70, '生成 portable exe(7z 压缩, 最耗时)']
+  [/building.*target=zip/i, 70, '生成 zip 发布包']
 ]
 
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
@@ -142,9 +142,24 @@ async function main() {
     ? `npm run build -- --config.directories.output=${outputName}`
     : 'npm run dist'
   const buildLabel = fastMode
-    ? '快速生成 unpacked 应用(跳过 portable 压缩)'
-    : '打包 portable exe(electron-builder --win x64)'
+    ? '快速生成 unpacked 应用(跳过 zip 压缩)'
+    : '打包 zip 发布包(electron-builder --win x64)'
   await runWithProgress(buildCommand, buildLabel)
+
+  function findZip(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.toLowerCase().endsWith('.zip')) {
+        return path.join(dir, entry.name)
+      }
+    }
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        const found = findZip(path.join(dir, entry.name))
+        if (found) return found
+      }
+    }
+    return null
+  }
 
   function findExe(dir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -161,12 +176,16 @@ async function main() {
     return null
   }
 
-  const exe = existsSync(distDir) ? findExe(distDir) : null
-  if (exe) {
-    const mb = (statSync(exe).size / 1024 / 1024).toFixed(1)
-    console.log(`\n✓ ${fastMode ? '快速构建' : '打包'}完成: ${path.relative(process.cwd(), exe)}  (${mb} MB)`)
+  const artifact = existsSync(distDir) ? (fastMode ? findExe(distDir) : findZip(distDir)) : null
+  const appExe = existsSync(distDir) ? findExe(distDir) : null
+  if (artifact) {
+    const mb = (statSync(artifact).size / 1024 / 1024).toFixed(1)
+    console.log(`\n✓ ${fastMode ? '快速构建' : '打包'}完成: ${path.relative(process.cwd(), artifact)}  (${mb} MB)`)
+    if (!fastMode && appExe) {
+      console.log(`可解包运行: ${path.relative(process.cwd(), appExe)}`)
+    }
   } else {
-    console.log(`\n✗ 未在 ${outputName}/ 找到产物 exe，请检查上方 electron-builder 输出`)
+    console.log(`\n✗ 未在 ${outputName}/ 找到产物 ${fastMode ? 'exe' : 'zip'}，请检查上方 electron-builder 输出`)
     process.exit(1)
   }
 }
