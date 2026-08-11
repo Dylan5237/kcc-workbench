@@ -29,7 +29,7 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build portable executable
+      - name: Build zip archive
         run: npm run dist
 
       - name: Create GitHub Release
@@ -37,9 +37,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $assets = Get-ChildItem -LiteralPath "dist" -Filter "KCC-Workbench-*.exe"
+          $assets = Get-ChildItem -LiteralPath "dist" -Filter "KCC-Workbench-*.zip"
           if (-not $assets) {
-            throw "Portable executable was not generated."
+            throw "Zip archive was not generated."
           }
           $arguments = @(
             "release", "create", "${{ github.ref_name }}",
