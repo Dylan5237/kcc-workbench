@@ -37,7 +37,7 @@ Use Node.js 22 for development and packaging. CloudCLI currently starts through 
 
 ## Current status
 
-- `main` and `feature/kcc-engines` both contain the KCC dual-engine work as of 2026-08-11; no post-rename KCC Release has been published yet.
-- Real signed-in CloudCLI Viewer-path acceptance remains pending; unit tests and the unauthenticated fallback path are not equivalent to that live proof.
+- `main` contains the KCC dual-engine work and the zip packaging switch (3223ff1 onward). Real signed-in Kimi / Claude Code / Codex sessions and the CloudCLI Viewer-path acceptance are completed; a `v1.0.0-rc.1` release is the next step.
+- Production audit still reports 4 moderate findings, all from CloudCLI's transitive frontend dependencies (prismjs DOM clobbering chain); upstream has no fixed release, so do not apply unverified overrides to CloudCLI's own frontend tree before release.
 - Preserve unrelated dirty files. Do not add `BLOCKED.md`, `PROGRESS.md`, `.exp1-results/`, or one-off acceptance scripts unless the user explicitly approves them.
-- Known release limitation: CloudCLI is bundled as an npm dependency, but the compatible Node runtime is not yet bundled.
+- Known release limitation: CloudCLI is bundled as an npm dependency, but the compatible Node runtime is not yet bundled; the system needs Node.js 22 (ABI 127) to run CloudCLI.

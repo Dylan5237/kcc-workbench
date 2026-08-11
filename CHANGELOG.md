@@ -12,11 +12,16 @@
 
 - 产品名与 Windows 产物名改为 KCC Workbench / `KCC-Workbench-*.exe`
 - 设置、重启首页和额度仅在 Kimi 引擎可用
+- Windows 发布产物改为 zip（`KCC-Workbench-*-x64.zip`），解压后运行 `KCC Workbench.exe`，不再产出 silent portable exe
+- `asarUnpack` 收窄为 CloudCLI 运行时依赖白名单（由 `scripts/trace-cloudcli-deps.mjs` 追踪生成），不再全量解包 node_modules
+- Mermaid 升级到 11.16.1、DOMPurify 升级到 3.4.13，修复 Viewer 侧已知 XSS / 原型污染 / DoS 公告
+- 通过 npm overrides 将 file-type、react-router、react-router-dom 提升到修复版本
+- 打包进度条在 stdout 断开时不再因 EPIPE 崩溃
 
 ### Known limitations
 
 - CloudCLI npm 依赖已随应用打包，但兼容的系统 Node.js 22 runtime 尚未内置；缺失或 ABI 不匹配时 CloudCLI 无法启动
-- CloudCLI 路由会话同步已通过单元测试和未登录回退日志验收，真实登录配置下的 API 200 路径仍待发布前人工验收
+- 生产依赖审计剩余 4 个 moderate（CloudCLI 传递的 prismjs DOM Clobbering 等），上游暂无修复版本，待 CloudCLI 发版或验证性 override
 
 ## 1.0.0-beta.2
 

@@ -241,7 +241,7 @@ npm run pack -- fast  # 快速：跳过测试/zip 压缩 -> dist-fast/win-unpack
 
 ## 项目状态与参与
 
-项目目前处于 **Beta** 阶段，优先保证 Windows 上的本地单用户工作流。KCC 双引擎改造已于 2026-08-11 合入 `main` 并通过 Windows CI；真实登录 CloudCLI 会话的 Viewer 路径仍待人工验收，兼容的 Node runtime 仍未内置。当前 Release 仍是改名前的 `v1.0.0-beta.2`，以 `main` 源码构建可获得最新 KCC 功能。欢迎通过：
+项目目前处于 **RC 准备阶段**，优先保证 Windows 上的本地单用户工作流。KCC 双引擎与 zip 打包改造已合入 `main` 并通过 Windows CI；Kimi / Claude Code / Codex 真实登录会话与 Viewer 路径人工验收已完成。发布前仍有两项已知限制：兼容的 Node.js 22 runtime 尚未内置（CloudCLI 需系统 Node 22 / ABI 127），以及 CloudCLI 传递前端依赖仍保留 4 个 moderate 安全公告（上游暂无修复版本）。下一步发布 `v1.0.0-rc.1` 做干净环境验收。欢迎通过：
 
 - [GitHub Issues](https://github.com/Dylan5237/kcc-workbench/issues) 报告 Bug 或提出功能建议
 - [Pull Requests](https://github.com/Dylan5237/kcc-workbench/pulls) 提交聚焦、可验证的改进

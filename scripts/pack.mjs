@@ -11,6 +11,11 @@ import { execSync, spawn } from 'node:child_process'
 import { existsSync, rmSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 
+// 未显式设置镜像时默认使用国内镜像, 避免首次构建时下载 electron-builder 二进制挂起
+process.env.npm_config_registry ??= 'https://registry.npmmirror.com'
+process.env.ELECTRON_MIRROR ??= 'https://npmmirror.com/mirrors/electron/'
+process.env.ELECTRON_BUILDER_BINARIES_MIRROR ??= 'https://npmmirror.com/mirrors/electron-builder-binaries/'
+
 const flags = process.argv.slice(2)
 const fastMode = flags.includes('fast') || flags.includes('--fast')
 const showHelp = flags.includes('--help') || flags.includes('-h')
@@ -57,6 +62,17 @@ function runWithProgress(command, label) {
     let frame = 0
     let percent = 0
     let phase = '准备中'
+    let stdoutClosed = false
+
+    function safeWrite(text) {
+      if (stdoutClosed) return
+      try {
+        process.stdout.write(text)
+      } catch (error) {
+        // stdout 被关闭(如管道断开)时停止重绘, 不阻塞打包主流程
+        stdoutClosed = true
+      }
+    }
 
     function redraw() {
       const sec = Math.floor((Date.now() - start) / 1000)
@@ -64,18 +80,18 @@ function runWithProgress(command, label) {
       const ss = String(sec % 60).padStart(2, '0')
       const filled = Math.round((percent / 100) * BAR_WIDTH)
       const bar = '█'.repeat(filled) + '░'.repeat(BAR_WIDTH - filled)
-      process.stdout.write(`\r\x1b[K${SPINNER[frame]} ${bar} ${String(percent).padStart(3)}%  ${mm}:${ss}  ${phase}`)
+      safeWrite(`\r\x1b[K${SPINNER[frame]} ${bar} ${String(percent).padStart(3)}%  ${mm}:${ss}  ${phase}`)
       frame = (frame + 1) % SPINNER.length
     }
     const timer = setInterval(redraw, 700)
-    redraw()
+    if (!stdoutClosed) redraw()
 
     function onLine(raw) {
       const line = raw.replace(/\r$/, '')
       for (const [re, pct, name] of PHASES) {
         if (re.test(line)) { percent = Math.max(percent, pct); phase = name }
       }
-      process.stdout.write(`\r\x1b[K${line}\n`)
+      safeWrite(`\r\x1b[K${line}\n`)
     }
 
     function drain(buf, handler) {
@@ -92,12 +108,12 @@ function runWithProgress(command, label) {
     child.stdout.on('data', chunk => { outBuf = drain(outBuf + chunk.toString(), onLine) })
     child.stderr.on('data', chunk => { errBuf = drain(errBuf + chunk.toString(), onLine) })
     child.on('error', error => {
-      clearInterval(timer); process.stdout.write('\r\x1b[K'); reject(error)
+      clearInterval(timer); safeWrite('\r\x1b[K'); reject(error)
     })
     child.on('exit', code => {
       if (outBuf.trim()) onLine(outBuf)
       if (errBuf.trim()) onLine(errBuf)
-      clearInterval(timer); process.stdout.write('\r\x1b[K')
+      clearInterval(timer); safeWrite('\r\x1b[K')
       if (code === 0) resolve()
       else reject(new Error(`${command} 退出码 ${code}`))
     })

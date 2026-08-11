@@ -241,7 +241,7 @@ No. It provides historical playback. When you continue from a checkpoint in a Gi
 
 ## Project status and participation
 
-The project is currently in **Beta** and prioritizes local, single-user workflows on Windows. The KCC dual-engine work was merged into `main` on 2026-08-11 and passed Windows CI. A real signed-in CloudCLI Viewer-path acceptance is still pending, and a compatible Node runtime is not yet bundled. The current Release is still the pre-rename `v1.0.0-beta.2`; build from `main` for the latest KCC functionality. You can participate through:
+The project is currently in **RC preparation** and prioritizes local, single-user workflows on Windows. The KCC dual-engine work and the zip packaging switch are on `main` and passed Windows CI. Real signed-in Kimi / Claude Code / Codex sessions and the CloudCLI Viewer-path acceptance are completed. Two known limitations remain before release: a compatible Node.js 22 runtime is not yet bundled (CloudCLI needs system Node 22 / ABI 127), and CloudCLI's transitive frontend dependencies still carry 4 moderate advisories with no upstream fix yet. The next step is a `v1.0.0-rc.1` clean-environment acceptance. You can participate through:
 
 - [GitHub Issues](https://github.com/Dylan5237/kcc-workbench/issues) for bug reports and feature requests
 - [Pull Requests](https://github.com/Dylan5237/kcc-workbench/pulls) for focused, verifiable improvements
