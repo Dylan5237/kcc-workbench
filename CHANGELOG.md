@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
+
+首个稳定版：KCC 双引擎工作台与人类友好的 AI 产物 Viewer 完成真实账号验收并进入正式发布。
 
 ### Added
 
