@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 项目讨论 / Discussions
+    url: https://github.com/Dylan5237/kcc-workbench/discussions
+    about: 提问、想法或非 Bug 类讨论

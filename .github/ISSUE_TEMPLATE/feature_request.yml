@@ -1,0 +1,44 @@
+name: 功能建议
+description: 提出一个新功能或体验改进（Feature Request）
+title: "[Feature] "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先搜索 [Issues](https://github.com/Dylan5237/kcc-workbench/issues) 是否已有相同建议。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 描述你遇到的痛点或使用场景。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 你希望如何解决，尽量具体到入口和交互。
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 影响范围
+      description: 这个功能主要影响哪个部分？
+      options:
+        - 引擎切换 / GUI
+        - Viewer
+        - 时间机器
+        - 设置 / 额度
+        - 打包 / 发布
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+      description: 你考虑过哪些替代做法？
+      required: false
