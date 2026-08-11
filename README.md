@@ -22,6 +22,8 @@
     ·
     <a href="https://github.com/Dylan5237/kcc-workbench/releases">下载</a>
     ·
+    <a href="./CONTRIBUTING.md">贡献</a>
+    ·
     <a href="./PRIVACY.md">隐私</a>
     ·
     <a href="./SECURITY.md">安全</a>
@@ -78,30 +80,29 @@ Kimi 专属：Coding Plan 额度 / 重启首页 / 系统设置
 
 ## 快速开始
 
-### 1. 准备环境
+### 1. 下载并运行
 
-- Windows 10 / 11 x64
-- 已安装 Kimi Code CLI
-- 在 PowerShell 中运行 `kimi web` 可以正常打开本地 Web UI
-- 无需全局安装 CloudCLI；`@cloudcli-ai/cloudcli` 已作为应用依赖打包
-- **当前仍需本机提供兼容的 Node.js 22 runtime 才能启动 CloudCLI**；Node 缺失或 ABI 不匹配时 Kimi 仍可用，但 CloudCLI 会进入错误页
-- 使用额度同步时，可以访问 `https://www.kimi.com`
-
-### 2. 下载并运行
-
-前往 [Releases](https://github.com/Dylan5237/kcc-workbench/releases) 下载对应版本的 Windows zip 包。解压后运行 `KCC Workbench.exe`；KCC 版本的产物名为 `KCC-Workbench-*-x64.zip`。
+前往 [Releases](https://github.com/Dylan5237/kcc-workbench/releases) 下载对应版本的 Windows zip 包，解压后运行 `KCC Workbench.exe`。
 
 > [!TIP]
 > 首次进入后先确认 Kimi 首页可用，再切到 CloudCLI 完成其账号设置或登录。额度信息不会自动同步，只在 Kimi 首页手动更新。
 
-### 3. 开始使用
+### 2. 打开一个引擎
 
-1. 在首页打开 Kimi 会话，或切到 CloudCLI 打开 Claude Code / Codex 会话。
-2. 切换到“文件查看器”，工作台会优先使用当前引擎所选会话的项目目录。
-3. 在“本轮产物”中查看新增、修改、删除和逐行 Diff。
-4. 需要调整 Kimi Code 时切回 Kimi，再进入“系统设置”；检查改动后点击“保存设置”。
+在首页打开 Kimi 会话，或用左上角 Logo / `Alt+Q` 切到 CloudCLI 打开 Claude Code / Codex 会话。
+
+### 3. 在 Viewer 查看产物
+
+切换到“文件查看器”，工作台会优先使用当前引擎所选会话的项目目录；在“本轮产物”中查看新增、修改、删除和逐行 Diff。
 
 Kimi 通过会话 API 解析工作目录；CloudCLI 优先使用 `/session/:id` 与其同源会话详情 API，JSONL 活动仅作回退。如果仍无法识别，Viewer 保留上次目录。诊断记录位于 `%APPDATA%\KCC Workbench\viewer-context.log`。
+
+> 环境要求与说明：
+> - Windows 10 / 11 x64
+> - 已安装 Kimi Code CLI，且能在 PowerShell 运行 `kimi web`
+> - 无需全局安装 CloudCLI；`@cloudcli-ai/cloudcli` 已作为应用依赖打包
+> - **当前仍需本机提供兼容的 Node.js 22 runtime 才能启动 CloudCLI**；Node 缺失或 ABI 不匹配时 Kimi 仍可用，但 CloudCLI 会进入错误页
+> - 使用额度同步时，可以访问 `https://www.kimi.com`
 
 ## 功能细节
 
@@ -246,6 +247,9 @@ npm run pack -- fast  # 快速：跳过测试/zip 压缩 -> dist-fast/win-unpack
 - [GitHub Issues](https://github.com/Dylan5237/kcc-workbench/issues) 报告 Bug 或提出功能建议
 - [Pull Requests](https://github.com/Dylan5237/kcc-workbench/pulls) 提交聚焦、可验证的改进
 - [Changelog](./CHANGELOG.md) 查看当前版本的功能范围
+- [贡献指南](./CONTRIBUTING.md) 了解如何参与
+- [验收矩阵](./docs/ACCEPTANCE_MATRIX.md) 查看各能力验证层级
+- [Viewer 样例](./docs/VIEWER_BENCHMARK.md) 了解渲染回归方法
 
 ## 许可
 

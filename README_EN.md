@@ -22,6 +22,8 @@
     ·
     <a href="https://github.com/Dylan5237/kcc-workbench/releases">Download</a>
     ·
+    <a href="./CONTRIBUTING.md">Contributing</a>
+    ·
     <a href="./PRIVACY.md">Privacy</a>
     ·
     <a href="./SECURITY.md">Security</a>
@@ -78,30 +80,29 @@ Click the top-left logo or press `Alt+Q` to switch engines. Settings, Restart Ho
 
 ## Quick start
 
-### 1. Prerequisites
+### 1. Download and run
 
-- Windows 10 / 11 x64
-- Kimi Code CLI installed
-- `kimi web` can start the local Web UI from PowerShell
-- No global CloudCLI installation is required; `@cloudcli-ai/cloudcli` is packaged with the app
-- **CloudCLI currently still requires a compatible system Node.js 22 runtime**; when Node is missing or ABI-incompatible, Kimi remains usable but CloudCLI shows an error page
-- Access to `https://www.kimi.com` when synchronizing quota
-
-### 2. Download and run
-
-Download the Windows portable asset for the desired version from [Releases](https://github.com/Dylan5237/kcc-workbench/releases). KCC builds use the name `KCC-Workbench-*-x64.exe`.
+Download the Windows zip for the desired version from [Releases](https://github.com/Dylan5237/kcc-workbench/releases), extract it, and run `KCC Workbench.exe`. KCC builds use the name `KCC-Workbench-*-x64.zip`.
 
 > [!TIP]
 > On first launch, verify Kimi Home, then switch to CloudCLI and complete its account setup or sign-in. Quota is never synchronized automatically and is available only on Kimi Home.
 
-### 3. Start working
+### 2. Open an engine
 
-1. Open a Kimi session from Home, or switch to CloudCLI and open a Claude Code / Codex session.
-2. Switch to File Viewer. The workbench prefers the selected session directory for the active engine.
-3. Open Current Artifacts to inspect created, modified, and deleted files with line diffs.
-4. Switch back to Kimi before opening System Settings; review changes and explicitly save them.
+Open a Kimi session from Home, or use the top-left logo / `Alt+Q` to switch to CloudCLI and open a Claude Code / Codex session.
+
+### 3. Review artifacts in the Viewer
+
+Switch to File Viewer. The workbench prefers the selected session directory for the active engine; open Current Artifacts to inspect created, modified, and deleted files with line diffs.
 
 Kimi resolves its workspace through the Kimi session API. CloudCLI prefers `/session/:id` plus its authenticated same-origin session-details API; JSONL activity is fallback only. If detection still fails, Viewer keeps the last root. Diagnostics are written to `%APPDATA%\KCC Workbench\viewer-context.log`.
+
+> Requirements and notes:
+> - Windows 10 / 11 x64
+> - Kimi Code CLI installed, and `kimi web` can start the local Web UI from PowerShell
+> - No global CloudCLI installation is required; `@cloudcli-ai/cloudcli` is packaged with the app
+> - **CloudCLI currently still requires a compatible system Node.js 22 runtime**; when Node is missing or ABI-incompatible, Kimi remains usable but CloudCLI shows an error page
+> - Access to `https://www.kimi.com` when synchronizing quota
 
 ## Feature details
 
@@ -191,16 +192,16 @@ npm run build
 & ".\dist\win-unpacked\KCC Workbench.exe"
 ```
 
-Build a portable release (one-click, recommended):
+Build a zip release (one-click, recommended):
 
 ```powershell
 npm run pack          # one-click: test -> clean dist -> package -> report artifact path and size
-npm run pack -- fast  # fast: skip tests/portable compression -> dist-fast/win-unpacked
+npm run pack -- fast  # fast: skip tests/zip compression -> dist-fast/win-unpacked
 ```
 
-Run `pack.bat fast` from the repository root for day-to-day validation, then launch `dist-fast/win-unpacked/KCC Workbench.exe`; double-clicking `pack.bat` still performs the full portable build. Use `pack.bat --no-test` when only the test phase should be skipped. Fast mode still cleans its own `dist-fast/` directory, so it does not reuse stale output.
+Run `pack.bat fast` from the repository root for day-to-day validation, then launch `dist-fast/win-unpacked/KCC Workbench.exe`; double-clicking `pack.bat` still performs the full zip build. Use `pack.bat --no-test` when only the test phase should be skipped. Fast mode still cleans its own `dist-fast/` directory, so it does not reuse stale output.
 
-Pushes and pull requests run tests and a Windows build in GitHub Actions. Tags matching `v*` trigger the portable release workflow.
+Pushes and pull requests run tests and a Windows build in GitHub Actions. Tags matching `v*` trigger the zip release workflow.
 
 ## FAQ
 
@@ -246,6 +247,9 @@ The project released **v1.0.0** stable and prioritizes local, single-user workfl
 - [GitHub Issues](https://github.com/Dylan5237/kcc-workbench/issues) for bug reports and feature requests
 - [Pull Requests](https://github.com/Dylan5237/kcc-workbench/pulls) for focused, verifiable improvements
 - [Changelog](./CHANGELOG.md) for the current release scope
+- [Contributing](./CONTRIBUTING.md) to learn how to get involved
+- [Acceptance Matrix](./docs/ACCEPTANCE_MATRIX.md) for verification levels per capability
+- [Viewer Benchmark](./docs/VIEWER_BENCHMARK.md) for rendering regression methods
 
 ## License
 
