@@ -9,7 +9,7 @@
   <p>再用一个人类友好的 AI 产物 Viewer，把生成文件变成可阅读、可比较、可回溯的工作成果。</p>
 
   <p>
-    <a href="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
+    <a href="https://github.com/Dylan5237/kcc-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kcc-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
     <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows" alt="Windows 10 / 11">
     <img src="https://img.shields.io/badge/status-Beta-F59E0B" alt="Beta">
     <img src="https://img.shields.io/badge/license-MIT-2EA44F" alt="MIT License">
@@ -20,7 +20,7 @@
     ·
     <a href="#核心能力">核心能力</a>
     ·
-    <a href="https://github.com/Dylan5237/kimi-code-workbench/releases">下载</a>
+    <a href="https://github.com/Dylan5237/kcc-workbench/releases">下载</a>
     ·
     <a href="./PRIVACY.md">隐私</a>
     ·
@@ -89,7 +89,7 @@ Kimi 专属：Coding Plan 额度 / 重启首页 / 系统设置
 
 ### 2. 下载并运行
 
-前往 [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases) 下载对应版本的 Windows 便携包。KCC 版本的产物名为 `KCC-Workbench-*-x64.exe`。
+前往 [Releases](https://github.com/Dylan5237/kcc-workbench/releases) 下载对应版本的 Windows 便携包。KCC 版本的产物名为 `KCC-Workbench-*-x64.exe`。
 
 > [!TIP]
 > 首次进入后先确认 Kimi 首页可用，再切到 CloudCLI 完成其账号设置或登录。额度信息不会自动同步，只在 Kimi 首页手动更新。
@@ -171,8 +171,8 @@ Kimi 通过会话 API 解析工作目录；CloudCLI 优先使用 `/session/:id` 
 开发环境需要 Node.js 22 和 npm。
 
 ```powershell
-git clone https://github.com/Dylan5237/kimi-code-workbench.git
-cd kimi-code-workbench
+git clone https://github.com/Dylan5237/kcc-workbench.git
+cd kcc-workbench
 npm ci
 npm test
 npm start
@@ -241,10 +241,10 @@ npm run pack -- fast  # 快速：跳过测试/portable 压缩 -> dist-fast/win-u
 
 ## 项目状态与参与
 
-项目目前处于 **Beta** 阶段，优先保证 Windows 上的本地单用户工作流。KCC 双引擎改造当前位于功能分支，合并并发布前仍需完成真实登录 CloudCLI 会话的 Viewer 路径验收与 Node runtime 打包。欢迎通过：
+项目目前处于 **Beta** 阶段，优先保证 Windows 上的本地单用户工作流。KCC 双引擎改造已于 2026-08-11 合入 `main` 并通过 Windows CI；真实登录 CloudCLI 会话的 Viewer 路径仍待人工验收，兼容的 Node runtime 仍未内置。当前 Release 仍是改名前的 `v1.0.0-beta.2`，以 `main` 源码构建可获得最新 KCC 功能。欢迎通过：
 
-- [GitHub Issues](https://github.com/Dylan5237/kimi-code-workbench/issues) 报告 Bug 或提出功能建议
-- [Pull Requests](https://github.com/Dylan5237/kimi-code-workbench/pulls) 提交聚焦、可验证的改进
+- [GitHub Issues](https://github.com/Dylan5237/kcc-workbench/issues) 报告 Bug 或提出功能建议
+- [Pull Requests](https://github.com/Dylan5237/kcc-workbench/pulls) 提交聚焦、可验证的改进
 - [Changelog](./CHANGELOG.md) 查看当前版本的功能范围
 
 ## 许可

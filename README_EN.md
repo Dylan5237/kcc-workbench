@@ -9,7 +9,7 @@
   <p>Then turn generated files into readable, reviewable, and recoverable work with a human-friendly AI artifact Viewer.</p>
 
   <p>
-    <a href="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kimi-code-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
+    <a href="https://github.com/Dylan5237/kcc-workbench/actions/workflows/ci.yml"><img src="https://github.com/Dylan5237/kcc-workbench/actions/workflows/ci.yml/badge.svg" alt="Windows CI"></a>
     <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows" alt="Windows 10 / 11">
     <img src="https://img.shields.io/badge/status-Beta-F59E0B" alt="Beta">
     <img src="https://img.shields.io/badge/license-MIT-2EA44F" alt="MIT License">
@@ -20,7 +20,7 @@
     ·
     <a href="#core-capabilities">Features</a>
     ·
-    <a href="https://github.com/Dylan5237/kimi-code-workbench/releases">Download</a>
+    <a href="https://github.com/Dylan5237/kcc-workbench/releases">Download</a>
     ·
     <a href="./PRIVACY.md">Privacy</a>
     ·
@@ -89,7 +89,7 @@ Click the top-left logo or press `Alt+Q` to switch engines. Settings, Restart Ho
 
 ### 2. Download and run
 
-Download the Windows portable asset for the desired version from [Releases](https://github.com/Dylan5237/kimi-code-workbench/releases). KCC builds use the name `KCC-Workbench-*-x64.exe`.
+Download the Windows portable asset for the desired version from [Releases](https://github.com/Dylan5237/kcc-workbench/releases). KCC builds use the name `KCC-Workbench-*-x64.exe`.
 
 > [!TIP]
 > On first launch, verify Kimi Home, then switch to CloudCLI and complete its account setup or sign-in. Quota is never synchronized automatically and is available only on Kimi Home.
@@ -171,8 +171,8 @@ Read the complete [Privacy Notice](./PRIVACY.md) and [Security Policy](./SECURIT
 Development requires Node.js 22 and npm.
 
 ```powershell
-git clone https://github.com/Dylan5237/kimi-code-workbench.git
-cd kimi-code-workbench
+git clone https://github.com/Dylan5237/kcc-workbench.git
+cd kcc-workbench
 npm ci
 npm test
 npm start
@@ -241,10 +241,10 @@ No. It provides historical playback. When you continue from a checkpoint in a Gi
 
 ## Project status and participation
 
-The project is currently in **Beta** and prioritizes local, single-user workflows on Windows. The KCC dual-engine work is on a feature branch; before merge and release it still needs a real signed-in CloudCLI Viewer-path acceptance and a bundled Node runtime. You can participate through:
+The project is currently in **Beta** and prioritizes local, single-user workflows on Windows. The KCC dual-engine work was merged into `main` on 2026-08-11 and passed Windows CI. A real signed-in CloudCLI Viewer-path acceptance is still pending, and a compatible Node runtime is not yet bundled. The current Release is still the pre-rename `v1.0.0-beta.2`; build from `main` for the latest KCC functionality. You can participate through:
 
-- [GitHub Issues](https://github.com/Dylan5237/kimi-code-workbench/issues) for bug reports and feature requests
-- [Pull Requests](https://github.com/Dylan5237/kimi-code-workbench/pulls) for focused, verifiable improvements
+- [GitHub Issues](https://github.com/Dylan5237/kcc-workbench/issues) for bug reports and feature requests
+- [Pull Requests](https://github.com/Dylan5237/kcc-workbench/pulls) for focused, verifiable improvements
 - [Changelog](./CHANGELOG.md) for the current release scope
 
 ## License

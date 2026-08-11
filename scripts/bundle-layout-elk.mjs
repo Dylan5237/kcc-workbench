@@ -7,7 +7,8 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const outdir = path.join(root, 'src', 'viewer', 'public', 'vendor')
 await fs.mkdir(outdir, { recursive: true })
 await build({
-  entryPoints: [path.join(root, 'node_modules', '@mermaid-js', 'layout-elk', 'dist', 'mermaid-layout-elk.core.mjs')],
+  absWorkingDir: root,
+  entryPoints: ['node_modules/@mermaid-js/layout-elk/dist/mermaid-layout-elk.core.mjs'],
   bundle: true,
   format: 'esm',
   target: ['chrome120'],

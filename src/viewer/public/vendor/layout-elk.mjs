@@ -37,28 +37,28 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../../../_projects/tools/KimiDesktop/node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/chunk-ZW26E7AF.mjs
+// node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/chunk-ZW26E7AF.mjs
 var __defProp2, __name;
 var init_chunk_ZW26E7AF = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/chunk-ZW26E7AF.mjs"() {
+  "node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/chunk-ZW26E7AF.mjs"() {
     __defProp2 = Object.defineProperty;
     __name = (target, value) => __defProp2(target, "name", { value, configurable: true });
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-array/src/index.js
+// node_modules/d3-array/src/index.js
 var init_src = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-array/src/index.js"() {
+  "node_modules/d3-array/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-axis/src/index.js
+// node_modules/d3-axis/src/index.js
 var init_src2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-axis/src/index.js"() {
+  "node_modules/d3-axis/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-dispatch/src/dispatch.js
+// node_modules/d3-dispatch/src/dispatch.js
 function dispatch() {
   for (var i = 0, n = arguments.length, _ = {}, t; i < n; ++i) {
     if (!(t = arguments[i] + "") || t in _ || /[\s.]/.test(t)) throw new Error("illegal type: " + t);
@@ -96,7 +96,7 @@ function set(type2, name, callback) {
 }
 var noop, dispatch_default;
 var init_dispatch = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-dispatch/src/dispatch.js"() {
+  "node_modules/d3-dispatch/src/dispatch.js"() {
     noop = { value: () => {
     } };
     Dispatch.prototype = dispatch.prototype = {
@@ -133,17 +133,17 @@ var init_dispatch = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-dispatch/src/index.js
+// node_modules/d3-dispatch/src/index.js
 var init_src3 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-dispatch/src/index.js"() {
+  "node_modules/d3-dispatch/src/index.js"() {
     init_dispatch();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/namespaces.js
+// node_modules/d3-selection/src/namespaces.js
 var xhtml, namespaces_default;
 var init_namespaces = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/namespaces.js"() {
+  "node_modules/d3-selection/src/namespaces.js"() {
     xhtml = "http://www.w3.org/1999/xhtml";
     namespaces_default = {
       svg: "http://www.w3.org/2000/svg",
@@ -155,19 +155,19 @@ var init_namespaces = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/namespace.js
+// node_modules/d3-selection/src/namespace.js
 function namespace_default(name) {
   var prefix = name += "", i = prefix.indexOf(":");
   if (i >= 0 && (prefix = name.slice(0, i)) !== "xmlns") name = name.slice(i + 1);
   return namespaces_default.hasOwnProperty(prefix) ? { space: namespaces_default[prefix], local: name } : name;
 }
 var init_namespace = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/namespace.js"() {
+  "node_modules/d3-selection/src/namespace.js"() {
     init_namespaces();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/creator.js
+// node_modules/d3-selection/src/creator.js
 function creatorInherit(name) {
   return function() {
     var document2 = this.ownerDocument, uri = this.namespaceURI;
@@ -184,13 +184,13 @@ function creator_default(name) {
   return (fullname.local ? creatorFixed : creatorInherit)(fullname);
 }
 var init_creator = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/creator.js"() {
+  "node_modules/d3-selection/src/creator.js"() {
     init_namespace();
     init_namespaces();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selector.js
+// node_modules/d3-selection/src/selector.js
 function none() {
 }
 function selector_default(selector) {
@@ -199,11 +199,11 @@ function selector_default(selector) {
   };
 }
 var init_selector = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selector.js"() {
+  "node_modules/d3-selection/src/selector.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/select.js
+// node_modules/d3-selection/src/selection/select.js
 function select_default(select) {
   if (typeof select !== "function") select = selector_default(select);
   for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
@@ -217,22 +217,22 @@ function select_default(select) {
   return new Selection(subgroups, this._parents);
 }
 var init_select = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/select.js"() {
+  "node_modules/d3-selection/src/selection/select.js"() {
     init_selection();
     init_selector();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/array.js
+// node_modules/d3-selection/src/array.js
 function array(x) {
   return x == null ? [] : Array.isArray(x) ? x : Array.from(x);
 }
 var init_array = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/array.js"() {
+  "node_modules/d3-selection/src/array.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selectorAll.js
+// node_modules/d3-selection/src/selectorAll.js
 function empty() {
   return [];
 }
@@ -242,11 +242,11 @@ function selectorAll_default(selector) {
   };
 }
 var init_selectorAll = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selectorAll.js"() {
+  "node_modules/d3-selection/src/selectorAll.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/selectAll.js
+// node_modules/d3-selection/src/selection/selectAll.js
 function arrayAll(select) {
   return function() {
     return array(select.apply(this, arguments));
@@ -266,14 +266,14 @@ function selectAll_default(select) {
   return new Selection(subgroups, parents);
 }
 var init_selectAll = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/selectAll.js"() {
+  "node_modules/d3-selection/src/selection/selectAll.js"() {
     init_selection();
     init_array();
     init_selectorAll();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/matcher.js
+// node_modules/d3-selection/src/matcher.js
 function matcher_default(selector) {
   return function() {
     return this.matches(selector);
@@ -285,11 +285,11 @@ function childMatcher(selector) {
   };
 }
 var init_matcher = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/matcher.js"() {
+  "node_modules/d3-selection/src/matcher.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/selectChild.js
+// node_modules/d3-selection/src/selection/selectChild.js
 function childFind(match) {
   return function() {
     return find.call(this.children, match);
@@ -303,13 +303,13 @@ function selectChild_default(match) {
 }
 var find;
 var init_selectChild = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/selectChild.js"() {
+  "node_modules/d3-selection/src/selection/selectChild.js"() {
     init_matcher();
     find = Array.prototype.find;
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/selectChildren.js
+// node_modules/d3-selection/src/selection/selectChildren.js
 function children() {
   return Array.from(this.children);
 }
@@ -323,13 +323,13 @@ function selectChildren_default(match) {
 }
 var filter;
 var init_selectChildren = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/selectChildren.js"() {
+  "node_modules/d3-selection/src/selection/selectChildren.js"() {
     init_matcher();
     filter = Array.prototype.filter;
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/filter.js
+// node_modules/d3-selection/src/selection/filter.js
 function filter_default(match) {
   if (typeof match !== "function") match = matcher_default(match);
   for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
@@ -342,22 +342,22 @@ function filter_default(match) {
   return new Selection(subgroups, this._parents);
 }
 var init_filter = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/filter.js"() {
+  "node_modules/d3-selection/src/selection/filter.js"() {
     init_selection();
     init_matcher();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/sparse.js
+// node_modules/d3-selection/src/selection/sparse.js
 function sparse_default(update) {
   return new Array(update.length);
 }
 var init_sparse = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/sparse.js"() {
+  "node_modules/d3-selection/src/selection/sparse.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/enter.js
+// node_modules/d3-selection/src/selection/enter.js
 function enter_default() {
   return new Selection(this._enter || this._groups.map(sparse_default), this._parents);
 }
@@ -369,7 +369,7 @@ function EnterNode(parent, datum2) {
   this.__data__ = datum2;
 }
 var init_enter = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/enter.js"() {
+  "node_modules/d3-selection/src/selection/enter.js"() {
     init_sparse();
     init_selection();
     EnterNode.prototype = {
@@ -390,18 +390,18 @@ var init_enter = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/constant.js
+// node_modules/d3-selection/src/constant.js
 function constant_default(x) {
   return function() {
     return x;
   };
 }
 var init_constant = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/constant.js"() {
+  "node_modules/d3-selection/src/constant.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/data.js
+// node_modules/d3-selection/src/selection/data.js
 function bindIndex(parent, group, enter, update, exit, data) {
   var i = 0, node, groupLength = group.length, dataLength = data.length;
   for (; i < dataLength; ++i) {
@@ -473,25 +473,25 @@ function arraylike(data) {
   return typeof data === "object" && "length" in data ? data : Array.from(data);
 }
 var init_data = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/data.js"() {
+  "node_modules/d3-selection/src/selection/data.js"() {
     init_selection();
     init_enter();
     init_constant();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/exit.js
+// node_modules/d3-selection/src/selection/exit.js
 function exit_default() {
   return new Selection(this._exit || this._groups.map(sparse_default), this._parents);
 }
 var init_exit = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/exit.js"() {
+  "node_modules/d3-selection/src/selection/exit.js"() {
     init_sparse();
     init_selection();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/join.js
+// node_modules/d3-selection/src/selection/join.js
 function join_default(onenter, onupdate, onexit) {
   var enter = this.enter(), update = this, exit = this.exit();
   if (typeof onenter === "function") {
@@ -509,11 +509,11 @@ function join_default(onenter, onupdate, onexit) {
   return enter && update ? enter.merge(update).order() : update;
 }
 var init_join = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/join.js"() {
+  "node_modules/d3-selection/src/selection/join.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/merge.js
+// node_modules/d3-selection/src/selection/merge.js
 function merge_default(context) {
   var selection2 = context.selection ? context.selection() : context;
   for (var groups0 = this._groups, groups1 = selection2._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
@@ -529,12 +529,12 @@ function merge_default(context) {
   return new Selection(merges, this._parents);
 }
 var init_merge = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/merge.js"() {
+  "node_modules/d3-selection/src/selection/merge.js"() {
     init_selection();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/order.js
+// node_modules/d3-selection/src/selection/order.js
 function order_default() {
   for (var groups = this._groups, j = -1, m = groups.length; ++j < m; ) {
     for (var group = groups[j], i = group.length - 1, next = group[i], node; --i >= 0; ) {
@@ -547,11 +547,11 @@ function order_default() {
   return this;
 }
 var init_order = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/order.js"() {
+  "node_modules/d3-selection/src/selection/order.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/sort.js
+// node_modules/d3-selection/src/selection/sort.js
 function sort_default(compare) {
   if (!compare) compare = ascending;
   function compareNode(a, b) {
@@ -571,12 +571,12 @@ function ascending(a, b) {
   return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
 }
 var init_sort = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/sort.js"() {
+  "node_modules/d3-selection/src/selection/sort.js"() {
     init_selection();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/call.js
+// node_modules/d3-selection/src/selection/call.js
 function call_default() {
   var callback = arguments[0];
   arguments[0] = this;
@@ -584,20 +584,20 @@ function call_default() {
   return this;
 }
 var init_call = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/call.js"() {
+  "node_modules/d3-selection/src/selection/call.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/nodes.js
+// node_modules/d3-selection/src/selection/nodes.js
 function nodes_default() {
   return Array.from(this);
 }
 var init_nodes = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/nodes.js"() {
+  "node_modules/d3-selection/src/selection/nodes.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/node.js
+// node_modules/d3-selection/src/selection/node.js
 function node_default() {
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
     for (var group = groups[j], i = 0, n = group.length; i < n; ++i) {
@@ -608,31 +608,31 @@ function node_default() {
   return null;
 }
 var init_node = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/node.js"() {
+  "node_modules/d3-selection/src/selection/node.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/size.js
+// node_modules/d3-selection/src/selection/size.js
 function size_default() {
   let size = 0;
   for (const node of this) ++size;
   return size;
 }
 var init_size = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/size.js"() {
+  "node_modules/d3-selection/src/selection/size.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/empty.js
+// node_modules/d3-selection/src/selection/empty.js
 function empty_default() {
   return !this.node();
 }
 var init_empty = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/empty.js"() {
+  "node_modules/d3-selection/src/selection/empty.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/each.js
+// node_modules/d3-selection/src/selection/each.js
 function each_default(callback) {
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
     for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
@@ -642,11 +642,11 @@ function each_default(callback) {
   return this;
 }
 var init_each = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/each.js"() {
+  "node_modules/d3-selection/src/selection/each.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/attr.js
+// node_modules/d3-selection/src/selection/attr.js
 function attrRemove(name) {
   return function() {
     this.removeAttribute(name);
@@ -690,21 +690,21 @@ function attr_default(name, value) {
   return this.each((value == null ? fullname.local ? attrRemoveNS : attrRemove : typeof value === "function" ? fullname.local ? attrFunctionNS : attrFunction : fullname.local ? attrConstantNS : attrConstant)(fullname, value));
 }
 var init_attr = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/attr.js"() {
+  "node_modules/d3-selection/src/selection/attr.js"() {
     init_namespace();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/window.js
+// node_modules/d3-selection/src/window.js
 function window_default(node) {
   return node.ownerDocument && node.ownerDocument.defaultView || node.document && node || node.defaultView;
 }
 var init_window = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/window.js"() {
+  "node_modules/d3-selection/src/window.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/style.js
+// node_modules/d3-selection/src/selection/style.js
 function styleRemove(name) {
   return function() {
     this.style.removeProperty(name);
@@ -729,12 +729,12 @@ function styleValue(node, name) {
   return node.style.getPropertyValue(name) || window_default(node).getComputedStyle(node, null).getPropertyValue(name);
 }
 var init_style = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/style.js"() {
+  "node_modules/d3-selection/src/selection/style.js"() {
     init_window();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/property.js
+// node_modules/d3-selection/src/selection/property.js
 function propertyRemove(name) {
   return function() {
     delete this[name];
@@ -756,11 +756,11 @@ function property_default(name, value) {
   return arguments.length > 1 ? this.each((value == null ? propertyRemove : typeof value === "function" ? propertyFunction : propertyConstant)(name, value)) : this.node()[name];
 }
 var init_property = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/property.js"() {
+  "node_modules/d3-selection/src/selection/property.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/classed.js
+// node_modules/d3-selection/src/selection/classed.js
 function classArray(string) {
   return string.trim().split(/^|\s+/);
 }
@@ -804,7 +804,7 @@ function classed_default(name, value) {
   return this.each((typeof value === "function" ? classedFunction : value ? classedTrue : classedFalse)(names, value));
 }
 var init_classed = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/classed.js"() {
+  "node_modules/d3-selection/src/selection/classed.js"() {
     ClassList.prototype = {
       add: function(name) {
         var i = this._names.indexOf(name);
@@ -827,7 +827,7 @@ var init_classed = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/text.js
+// node_modules/d3-selection/src/selection/text.js
 function textRemove() {
   this.textContent = "";
 }
@@ -846,11 +846,11 @@ function text_default(value) {
   return arguments.length ? this.each(value == null ? textRemove : (typeof value === "function" ? textFunction : textConstant)(value)) : this.node().textContent;
 }
 var init_text = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/text.js"() {
+  "node_modules/d3-selection/src/selection/text.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/html.js
+// node_modules/d3-selection/src/selection/html.js
 function htmlRemove() {
   this.innerHTML = "";
 }
@@ -869,11 +869,11 @@ function html_default(value) {
   return arguments.length ? this.each(value == null ? htmlRemove : (typeof value === "function" ? htmlFunction : htmlConstant)(value)) : this.node().innerHTML;
 }
 var init_html = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/html.js"() {
+  "node_modules/d3-selection/src/selection/html.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/raise.js
+// node_modules/d3-selection/src/selection/raise.js
 function raise() {
   if (this.nextSibling) this.parentNode.appendChild(this);
 }
@@ -881,11 +881,11 @@ function raise_default() {
   return this.each(raise);
 }
 var init_raise = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/raise.js"() {
+  "node_modules/d3-selection/src/selection/raise.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/lower.js
+// node_modules/d3-selection/src/selection/lower.js
 function lower() {
   if (this.previousSibling) this.parentNode.insertBefore(this, this.parentNode.firstChild);
 }
@@ -893,11 +893,11 @@ function lower_default() {
   return this.each(lower);
 }
 var init_lower = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/lower.js"() {
+  "node_modules/d3-selection/src/selection/lower.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/append.js
+// node_modules/d3-selection/src/selection/append.js
 function append_default(name) {
   var create2 = typeof name === "function" ? name : creator_default(name);
   return this.select(function() {
@@ -905,12 +905,12 @@ function append_default(name) {
   });
 }
 var init_append = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/append.js"() {
+  "node_modules/d3-selection/src/selection/append.js"() {
     init_creator();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/insert.js
+// node_modules/d3-selection/src/selection/insert.js
 function constantNull() {
   return null;
 }
@@ -921,13 +921,13 @@ function insert_default(name, before) {
   });
 }
 var init_insert = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/insert.js"() {
+  "node_modules/d3-selection/src/selection/insert.js"() {
     init_creator();
     init_selector();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/remove.js
+// node_modules/d3-selection/src/selection/remove.js
 function remove() {
   var parent = this.parentNode;
   if (parent) parent.removeChild(this);
@@ -936,11 +936,11 @@ function remove_default() {
   return this.each(remove);
 }
 var init_remove = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/remove.js"() {
+  "node_modules/d3-selection/src/selection/remove.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/clone.js
+// node_modules/d3-selection/src/selection/clone.js
 function selection_cloneShallow() {
   var clone = this.cloneNode(false), parent = this.parentNode;
   return parent ? parent.insertBefore(clone, this.nextSibling) : clone;
@@ -953,20 +953,20 @@ function clone_default(deep) {
   return this.select(deep ? selection_cloneDeep : selection_cloneShallow);
 }
 var init_clone = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/clone.js"() {
+  "node_modules/d3-selection/src/selection/clone.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/datum.js
+// node_modules/d3-selection/src/selection/datum.js
 function datum_default(value) {
   return arguments.length ? this.property("__data__", value) : this.node().__data__;
 }
 var init_datum = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/datum.js"() {
+  "node_modules/d3-selection/src/selection/datum.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/on.js
+// node_modules/d3-selection/src/selection/on.js
 function contextListener(listener) {
   return function(event) {
     listener.call(this, event, this.__data__);
@@ -1029,11 +1029,11 @@ function on_default(typename, value, options) {
   return this;
 }
 var init_on = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/on.js"() {
+  "node_modules/d3-selection/src/selection/on.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/dispatch.js
+// node_modules/d3-selection/src/selection/dispatch.js
 function dispatchEvent(node, type2, params) {
   var window2 = window_default(node), event = window2.CustomEvent;
   if (typeof event === "function") {
@@ -1059,12 +1059,12 @@ function dispatch_default2(type2, params) {
   return this.each((typeof params === "function" ? dispatchFunction : dispatchConstant)(type2, params));
 }
 var init_dispatch2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/dispatch.js"() {
+  "node_modules/d3-selection/src/selection/dispatch.js"() {
     init_window();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/iterator.js
+// node_modules/d3-selection/src/selection/iterator.js
 function* iterator_default() {
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
     for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
@@ -1073,11 +1073,11 @@ function* iterator_default() {
   }
 }
 var init_iterator = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/iterator.js"() {
+  "node_modules/d3-selection/src/selection/iterator.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/index.js
+// node_modules/d3-selection/src/selection/index.js
 function Selection(groups, parents) {
   this._groups = groups;
   this._parents = parents;
@@ -1090,7 +1090,7 @@ function selection_selection() {
 }
 var root, selection_default;
 var init_selection = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/selection/index.js"() {
+  "node_modules/d3-selection/src/selection/index.js"() {
     init_select();
     init_selectAll();
     init_selectChild();
@@ -1168,9 +1168,9 @@ var init_selection = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/index.js
+// node_modules/d3-selection/src/index.js
 var init_src4 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-selection/src/index.js"() {
+  "node_modules/d3-selection/src/index.js"() {
     init_matcher();
     init_namespace();
     init_selection();
@@ -1180,13 +1180,13 @@ var init_src4 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-drag/src/index.js
+// node_modules/d3-drag/src/index.js
 var init_src5 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-drag/src/index.js"() {
+  "node_modules/d3-drag/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-color/src/define.js
+// node_modules/d3-color/src/define.js
 function define_default(constructor, factory, prototype) {
   constructor.prototype = factory.prototype = prototype;
   prototype.constructor = constructor;
@@ -1197,11 +1197,11 @@ function extend(parent, definition) {
   return prototype;
 }
 var init_define = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-color/src/define.js"() {
+  "node_modules/d3-color/src/define.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-color/src/color.js
+// node_modules/d3-color/src/color.js
 function Color() {
 }
 function color_formatHex() {
@@ -1308,7 +1308,7 @@ function hsl2rgb(h, m1, m2) {
 }
 var darker, brighter, reI, reN, reP, reHex, reRgbInteger, reRgbPercent, reRgbaInteger, reRgbaPercent, reHslPercent, reHslaPercent, named;
 var init_color = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-color/src/color.js"() {
+  "node_modules/d3-color/src/color.js"() {
     init_define();
     darker = 0.7;
     brighter = 1 / darker;
@@ -1544,14 +1544,14 @@ var init_color = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-color/src/index.js
+// node_modules/d3-color/src/index.js
 var init_src6 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-color/src/index.js"() {
+  "node_modules/d3-color/src/index.js"() {
     init_color();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/basis.js
+// node_modules/d3-interpolate/src/basis.js
 function basis(t12, v0, v1, v2, v3) {
   var t2 = t12 * t12, t3 = t2 * t12;
   return ((1 - 3 * t12 + 3 * t2 - t3) * v0 + (4 - 6 * t2 + 3 * t3) * v1 + (1 + 3 * t12 + 3 * t2 - 3 * t3) * v2 + t3 * v3) / 6;
@@ -1564,11 +1564,11 @@ function basis_default(values) {
   };
 }
 var init_basis = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/basis.js"() {
+  "node_modules/d3-interpolate/src/basis.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/basisClosed.js
+// node_modules/d3-interpolate/src/basisClosed.js
 function basisClosed_default(values) {
   var n = values.length;
   return function(t) {
@@ -1577,20 +1577,20 @@ function basisClosed_default(values) {
   };
 }
 var init_basisClosed = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/basisClosed.js"() {
+  "node_modules/d3-interpolate/src/basisClosed.js"() {
     init_basis();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/constant.js
+// node_modules/d3-interpolate/src/constant.js
 var constant_default2;
 var init_constant2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/constant.js"() {
+  "node_modules/d3-interpolate/src/constant.js"() {
     constant_default2 = (x) => () => x;
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/color.js
+// node_modules/d3-interpolate/src/color.js
 function linear(a, d) {
   return function(t) {
     return a + t * d;
@@ -1611,12 +1611,12 @@ function nogamma(a, b) {
   return d ? linear(a, d) : constant_default2(isNaN(a) ? b : a);
 }
 var init_color2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/color.js"() {
+  "node_modules/d3-interpolate/src/color.js"() {
     init_constant2();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/rgb.js
+// node_modules/d3-interpolate/src/rgb.js
 function rgbSpline(spline) {
   return function(colors) {
     var n = colors.length, r = new Array(n), g = new Array(n), b = new Array(n), i, color2;
@@ -1640,7 +1640,7 @@ function rgbSpline(spline) {
 }
 var rgb_default, rgbBasis, rgbBasisClosed;
 var init_rgb = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/rgb.js"() {
+  "node_modules/d3-interpolate/src/rgb.js"() {
     init_src6();
     init_basis();
     init_basisClosed();
@@ -1665,18 +1665,18 @@ var init_rgb = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/number.js
+// node_modules/d3-interpolate/src/number.js
 function number_default(a, b) {
   return a = +a, b = +b, function(t) {
     return a * (1 - t) + b * t;
   };
 }
 var init_number = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/number.js"() {
+  "node_modules/d3-interpolate/src/number.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/string.js
+// node_modules/d3-interpolate/src/string.js
 function zero(b) {
   return function() {
     return b;
@@ -1717,14 +1717,14 @@ function string_default(a, b) {
 }
 var reA, reB;
 var init_string = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/string.js"() {
+  "node_modules/d3-interpolate/src/string.js"() {
     init_number();
     reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g;
     reB = new RegExp(reA.source, "g");
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/transform/decompose.js
+// node_modules/d3-interpolate/src/transform/decompose.js
 function decompose_default(a, b, c, d, e, f) {
   var scaleX, scaleY, skewX;
   if (scaleX = Math.sqrt(a * a + b * b)) a /= scaleX, b /= scaleX;
@@ -1742,7 +1742,7 @@ function decompose_default(a, b, c, d, e, f) {
 }
 var degrees, identity;
 var init_decompose = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/transform/decompose.js"() {
+  "node_modules/d3-interpolate/src/transform/decompose.js"() {
     degrees = 180 / Math.PI;
     identity = {
       translateX: 0,
@@ -1755,7 +1755,7 @@ var init_decompose = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/transform/parse.js
+// node_modules/d3-interpolate/src/transform/parse.js
 function parseCss(value) {
   const m = new (typeof DOMMatrix === "function" ? DOMMatrix : WebKitCSSMatrix)(value + "");
   return m.isIdentity ? identity : decompose_default(m.a, m.b, m.c, m.d, m.e, m.f);
@@ -1770,12 +1770,12 @@ function parseSvg(value) {
 }
 var svgNode;
 var init_parse = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/transform/parse.js"() {
+  "node_modules/d3-interpolate/src/transform/parse.js"() {
     init_decompose();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/transform/index.js
+// node_modules/d3-interpolate/src/transform/index.js
 function interpolateTransform(parse, pxComma, pxParen, degParen) {
   function pop(s) {
     return s.length ? s.pop() + " " : "";
@@ -1829,7 +1829,7 @@ function interpolateTransform(parse, pxComma, pxParen, degParen) {
 }
 var interpolateTransformCss, interpolateTransformSvg;
 var init_transform = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/transform/index.js"() {
+  "node_modules/d3-interpolate/src/transform/index.js"() {
     init_number();
     init_parse();
     interpolateTransformCss = interpolateTransform(parseCss, "px, ", "px)", "deg)");
@@ -1837,9 +1837,9 @@ var init_transform = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/index.js
+// node_modules/d3-interpolate/src/index.js
 var init_src7 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-interpolate/src/index.js"() {
+  "node_modules/d3-interpolate/src/index.js"() {
     init_number();
     init_string();
     init_transform();
@@ -1847,7 +1847,7 @@ var init_src7 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-timer/src/timer.js
+// node_modules/d3-timer/src/timer.js
 function now() {
   return clockNow || (setFrame(clearNow), clockNow = clock.now() + clockSkew);
 }
@@ -1915,7 +1915,7 @@ function sleep(time) {
 }
 var frame, timeout, interval, pokeDelay, taskHead, taskTail, clockLast, clockNow, clockSkew, clock, setFrame;
 var init_timer = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-timer/src/timer.js"() {
+  "node_modules/d3-timer/src/timer.js"() {
     frame = 0;
     timeout = 0;
     interval = 0;
@@ -1952,7 +1952,7 @@ var init_timer = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-timer/src/timeout.js
+// node_modules/d3-timer/src/timeout.js
 function timeout_default(callback, delay, time) {
   var t = new Timer();
   delay = delay == null ? 0 : +delay;
@@ -1963,20 +1963,20 @@ function timeout_default(callback, delay, time) {
   return t;
 }
 var init_timeout = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-timer/src/timeout.js"() {
+  "node_modules/d3-timer/src/timeout.js"() {
     init_timer();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-timer/src/index.js
+// node_modules/d3-timer/src/index.js
 var init_src8 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-timer/src/index.js"() {
+  "node_modules/d3-timer/src/index.js"() {
     init_timer();
     init_timeout();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/schedule.js
+// node_modules/d3-transition/src/transition/schedule.js
 function schedule_default(node, name, id2, index, group, timing) {
   var schedules = node.__transition;
   if (!schedules) node.__transition = {};
@@ -2079,7 +2079,7 @@ function create(node, id2, self2) {
 }
 var emptyOn, emptyTween, CREATED, SCHEDULED, STARTING, STARTED, RUNNING, ENDING, ENDED;
 var init_schedule = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/schedule.js"() {
+  "node_modules/d3-transition/src/transition/schedule.js"() {
     init_src3();
     init_src8();
     emptyOn = dispatch_default("start", "end", "cancel", "interrupt");
@@ -2094,7 +2094,7 @@ var init_schedule = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/interrupt.js
+// node_modules/d3-transition/src/interrupt.js
 function interrupt_default(node, name) {
   var schedules = node.__transition, schedule, active, empty2 = true, i;
   if (!schedules) return;
@@ -2113,24 +2113,24 @@ function interrupt_default(node, name) {
   if (empty2) delete node.__transition;
 }
 var init_interrupt = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/interrupt.js"() {
+  "node_modules/d3-transition/src/interrupt.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/selection/interrupt.js
+// node_modules/d3-transition/src/selection/interrupt.js
 function interrupt_default2(name) {
   return this.each(function() {
     interrupt_default(this, name);
   });
 }
 var init_interrupt2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/selection/interrupt.js"() {
+  "node_modules/d3-transition/src/selection/interrupt.js"() {
     init_interrupt();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/tween.js
+// node_modules/d3-transition/src/transition/tween.js
 function tweenRemove(id2, name) {
   var tween0, tween1;
   return function() {
@@ -2191,24 +2191,24 @@ function tweenValue(transition2, name, value) {
   };
 }
 var init_tween = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/tween.js"() {
+  "node_modules/d3-transition/src/transition/tween.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/interpolate.js
+// node_modules/d3-transition/src/transition/interpolate.js
 function interpolate_default(a, b) {
   var c;
   return (typeof b === "number" ? number_default : b instanceof color ? rgb_default : (c = color(b)) ? (b = c, rgb_default) : string_default)(a, b);
 }
 var init_interpolate = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/interpolate.js"() {
+  "node_modules/d3-transition/src/transition/interpolate.js"() {
     init_src6();
     init_src7();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/attr.js
+// node_modules/d3-transition/src/transition/attr.js
 function attrRemove2(name) {
   return function() {
     this.removeAttribute(name);
@@ -2258,7 +2258,7 @@ function attr_default2(name, value) {
   return this.attrTween(name, typeof value === "function" ? (fullname.local ? attrFunctionNS2 : attrFunction2)(fullname, i, tweenValue(this, "attr." + name, value)) : value == null ? (fullname.local ? attrRemoveNS2 : attrRemove2)(fullname) : (fullname.local ? attrConstantNS2 : attrConstant2)(fullname, i, value));
 }
 var init_attr2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/attr.js"() {
+  "node_modules/d3-transition/src/transition/attr.js"() {
     init_src7();
     init_src4();
     init_tween();
@@ -2266,7 +2266,7 @@ var init_attr2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/attrTween.js
+// node_modules/d3-transition/src/transition/attrTween.js
 function attrInterpolate(name, i) {
   return function(t) {
     this.setAttribute(name, i.call(this, t));
@@ -2306,12 +2306,12 @@ function attrTween_default(name, value) {
   return this.tween(key, (fullname.local ? attrTweenNS : attrTween)(fullname, value));
 }
 var init_attrTween = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/attrTween.js"() {
+  "node_modules/d3-transition/src/transition/attrTween.js"() {
     init_src4();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/delay.js
+// node_modules/d3-transition/src/transition/delay.js
 function delayFunction(id2, value) {
   return function() {
     init(this, id2).delay = +value.apply(this, arguments);
@@ -2327,12 +2327,12 @@ function delay_default(value) {
   return arguments.length ? this.each((typeof value === "function" ? delayFunction : delayConstant)(id2, value)) : get2(this.node(), id2).delay;
 }
 var init_delay = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/delay.js"() {
+  "node_modules/d3-transition/src/transition/delay.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/duration.js
+// node_modules/d3-transition/src/transition/duration.js
 function durationFunction(id2, value) {
   return function() {
     set2(this, id2).duration = +value.apply(this, arguments);
@@ -2348,12 +2348,12 @@ function duration_default(value) {
   return arguments.length ? this.each((typeof value === "function" ? durationFunction : durationConstant)(id2, value)) : get2(this.node(), id2).duration;
 }
 var init_duration = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/duration.js"() {
+  "node_modules/d3-transition/src/transition/duration.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/ease.js
+// node_modules/d3-transition/src/transition/ease.js
 function easeConstant(id2, value) {
   if (typeof value !== "function") throw new Error();
   return function() {
@@ -2365,12 +2365,12 @@ function ease_default(value) {
   return arguments.length ? this.each(easeConstant(id2, value)) : get2(this.node(), id2).ease;
 }
 var init_ease = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/ease.js"() {
+  "node_modules/d3-transition/src/transition/ease.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/easeVarying.js
+// node_modules/d3-transition/src/transition/easeVarying.js
 function easeVarying(id2, value) {
   return function() {
     var v = value.apply(this, arguments);
@@ -2383,12 +2383,12 @@ function easeVarying_default(value) {
   return this.each(easeVarying(this._id, value));
 }
 var init_easeVarying = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/easeVarying.js"() {
+  "node_modules/d3-transition/src/transition/easeVarying.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/filter.js
+// node_modules/d3-transition/src/transition/filter.js
 function filter_default2(match) {
   if (typeof match !== "function") match = matcher_default(match);
   for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
@@ -2401,13 +2401,13 @@ function filter_default2(match) {
   return new Transition(subgroups, this._parents, this._name, this._id);
 }
 var init_filter2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/filter.js"() {
+  "node_modules/d3-transition/src/transition/filter.js"() {
     init_src4();
     init_transition2();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/merge.js
+// node_modules/d3-transition/src/transition/merge.js
 function merge_default2(transition2) {
   if (transition2._id !== this._id) throw new Error();
   for (var groups0 = this._groups, groups1 = transition2._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
@@ -2423,12 +2423,12 @@ function merge_default2(transition2) {
   return new Transition(merges, this._parents, this._name, this._id);
 }
 var init_merge2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/merge.js"() {
+  "node_modules/d3-transition/src/transition/merge.js"() {
     init_transition2();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/on.js
+// node_modules/d3-transition/src/transition/on.js
 function start(name) {
   return (name + "").trim().split(/^|\s+/).every(function(t) {
     var i = t.indexOf(".");
@@ -2449,12 +2449,12 @@ function on_default2(name, listener) {
   return arguments.length < 2 ? get2(this.node(), id2).on.on(name) : this.each(onFunction(id2, name, listener));
 }
 var init_on2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/on.js"() {
+  "node_modules/d3-transition/src/transition/on.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/remove.js
+// node_modules/d3-transition/src/transition/remove.js
 function removeFunction(id2) {
   return function() {
     var parent = this.parentNode;
@@ -2466,11 +2466,11 @@ function remove_default2() {
   return this.on("end.remove", removeFunction(this._id));
 }
 var init_remove2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/remove.js"() {
+  "node_modules/d3-transition/src/transition/remove.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/select.js
+// node_modules/d3-transition/src/transition/select.js
 function select_default2(select) {
   var name = this._name, id2 = this._id;
   if (typeof select !== "function") select = selector_default(select);
@@ -2486,14 +2486,14 @@ function select_default2(select) {
   return new Transition(subgroups, this._parents, name, id2);
 }
 var init_select2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/select.js"() {
+  "node_modules/d3-transition/src/transition/select.js"() {
     init_src4();
     init_transition2();
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/selectAll.js
+// node_modules/d3-transition/src/transition/selectAll.js
 function selectAll_default2(select) {
   var name = this._name, id2 = this._id;
   if (typeof select !== "function") select = selectorAll_default(select);
@@ -2513,26 +2513,26 @@ function selectAll_default2(select) {
   return new Transition(subgroups, parents, name, id2);
 }
 var init_selectAll2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/selectAll.js"() {
+  "node_modules/d3-transition/src/transition/selectAll.js"() {
     init_src4();
     init_transition2();
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/selection.js
+// node_modules/d3-transition/src/transition/selection.js
 function selection_default2() {
   return new Selection2(this._groups, this._parents);
 }
 var Selection2;
 var init_selection2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/selection.js"() {
+  "node_modules/d3-transition/src/transition/selection.js"() {
     init_src4();
     Selection2 = selection_default.prototype.constructor;
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/style.js
+// node_modules/d3-transition/src/transition/style.js
 function styleNull(name, interpolate) {
   var string00, string10, interpolate0;
   return function() {
@@ -2573,7 +2573,7 @@ function style_default2(name, value, priority) {
   return value == null ? this.styleTween(name, styleNull(name, i)).on("end.style." + name, styleRemove2(name)) : typeof value === "function" ? this.styleTween(name, styleFunction2(name, i, tweenValue(this, "style." + name, value))).each(styleMaybeRemove(this._id, name)) : this.styleTween(name, styleConstant2(name, i, value), priority).on("end.style." + name, null);
 }
 var init_style2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/style.js"() {
+  "node_modules/d3-transition/src/transition/style.js"() {
     init_src7();
     init_src4();
     init_schedule();
@@ -2582,7 +2582,7 @@ var init_style2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/styleTween.js
+// node_modules/d3-transition/src/transition/styleTween.js
 function styleInterpolate(name, i, priority) {
   return function(t) {
     this.style.setProperty(name, i.call(this, t), priority);
@@ -2606,11 +2606,11 @@ function styleTween_default(name, value, priority) {
   return this.tween(key, styleTween(name, value, priority == null ? "" : priority));
 }
 var init_styleTween = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/styleTween.js"() {
+  "node_modules/d3-transition/src/transition/styleTween.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/text.js
+// node_modules/d3-transition/src/transition/text.js
 function textConstant2(value) {
   return function() {
     this.textContent = value;
@@ -2626,12 +2626,12 @@ function text_default2(value) {
   return this.tween("text", typeof value === "function" ? textFunction2(tweenValue(this, "text", value)) : textConstant2(value == null ? "" : value + ""));
 }
 var init_text2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/text.js"() {
+  "node_modules/d3-transition/src/transition/text.js"() {
     init_tween();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/textTween.js
+// node_modules/d3-transition/src/transition/textTween.js
 function textInterpolate(i) {
   return function(t) {
     this.textContent = i.call(this, t);
@@ -2655,11 +2655,11 @@ function textTween_default(value) {
   return this.tween(key, textTween(value));
 }
 var init_textTween = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/textTween.js"() {
+  "node_modules/d3-transition/src/transition/textTween.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/transition.js
+// node_modules/d3-transition/src/transition/transition.js
 function transition_default() {
   var name = this._name, id0 = this._id, id1 = newId();
   for (var groups = this._groups, m = groups.length, j = 0; j < m; ++j) {
@@ -2678,13 +2678,13 @@ function transition_default() {
   return new Transition(groups, this._parents, name, id1);
 }
 var init_transition = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/transition.js"() {
+  "node_modules/d3-transition/src/transition/transition.js"() {
     init_transition2();
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/end.js
+// node_modules/d3-transition/src/transition/end.js
 function end_default() {
   var on0, on1, that = this, id2 = that._id, size = that.size();
   return new Promise(function(resolve, reject) {
@@ -2705,12 +2705,12 @@ function end_default() {
   });
 }
 var init_end = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/end.js"() {
+  "node_modules/d3-transition/src/transition/end.js"() {
     init_schedule();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/index.js
+// node_modules/d3-transition/src/transition/index.js
 function Transition(groups, parents, name, id2) {
   this._groups = groups;
   this._parents = parents;
@@ -2725,7 +2725,7 @@ function newId() {
 }
 var id, selection_prototype;
 var init_transition2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/transition/index.js"() {
+  "node_modules/d3-transition/src/transition/index.js"() {
     init_src4();
     init_attr2();
     init_attrTween();
@@ -2784,23 +2784,23 @@ var init_transition2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-ease/src/cubic.js
+// node_modules/d3-ease/src/cubic.js
 function cubicInOut(t) {
   return ((t *= 2) <= 1 ? t * t * t : (t -= 2) * t * t + 2) / 2;
 }
 var init_cubic = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-ease/src/cubic.js"() {
+  "node_modules/d3-ease/src/cubic.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-ease/src/index.js
+// node_modules/d3-ease/src/index.js
 var init_src9 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-ease/src/index.js"() {
+  "node_modules/d3-ease/src/index.js"() {
     init_cubic();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/selection/transition.js
+// node_modules/d3-transition/src/selection/transition.js
 function inherit(node, id2) {
   var timing;
   while (!(timing = node.__transition) || !(timing = timing[id2])) {
@@ -2828,7 +2828,7 @@ function transition_default2(name) {
 }
 var defaultTiming;
 var init_transition3 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/selection/transition.js"() {
+  "node_modules/d3-transition/src/selection/transition.js"() {
     init_transition2();
     init_schedule();
     init_src9();
@@ -2843,9 +2843,9 @@ var init_transition3 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/selection/index.js
+// node_modules/d3-transition/src/selection/index.js
 var init_selection3 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/selection/index.js"() {
+  "node_modules/d3-transition/src/selection/index.js"() {
     init_src4();
     init_interrupt2();
     init_transition3();
@@ -2854,32 +2854,32 @@ var init_selection3 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/index.js
+// node_modules/d3-transition/src/index.js
 var init_src10 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-transition/src/index.js"() {
+  "node_modules/d3-transition/src/index.js"() {
     init_selection3();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/constant.js
+// node_modules/d3-brush/src/constant.js
 var init_constant3 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/constant.js"() {
+  "node_modules/d3-brush/src/constant.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/event.js
+// node_modules/d3-brush/src/event.js
 var init_event = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/event.js"() {
+  "node_modules/d3-brush/src/event.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/noevent.js
+// node_modules/d3-brush/src/noevent.js
 var init_noevent = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/noevent.js"() {
+  "node_modules/d3-brush/src/noevent.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/brush.js
+// node_modules/d3-brush/src/brush.js
 function number1(e) {
   return [+e[0], +e[1]];
 }
@@ -2891,7 +2891,7 @@ function type(t) {
 }
 var abs, max, min, X, Y, XY;
 var init_brush = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/brush.js"() {
+  "node_modules/d3-brush/src/brush.js"() {
     init_src10();
     init_constant3();
     init_event();
@@ -2930,62 +2930,62 @@ var init_brush = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/index.js
+// node_modules/d3-brush/src/index.js
 var init_src11 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-brush/src/index.js"() {
+  "node_modules/d3-brush/src/index.js"() {
     init_brush();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-path/src/index.js
+// node_modules/d3-path/src/index.js
 var init_src12 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-path/src/index.js"() {
+  "node_modules/d3-path/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-chord/src/index.js
+// node_modules/d3-chord/src/index.js
 var init_src13 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-chord/src/index.js"() {
+  "node_modules/d3-chord/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-contour/src/index.js
+// node_modules/d3-contour/src/index.js
 var init_src14 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-contour/src/index.js"() {
+  "node_modules/d3-contour/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-delaunay/src/index.js
+// node_modules/d3-delaunay/src/index.js
 var init_src15 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-delaunay/src/index.js"() {
+  "node_modules/d3-delaunay/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-dsv/src/index.js
+// node_modules/d3-dsv/src/index.js
 var init_src16 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-dsv/src/index.js"() {
+  "node_modules/d3-dsv/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-fetch/src/index.js
+// node_modules/d3-fetch/src/index.js
 var init_src17 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-fetch/src/index.js"() {
+  "node_modules/d3-fetch/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-quadtree/src/index.js
+// node_modules/d3-quadtree/src/index.js
 var init_src18 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-quadtree/src/index.js"() {
+  "node_modules/d3-quadtree/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-force/src/index.js
+// node_modules/d3-force/src/index.js
 var init_src19 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-force/src/index.js"() {
+  "node_modules/d3-force/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatDecimal.js
+// node_modules/d3-format/src/formatDecimal.js
 function formatDecimal_default(x) {
   return Math.abs(x = Math.round(x)) >= 1e21 ? x.toLocaleString("en").replace(/,/g, "") : x.toString(10);
 }
@@ -2998,21 +2998,21 @@ function formatDecimalParts(x, p) {
   ];
 }
 var init_formatDecimal = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatDecimal.js"() {
+  "node_modules/d3-format/src/formatDecimal.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/exponent.js
+// node_modules/d3-format/src/exponent.js
 function exponent_default(x) {
   return x = formatDecimalParts(Math.abs(x)), x ? x[1] : NaN;
 }
 var init_exponent = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/exponent.js"() {
+  "node_modules/d3-format/src/exponent.js"() {
     init_formatDecimal();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatGroup.js
+// node_modules/d3-format/src/formatGroup.js
 function formatGroup_default(grouping, thousands) {
   return function(value, width) {
     var i = value.length, t = [], j = 0, g = grouping[0], length = 0;
@@ -3026,11 +3026,11 @@ function formatGroup_default(grouping, thousands) {
   };
 }
 var init_formatGroup = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatGroup.js"() {
+  "node_modules/d3-format/src/formatGroup.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatNumerals.js
+// node_modules/d3-format/src/formatNumerals.js
 function formatNumerals_default(numerals) {
   return function(value) {
     return value.replace(/[0-9]/g, function(i) {
@@ -3039,11 +3039,11 @@ function formatNumerals_default(numerals) {
   };
 }
 var init_formatNumerals = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatNumerals.js"() {
+  "node_modules/d3-format/src/formatNumerals.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatSpecifier.js
+// node_modules/d3-format/src/formatSpecifier.js
 function formatSpecifier(specifier) {
   if (!(match = re.exec(specifier))) throw new Error("invalid format: " + specifier);
   var match;
@@ -3074,7 +3074,7 @@ function FormatSpecifier(specifier) {
 }
 var re;
 var init_formatSpecifier = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatSpecifier.js"() {
+  "node_modules/d3-format/src/formatSpecifier.js"() {
     re = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?$/i;
     formatSpecifier.prototype = FormatSpecifier.prototype;
     FormatSpecifier.prototype.toString = function() {
@@ -3083,7 +3083,7 @@ var init_formatSpecifier = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatTrim.js
+// node_modules/d3-format/src/formatTrim.js
 function formatTrim_default(s) {
   out: for (var n = s.length, i = 1, i0 = -1, i1; i < n; ++i) {
     switch (s[i]) {
@@ -3103,11 +3103,11 @@ function formatTrim_default(s) {
   return i0 > 0 ? s.slice(0, i0) + s.slice(i1 + 1) : s;
 }
 var init_formatTrim = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatTrim.js"() {
+  "node_modules/d3-format/src/formatTrim.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatPrefixAuto.js
+// node_modules/d3-format/src/formatPrefixAuto.js
 function formatPrefixAuto_default(x, p) {
   var d = formatDecimalParts(x, p);
   if (!d) return prefixExponent = void 0, x.toPrecision(p);
@@ -3116,12 +3116,12 @@ function formatPrefixAuto_default(x, p) {
 }
 var prefixExponent;
 var init_formatPrefixAuto = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatPrefixAuto.js"() {
+  "node_modules/d3-format/src/formatPrefixAuto.js"() {
     init_formatDecimal();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatRounded.js
+// node_modules/d3-format/src/formatRounded.js
 function formatRounded_default(x, p) {
   var d = formatDecimalParts(x, p);
   if (!d) return x + "";
@@ -3129,15 +3129,15 @@ function formatRounded_default(x, p) {
   return exponent < 0 ? "0." + new Array(-exponent).join("0") + coefficient : coefficient.length > exponent + 1 ? coefficient.slice(0, exponent + 1) + "." + coefficient.slice(exponent + 1) : coefficient + new Array(exponent - coefficient.length + 2).join("0");
 }
 var init_formatRounded = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatRounded.js"() {
+  "node_modules/d3-format/src/formatRounded.js"() {
     init_formatDecimal();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatTypes.js
+// node_modules/d3-format/src/formatTypes.js
 var formatTypes_default;
 var init_formatTypes = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/formatTypes.js"() {
+  "node_modules/d3-format/src/formatTypes.js"() {
     init_formatDecimal();
     init_formatPrefixAuto();
     init_formatRounded();
@@ -3159,16 +3159,16 @@ var init_formatTypes = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/identity.js
+// node_modules/d3-format/src/identity.js
 function identity_default(x) {
   return x;
 }
 var init_identity = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/identity.js"() {
+  "node_modules/d3-format/src/identity.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/locale.js
+// node_modules/d3-format/src/locale.js
 function locale_default(locale3) {
   var group = locale3.grouping === void 0 || locale3.thousands === void 0 ? identity_default : formatGroup_default(map.call(locale3.grouping, Number), locale3.thousands + ""), currencyPrefix = locale3.currency === void 0 ? "" : locale3.currency[0] + "", currencySuffix = locale3.currency === void 0 ? "" : locale3.currency[1] + "", decimal = locale3.decimal === void 0 ? "." : locale3.decimal + "", numerals = locale3.numerals === void 0 ? identity_default : formatNumerals_default(map.call(locale3.numerals, String)), percent = locale3.percent === void 0 ? "%" : locale3.percent + "", minus = locale3.minus === void 0 ? "\u2212" : locale3.minus + "", nan = locale3.nan === void 0 ? "NaN" : locale3.nan + "";
   function newFormat(specifier, options) {
@@ -3241,7 +3241,7 @@ function locale_default(locale3) {
 }
 var map, prefixes;
 var init_locale = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/locale.js"() {
+  "node_modules/d3-format/src/locale.js"() {
     init_exponent();
     init_formatGroup();
     init_formatNumerals();
@@ -3255,7 +3255,7 @@ var init_locale = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/defaultLocale.js
+// node_modules/d3-format/src/defaultLocale.js
 function defaultLocale(definition) {
   locale = locale_default(definition);
   format = locale.format;
@@ -3264,7 +3264,7 @@ function defaultLocale(definition) {
 }
 var locale, format, formatPrefix;
 var init_defaultLocale = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/defaultLocale.js"() {
+  "node_modules/d3-format/src/defaultLocale.js"() {
     init_locale();
     defaultLocale({
       thousands: ",",
@@ -3274,38 +3274,38 @@ var init_defaultLocale = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/index.js
+// node_modules/d3-format/src/index.js
 var init_src20 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-format/src/index.js"() {
+  "node_modules/d3-format/src/index.js"() {
     init_defaultLocale();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-geo/src/index.js
+// node_modules/d3-geo/src/index.js
 var init_src21 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-geo/src/index.js"() {
+  "node_modules/d3-geo/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-hierarchy/src/index.js
+// node_modules/d3-hierarchy/src/index.js
 var init_src22 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-hierarchy/src/index.js"() {
+  "node_modules/d3-hierarchy/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-polygon/src/index.js
+// node_modules/d3-polygon/src/index.js
 var init_src23 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-polygon/src/index.js"() {
+  "node_modules/d3-polygon/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-random/src/index.js
+// node_modules/d3-random/src/index.js
 var init_src24 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-random/src/index.js"() {
+  "node_modules/d3-random/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/interval.js
+// node_modules/d3-time/src/interval.js
 function timeInterval(floori, offseti, count, field) {
   function interval2(date) {
     return floori(date = arguments.length === 0 ? /* @__PURE__ */ new Date() : /* @__PURE__ */ new Date(+date)), date;
@@ -3365,16 +3365,16 @@ function timeInterval(floori, offseti, count, field) {
 }
 var t0, t1;
 var init_interval = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/interval.js"() {
+  "node_modules/d3-time/src/interval.js"() {
     t0 = /* @__PURE__ */ new Date();
     t1 = /* @__PURE__ */ new Date();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/duration.js
+// node_modules/d3-time/src/duration.js
 var durationSecond, durationMinute, durationHour, durationDay, durationWeek, durationMonth, durationYear;
 var init_duration2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/duration.js"() {
+  "node_modules/d3-time/src/duration.js"() {
     durationSecond = 1e3;
     durationMinute = durationSecond * 60;
     durationHour = durationMinute * 60;
@@ -3385,10 +3385,10 @@ var init_duration2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/day.js
+// node_modules/d3-time/src/day.js
 var timeDay, timeDays, utcDay, utcDays, unixDay, unixDays;
 var init_day = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/day.js"() {
+  "node_modules/d3-time/src/day.js"() {
     init_interval();
     init_duration2();
     timeDay = timeInterval(
@@ -3421,7 +3421,7 @@ var init_day = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/week.js
+// node_modules/d3-time/src/week.js
 function timeWeekday(i) {
   return timeInterval((date) => {
     date.setDate(date.getDate() - (date.getDay() + 7 - i) % 7);
@@ -3444,7 +3444,7 @@ function utcWeekday(i) {
 }
 var timeSunday, timeMonday, timeTuesday, timeWednesday, timeThursday, timeFriday, timeSaturday, timeSundays, timeMondays, timeTuesdays, timeWednesdays, timeThursdays, timeFridays, timeSaturdays, utcSunday, utcMonday, utcTuesday, utcWednesday, utcThursday, utcFriday, utcSaturday, utcSundays, utcMondays, utcTuesdays, utcWednesdays, utcThursdays, utcFridays, utcSaturdays;
 var init_week = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/week.js"() {
+  "node_modules/d3-time/src/week.js"() {
     init_interval();
     init_duration2();
     timeSunday = timeWeekday(0);
@@ -3478,10 +3478,10 @@ var init_week = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/year.js
+// node_modules/d3-time/src/year.js
 var timeYear, timeYears, utcYear, utcYears;
 var init_year = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/year.js"() {
+  "node_modules/d3-time/src/year.js"() {
     init_interval();
     timeYear = timeInterval((date) => {
       date.setMonth(0, 1);
@@ -3526,16 +3526,16 @@ var init_year = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/index.js
+// node_modules/d3-time/src/index.js
 var init_src25 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time/src/index.js"() {
+  "node_modules/d3-time/src/index.js"() {
     init_day();
     init_week();
     init_year();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time-format/src/locale.js
+// node_modules/d3-time-format/src/locale.js
 function localDate(d) {
   if (0 <= d.y && d.y < 100) {
     var date = new Date(-1, d.m, d.d, d.H, d.M, d.S, d.L);
@@ -4073,7 +4073,7 @@ function formatUnixTimestampSeconds(d) {
 }
 var pads, numberRe, percentRe, requoteRe;
 var init_locale2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time-format/src/locale.js"() {
+  "node_modules/d3-time-format/src/locale.js"() {
     init_src25();
     pads = { "-": "", "_": " ", "0": "0" };
     numberRe = /^\s*\d+/;
@@ -4082,7 +4082,7 @@ var init_locale2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time-format/src/defaultLocale.js
+// node_modules/d3-time-format/src/defaultLocale.js
 function defaultLocale2(definition) {
   locale2 = formatLocale(definition);
   timeFormat = locale2.format;
@@ -4093,7 +4093,7 @@ function defaultLocale2(definition) {
 }
 var locale2, timeFormat, timeParse, utcFormat, utcParse;
 var init_defaultLocale2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time-format/src/defaultLocale.js"() {
+  "node_modules/d3-time-format/src/defaultLocale.js"() {
     init_locale2();
     defaultLocale2({
       dateTime: "%x, %X",
@@ -4108,26 +4108,26 @@ var init_defaultLocale2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-time-format/src/index.js
+// node_modules/d3-time-format/src/index.js
 var init_src26 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-time-format/src/index.js"() {
+  "node_modules/d3-time-format/src/index.js"() {
     init_defaultLocale2();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-scale/src/index.js
+// node_modules/d3-scale/src/index.js
 var init_src27 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-scale/src/index.js"() {
+  "node_modules/d3-scale/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-scale-chromatic/src/index.js
+// node_modules/d3-scale-chromatic/src/index.js
 var init_src28 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-scale-chromatic/src/index.js"() {
+  "node_modules/d3-scale-chromatic/src/index.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-shape/src/curve/linear.js
+// node_modules/d3-shape/src/curve/linear.js
 function Linear(context) {
   this._context = context;
 }
@@ -4135,7 +4135,7 @@ function linear_default(context) {
   return new Linear(context);
 }
 var init_linear = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-shape/src/curve/linear.js"() {
+  "node_modules/d3-shape/src/curve/linear.js"() {
     Linear.prototype = {
       areaStart: function() {
         this._line = 0;
@@ -4169,26 +4169,26 @@ var init_linear = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-shape/src/index.js
+// node_modules/d3-shape/src/index.js
 var init_src29 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-shape/src/index.js"() {
+  "node_modules/d3-shape/src/index.js"() {
     init_linear();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/constant.js
+// node_modules/d3-zoom/src/constant.js
 var init_constant4 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/constant.js"() {
+  "node_modules/d3-zoom/src/constant.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/event.js
+// node_modules/d3-zoom/src/event.js
 var init_event2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/event.js"() {
+  "node_modules/d3-zoom/src/event.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/transform.js
+// node_modules/d3-zoom/src/transform.js
 function Transform(k, x, y) {
   this.k = k;
   this.x = x;
@@ -4200,7 +4200,7 @@ function transform(node) {
 }
 var identity2;
 var init_transform2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/transform.js"() {
+  "node_modules/d3-zoom/src/transform.js"() {
     Transform.prototype = {
       constructor: Transform,
       scale: function(k) {
@@ -4242,15 +4242,15 @@ var init_transform2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/noevent.js
+// node_modules/d3-zoom/src/noevent.js
 var init_noevent2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/noevent.js"() {
+  "node_modules/d3-zoom/src/noevent.js"() {
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/zoom.js
+// node_modules/d3-zoom/src/zoom.js
 var init_zoom = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/zoom.js"() {
+  "node_modules/d3-zoom/src/zoom.js"() {
     init_src10();
     init_constant4();
     init_event2();
@@ -4259,17 +4259,17 @@ var init_zoom = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/index.js
+// node_modules/d3-zoom/src/index.js
 var init_src30 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3-zoom/src/index.js"() {
+  "node_modules/d3-zoom/src/index.js"() {
     init_zoom();
     init_transform2();
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/d3/src/index.js
+// node_modules/d3/src/index.js
 var init_src31 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/d3/src/index.js"() {
+  "node_modules/d3/src/index.js"() {
     init_src();
     init_src2();
     init_src11();
@@ -4303,9 +4303,9 @@ var init_src31 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/elkjs/lib/elk.bundled.js
+// node_modules/elkjs/lib/elk.bundled.js
 var require_elk_bundled = __commonJS({
-  "../../../_projects/tools/KimiDesktop/node_modules/elkjs/lib/elk.bundled.js"(exports, module) {
+  "node_modules/elkjs/lib/elk.bundled.js"(exports, module) {
     (function(f) {
       if (typeof exports === "object" && typeof module !== "undefined") {
         module.exports = f();
@@ -96543,7 +96543,7 @@ var require_elk_bundled = __commonJS({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/render-X3XFXER2.mjs
+// node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/render-X3XFXER2.mjs
 var render_X3XFXER2_exports = {};
 __export(render_X3XFXER2_exports, {
   buildSubgraphLayoutOptions: () => buildSubgraphLayoutOptions,
@@ -96581,7 +96581,7 @@ function buildSubgraphLayoutOptions(node, elkConfig, algorithm) {
 }
 var import_elk_bundled, findCommonAncestor, EPS, PUSH_OUT, onBorder, intersection, outsideNode, ensureTrulyOutside, makeInsidePoint, tryNodeIntersect, fallbackIntersection, computeNodeIntersection, replaceEndpoint, render;
 var init_render_X3XFXER2 = __esm({
-  "../../../_projects/tools/KimiDesktop/node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/render-X3XFXER2.mjs"() {
+  "node_modules/@mermaid-js/layout-elk/dist/chunks/mermaid-layout-elk.core/render-X3XFXER2.mjs"() {
     init_chunk_ZW26E7AF();
     init_src31();
     import_elk_bundled = __toESM(require_elk_bundled(), 1);
@@ -97510,7 +97510,7 @@ var init_render_X3XFXER2 = __esm({
   }
 });
 
-// ../../../_projects/tools/KimiDesktop/node_modules/@mermaid-js/layout-elk/dist/mermaid-layout-elk.core.mjs
+// node_modules/@mermaid-js/layout-elk/dist/mermaid-layout-elk.core.mjs
 init_chunk_ZW26E7AF();
 var loader = /* @__PURE__ */ __name(async () => await Promise.resolve().then(() => (init_render_X3XFXER2(), render_X3XFXER2_exports)), "loader");
 var algos = ["elk.stress", "elk.force", "elk.mrtree", "elk.sporeOverlap"];

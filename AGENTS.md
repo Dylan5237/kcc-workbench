@@ -32,11 +32,12 @@ Use Node.js 22 for development and packaging. CloudCLI currently starts through 
 - Commit format: `type(scope): 简体中文标题` with a compact root-cause → fix body when useful.
 - Footer: `Co-Authored-By: Codex <noreply@openai.com>`.
 - Repository author: `Dylan5237 <58796901+Dylan5237@users.noreply.github.com>`.
-- One independent change per commit. Run `npm test` and `npm run build` before committing.
+- One independent change per commit. Run `npm test`; run `npm run build` when the change can affect packaging or runtime behavior.
 - Push only after explicit user confirmation; push the current feature branch to GitHub `origin`.
 
 ## Current status
 
-- Active development is on `feature/kcc-engines`; the KCC changes are not yet merged or released.
+- `main` and `feature/kcc-engines` both contain the KCC dual-engine work as of 2026-08-11; no post-rename KCC Release has been published yet.
+- Real signed-in CloudCLI Viewer-path acceptance remains pending; unit tests and the unauthenticated fallback path are not equivalent to that live proof.
 - Preserve unrelated dirty files. Do not add `BLOCKED.md`, `PROGRESS.md`, `.exp1-results/`, or one-off acceptance scripts unless the user explicitly approves them.
 - Known release limitation: CloudCLI is bundled as an npm dependency, but the compatible Node runtime is not yet bundled.
