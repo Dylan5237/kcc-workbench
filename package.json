@@ -1,6 +1,6 @@
 {
   "name": "kcc-workbench",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-rc.1",
   "description": "Unofficial local Windows workbench for Kimi Code and CloudCLI (Claude Code / Codex) with a shared artifact Viewer",
   "main": "src/main/main.js",
   "type": "module",
