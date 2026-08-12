@@ -1,9 +1,16 @@
 import os from 'node:os'
 import path from 'node:path'
-import { promises as fs } from 'node:fs'
+import { promises as fs, statSync } from 'node:fs'
 
 const SESSION_ID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/ig
 const MAX_TAIL_BYTES = 256 * 1024
+const MAX_TOUCHED_BYTES = 2 * 1024 * 1024
+const MAX_TOUCHED_PATHS = 30
+const TOUCH_PATH_KEYS = new Set(['file_path', 'file_path_with_numeric_suffix', 'filePath'])
+const WRITE_TOOL_NAMES = new Set([
+  'Edit', 'Write', 'NotebookEdit', 'MultiEdit',
+  'create_file', 'write_file', 'apply_patch', 'str_replace_editor'
+])
 
 export class CloudCliContextMonitor {
   constructor({ homeDirectory = os.homedir(), sessionRoots, maxTailBytes = MAX_TAIL_BYTES } = {}) {
@@ -109,9 +116,76 @@ export async function readSessionContext(candidate, maxTailBytes = MAX_TAIL_BYTE
   }
 
   const tailContext = await parse(await readFileTail(candidate.filePath, maxTailBytes))
-  if (tailContext) return tailContext
+  if (tailContext) return withTouchedPaths(tailContext, candidate.filePath)
   if ((candidate.size || 0) <= maxTailBytes) return null
-  return parse(await readFileHead(candidate.filePath, maxTailBytes))
+  const headContext = await parse(await readFileHead(candidate.filePath, maxTailBytes))
+  return headContext ? withTouchedPaths(headContext, candidate.filePath) : null
+}
+
+async function withTouchedPaths(context, filePath) {
+  if (!context?.projectDirectory) return context
+  const touchedPaths = await collectTouchedPaths(filePath, context.projectDirectory)
+  return touchedPaths.length ? { ...context, touchedPaths } : context
+}
+
+async function collectTouchedPaths(filePath, projectDirectory, maxBytes = MAX_TOUCHED_BYTES) {
+  const paths = []
+  const seenObjects = new Set()
+  const seenPaths = new Set()
+  const addCandidate = raw => {
+    if (typeof raw !== 'string' || !raw.trim()) return
+    const candidate = raw.trim()
+    if (!path.isAbsolute(candidate)) return
+    const key = candidate.toLowerCase()
+    if (seenPaths.has(key)) return
+    seenPaths.add(key)
+    try {
+      const stat = statSync(candidate)
+      if (!stat.isFile() && !stat.isDirectory()) return
+    } catch {
+      return
+    }
+    if (projectDirectory && isInside(projectDirectory, candidate)) return
+    if (paths.length >= MAX_TOUCHED_PATHS) return
+    paths.push(path.normalize(candidate))
+  }
+  const collect = value => {
+    if (!value || typeof value !== 'object' || seenObjects.has(value)) return
+    seenObjects.add(value)
+    if (Array.isArray(value)) {
+      for (const item of value) collect(item)
+      return
+    }
+    if (
+      value?.type === 'tool_use'
+      && WRITE_TOOL_NAMES.has(value.name)
+      && typeof value.input?.file_path === 'string'
+    ) {
+      addCandidate(value.input.file_path)
+    }
+    for (const key of TOUCH_PATH_KEYS) {
+      if (typeof value[key] === 'string') addCandidate(value[key])
+    }
+    for (const item of Object.values(value)) collect(item)
+  }
+  const handle = await fs.open(filePath, 'r')
+  try {
+    const stat = await handle.stat()
+    const length = Math.min(stat.size, maxBytes)
+    const buffer = Buffer.alloc(length)
+    await handle.read(buffer, 0, length, 0)
+    for (const line of buffer.toString('utf8').split(/\r?\n/)) {
+      if (!line.trim()) continue
+      try {
+        collect(JSON.parse(line))
+      } catch {
+        // A session can end with a partial record at a read boundary.
+      }
+    }
+  } finally {
+    await handle.close()
+  }
+  return paths
 }
 
 async function listJsonlFiles(directory) {
@@ -188,6 +262,13 @@ function findStringField(value, names, seen = new Set()) {
 function sessionIdFromPath(filePath) {
   const matches = path.basename(filePath).match(SESSION_ID_PATTERN)
   return matches?.at(-1) || null
+}
+
+function isInside(root, target) {
+  const normalizedRoot = path.resolve(root)
+  const normalizedTarget = path.resolve(target)
+  return normalizedTarget === normalizedRoot
+    || normalizedTarget.startsWith(`${normalizedRoot}${path.sep}`)
 }
 
 async function existingDirectory(value) {

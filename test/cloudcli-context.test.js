@@ -130,3 +130,27 @@ test('maps CloudCLI session details API payloads to Viewer context', () => {
     source: 'cloudcli-route'
   })
 })
+
+test('extracts session-touched external paths from JSONL activity', async t => {
+  const fixture = await createFixture()
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }))
+  const sessionId = '12345678-1234-4123-8123-123456789abc'
+  const filePath = path.join(fixture.claudeRoot, `session-${sessionId}.jsonl`)
+  const outsideDir = path.join(fixture.root, 'outside')
+  await fs.mkdir(outsideDir, { recursive: true })
+  const outsideFile = path.join(outsideDir, 'notes.md')
+  await fs.writeFile(outsideFile, '# notes')
+  const insideFile = path.join(fixture.projectA, 'inside.md')
+  await fs.writeFile(insideFile, '# inside')
+  const records = [
+    { cwd: fixture.projectA },
+    { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: outsideFile } }] } },
+    { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: insideFile } }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', content: `Wrote ${outsideFile}` }] } }
+  ]
+  await fs.writeFile(filePath, records.map(record => `${JSON.stringify(record)}\n`).join(''))
+
+  const context = await readSessionContext({ provider: 'claude', filePath })
+  assert.equal(context.projectDirectory, fixture.projectA)
+  assert.deepEqual(context.touchedPaths, [outsideFile])
+})

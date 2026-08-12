@@ -16,7 +16,7 @@ import {
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { promises as fs } from 'node:fs'
+import { promises as fs, statSync } from 'node:fs'
 import { QuotaService } from './quota-service.js'
 import { runQuotaFixtureSelfTest } from './quota-worker.js'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
@@ -937,10 +937,12 @@ async function syncViewerConversationContext() {
   const prefix = activeEngine === 'cloudcli' ? 'cloudcli' : 'kimi'
   const label = activeEngine === 'cloudcli' ? '当前 CloudCLI 会话' : '当前 Kimi 对话'
   const previousRoot = viewerServer.root
+  const extraRoots = normalizeExtraRoots(context.touchedPaths, context.projectDirectory)
   await viewerServer.setConversationContext({
     id: context.sessionId ? `${prefix}:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
     label: context.sessionId ? label : '当前工作区',
-    root: context.projectDirectory
+    root: context.projectDirectory,
+    extraRoots
   })
   await logViewerContext('context-applied', {
     engine: activeEngine,
@@ -952,6 +954,8 @@ async function syncViewerConversationContext() {
     apiError: detection.apiError,
     fallback: detection.fallback,
     projectDirectory: context.projectDirectory,
+    extraRootCount: extraRoots.length,
+    extraRoots,
     previousRoot,
     viewerRoot: viewerServer.root
   })
@@ -1107,6 +1111,40 @@ async function existingDirectory(value) {
     // Candidate can be stale, truncated, or only visible text.
   }
   return null
+}
+
+function normalizeExtraRoots(touchedPaths, projectDirectory) {
+  if (!Array.isArray(touchedPaths) || !projectDirectory) return []
+  const seen = new Set()
+  const roots = []
+  for (const raw of touchedPaths) {
+    if (typeof raw !== 'string' || !raw.trim()) continue
+    const candidate = path.normalize(raw.trim())
+    const probe = (() => {
+      try {
+        return statSync(candidate)
+      } catch {
+        return null
+      }
+    })()
+    if (!probe) continue
+    const root = probe.isFile() ? path.dirname(candidate) : candidate
+    if (projectDirectory && (root === projectDirectory || isPathInside(root, projectDirectory))) {
+      continue
+    }
+    const lower = root.toLowerCase()
+    if (seen.has(lower)) continue
+    seen.add(lower)
+    roots.push(root)
+    if (roots.length >= 20) break
+  }
+  return roots
+}
+
+function isPathInside(target, root) {
+  const normalizedTarget = path.normalize(target)
+  const normalizedRoot = path.normalize(root)
+  return normalizedTarget.startsWith(`${normalizedRoot}${path.sep}`)
 }
 
 function broadcastQuotaState(state) {

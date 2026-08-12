@@ -457,8 +457,16 @@
 
   // 拼节点绝对路径(Windows 反斜杠格式)
   function absPathOf(node) {
+    // 补充根节点使用绝对路径作为 path, 直接返回
+    if (node.path && pathIsAbsoluteLike(node.path)) {
+      return node.path.replace(/\//g, '\\');
+    }
     const joined = (currentRoot.replace(/[\\/]+$/, '') + '/' + node.path);
     return joined.replace(/\//g, '\\');
+  }
+
+  function pathIsAbsoluteLike(value) {
+    return typeof value === 'string' && /^[A-Za-z]:[\\/]/.test(value);
   }
 
   function hideContextMenu() {

@@ -137,6 +137,59 @@ test('blocks paths outside the active project', async t => {
   }
 })
 
+test('aggregates session-touched external directories as extra roots', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-extra-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  const outsideDir = path.join(tempRoot, 'outside')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.mkdir(outsideDir, { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Main')
+  await fs.writeFile(path.join(outsideDir, 'plan.md'), '# External plan')
+  await fs.writeFile(path.join(outsideDir, 'data.json'), '{"external":true}')
+
+  const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  await server.setConversationContext({
+    id: 'session:extra',
+    label: '测试会话',
+    root: projectDir,
+    extraRoots: [outsideDir]
+  })
+
+  // 补充根出现在文件树, 且其下文件带绝对路径前缀
+  const tree = await viewerFetch(server, '/api/tree').then(response => response.json())
+  assert.equal(tree.root, projectDir)
+  assert.deepEqual(tree.extraRoots, [outsideDir])
+  const outsideTop = tree.tree.children.find(item => item.name === 'outside' && item.type === 'dir')
+  assert.ok(outsideTop, '外部目录应作为补充根出现在树中')
+
+  // 补充根文件可通过绝对路径读取
+  const absPath = path.join(outsideDir, 'plan.md').replace(/\\/g, '/')
+  const plan = await viewerFetch(server, `/api/file?p=${encodeURIComponent(absPath)}`)
+    .then(response => response.json())
+  assert.equal(plan.content, '# External plan')
+
+  // 补充根可出现在本轮产物
+  await fs.writeFile(path.join(outsideDir, 'plan.md'), '# External plan updated')
+  await new Promise(resolve => setTimeout(resolve, 900))
+  const session = await viewerFetch(server, '/api/artifacts').then(response => response.json())
+  const externalChange = session.changes.find(change => change.path.includes('plan.md'))
+  assert.ok(externalChange, '外部目录文件变更应出现在本轮产物')
+  assert.equal(externalChange.type, 'modified')
+
+  // 主根与补充根之外任意路径仍被拒
+  const otherDir = path.join(tempRoot, 'other')
+  await fs.mkdir(otherDir)
+  await fs.writeFile(path.join(otherDir, 'secret.md'), 'secret')
+  const blocked = await viewerFetch(server, `/api/file?p=${encodeURIComponent(path.join(otherDir, 'secret.md').replace(/\\/g, '/'))}`)
+  assert.equal(blocked.status, 403)
+})
+
 test('tracks document changes inside the current artifact session', async t => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-artifacts-'))
   const configDir = path.join(tempRoot, 'config')

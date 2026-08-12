@@ -66,6 +66,9 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   let root = validDirectory(defaultRoot)
     || validDirectory(stored.root)
     || ''
+  let extraRoots = Array.isArray(stored.extraRoots)
+    ? stored.extraRoots.filter(validDirectory).slice(0, 20)
+    : []
   let recentRoots = Array.isArray(stored.recentRoots)
     ? stored.recentRoots.filter(validDirectory).slice(0, 10)
     : []
@@ -84,7 +87,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
 
   function saveState() {
     fs.mkdirSync(configDir, { recursive: true })
-    fs.writeFileSync(configPath, JSON.stringify({ root, recentRoots }, null, 2))
+    fs.writeFileSync(configPath, JSON.stringify({ root, extraRoots, recentRoots }, null, 2))
   }
 
   async function setRoot(nextRoot) {
@@ -93,6 +96,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (resolved === root) return true
     root = resolved
     recentRoots = [root, ...recentRoots.filter(item => item !== root)].slice(0, 10)
+    extraRoots = []
     saveState()
     await resetArtifactSession({
       id: `workspace:${root.toLowerCase()}`,
@@ -111,26 +115,40 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     for (const timer of artifactTimers.values()) clearTimeout(timer)
     artifactTimers.clear()
     if (!root) return
-    artifactSnapshot = await snapshotDocuments(root)
-    try {
-      watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
-        if (!filename) return
-        const normalizedFile = String(filename).replace(/\\/g, '/')
-        if (isIgnoredRelativePath(normalizedFile)) return
-        const extension = path.extname(filename).toLowerCase()
-        if (!WATCHED_EXTENSIONS.has(extension) && !HTML_ASSET_EXTENSIONS.has(extension)) return
-        clearTimeout(debounceTimer)
-        debounceTimer = setTimeout(() => {
-          broadcast({
-            type: 'change',
-            file: normalizedFile,
-            kind: WATCHED_EXTENSIONS.has(extension) ? 'document' : 'asset'
-          })
-        }, 250)
-        if (WATCHED_EXTENSIONS.has(extension)) scheduleArtifact(normalizedFile)
-      })
-    } catch (error) {
-      console.error('Viewer watcher failed:', error)
+    artifactSnapshot = await snapshotAllDocuments(root, extraRoots)
+    const watchRoots = [root, ...extraRoots]
+    const watchers = []
+    for (const watchRoot of watchRoots) {
+      try {
+        const handle = fs.watch(watchRoot, { recursive: true }, (_event, filename) => {
+          if (!filename) return
+          const raw = String(filename)
+          const isMain = path.normalize(watchRoot) === path.normalize(root)
+          const openPath = isMain
+            ? normalizeWebPath(raw.replace(/\\/g, '/'))
+            : normalizeWebPath(path.join(watchRoot, raw))
+          if (isIgnoredRelativePath(openPath)) return
+          const extension = path.extname(raw).toLowerCase()
+          if (!WATCHED_EXTENSIONS.has(extension) && !HTML_ASSET_EXTENSIONS.has(extension)) return
+          clearTimeout(debounceTimer)
+          debounceTimer = setTimeout(() => {
+            broadcast({
+              type: 'change',
+              file: openPath,
+              kind: WATCHED_EXTENSIONS.has(extension) ? 'document' : 'asset'
+            })
+          }, 250)
+          if (WATCHED_EXTENSIONS.has(extension)) scheduleArtifact(openPath)
+        })
+        watchers.push(handle)
+      } catch (error) {
+        console.error('Viewer watcher failed:', error)
+      }
+    }
+    watcher = {
+      close() {
+        for (const handle of watchers) handle.close()
+      }
     }
   }
 
@@ -139,7 +157,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     artifactTimers.set(relativePath, setTimeout(async () => {
       artifactTimers.delete(relativePath)
       const previous = artifactSnapshot.get(relativePath) || null
-      const current = await readArtifactDocument(root, relativePath)
+      const artifactRoot = rootForPath(relativePath)
+      const current = artifactRoot
+        ? await readArtifactDocument(artifactRoot, relativePath)
+        : null
       if (sameArtifactDocument(previous, current)) return
       if (current) artifactSnapshot.set(relativePath, current)
       else artifactSnapshot.delete(relativePath)
@@ -176,7 +197,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       label: context.label,
       root
     })
-    artifactSnapshot = await snapshotDocuments(root)
+    artifactSnapshot = await snapshotAllDocuments(root, extraRoots)
     const sessionState = await timeMachine.setContext({
       id: artifactSession.id,
       label: artifactSession.label,
@@ -208,16 +229,29 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   }
 
   function safeResolve(relativePath) {
-    if (!root) return null
-    const resolved = path.resolve(root, relativePath)
-    if (!isInsidePath(root, resolved)) return null
+    const base = rootForPath(relativePath)
+    if (!base) return null
+    const resolved = path.resolve(base, relativePath)
+    if (!isInsidePath(base, resolved)) return null
     try {
-      const canonicalRoot = fs.realpathSync(root)
+      const canonicalBase = fs.realpathSync(base)
       const canonicalTarget = fs.realpathSync(resolved)
-      return isInsidePath(canonicalRoot, canonicalTarget) ? canonicalTarget : null
+      return isInsidePath(canonicalBase, canonicalTarget) ? canonicalTarget : null
     } catch {
       return null
     }
+  }
+
+  function rootForPath(relativePath) {
+    if (!root) return null
+    if (path.isAbsolute(relativePath)) {
+      const normalized = path.normalize(relativePath)
+      for (const candidate of [root, ...extraRoots]) {
+        if (isInsidePath(candidate, normalized)) return candidate
+      }
+      return null
+    }
+    return root
   }
 
   const server = http.createServer((request, response) => {
@@ -251,14 +285,14 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
 
     if (url.pathname === '/api/root') {
-      return sendJson(response, 200, { root, recentRoots })
+      return sendJson(response, 200, { root, extraRoots, recentRoots })
     }
 
     if (url.pathname === '/api/tree') {
       if (!root) return sendJson(response, 200, { root: '', tree: emptyTree() })
       try {
-        const tree = await scanTree(root, '')
-        return sendJson(response, 200, { root, tree })
+        const tree = await scanAllRoots(root, extraRoots)
+        return sendJson(response, 200, { root, extraRoots, tree })
       } catch (error) {
         return sendJson(response, 500, { error: error.message })
       }
@@ -436,7 +470,21 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
           return timeMachine.forkCheckpoint(input)
         },
         async setConversationContext(context) {
-          if (context?.root && path.normalize(context.root) !== root) await setRoot(context.root)
+          const nextExtraRoots = Array.isArray(context.extraRoots)
+            ? context.extraRoots.filter(validDirectory).slice(0, 20)
+            : []
+          const rootChanged = context?.root && path.normalize(context.root) !== root
+          const extraChanged = JSON.stringify(nextExtraRoots) !== JSON.stringify(extraRoots)
+          if (rootChanged) {
+            root = path.normalize(context.root)
+            recentRoots = [root, ...recentRoots.filter(item => item !== root)].slice(0, 10)
+          }
+          extraRoots = nextExtraRoots
+          if (rootChanged || extraChanged) {
+            saveState()
+            await startWatcher()
+            broadcast({ type: 'root', root })
+          }
           const nextId = context?.id || (root ? `workspace:${root.toLowerCase()}` : 'workspace:empty')
           if (artifactSession.id === nextId && artifactSession.root === root) return true
           return resetArtifactSession(context)
@@ -522,6 +570,39 @@ async function scanTree(directory, relativePath, budget = { entries: 0 }) {
   return node
 }
 
+async function scanAllRoots(primaryRoot, extraRootList) {
+  const budget = { entries: 0 }
+  const rootNode = await scanTree(primaryRoot, '', budget)
+  for (const extraRoot of extraRootList) {
+    if (path.normalize(extraRoot) === path.normalize(primaryRoot)) continue
+    if (budget.entries >= MAX_SCANNED_ENTRIES) {
+      rootNode.truncated = true
+      break
+    }
+    const extraPrefix = normalizeWebPath(extraRoot)
+    const extraNode = await scanTree(extraRoot, '', budget)
+    prefixTreePaths(extraNode, extraPrefix)
+    rootNode.children.push(extraNode)
+  }
+  rootNode.children.sort((left, right) => {
+    if (left.type !== right.type) return left.type === 'dir' ? -1 : 1
+    return left.name.localeCompare(right.name, 'zh-CN')
+  })
+  return rootNode
+}
+
+function prefixTreePaths(node, prefix) {
+  if (!node || typeof node !== 'object') return
+  if (node.type === 'file') {
+    node.path = node.path ? `${prefix}/${node.path}` : prefix
+    return
+  }
+  if (node.type === 'dir' && node.path !== prefix) {
+    node.path = node.path ? `${prefix}/${node.path}` : prefix
+  }
+  for (const child of node.children || []) prefixTreePaths(child, prefix)
+}
+
 function emptyTree() {
   return { name: '', path: '', type: 'dir', children: [] }
 }
@@ -536,9 +617,17 @@ function createArtifactSession({ id, label, root } = {}) {
   }
 }
 
-async function snapshotDocuments(root) {
+async function snapshotAllDocuments(primaryRoot, extraRootsParam = []) {
   const snapshot = new Map()
-  if (!root) return snapshot
+  const allRoots = [primaryRoot, ...extraRootsParam]
+  if (!allRoots.length) return snapshot
+  for (const snapshotRoot of allRoots) {
+    await snapshotRootDocuments(snapshot, snapshotRoot, path.normalize(snapshotRoot) === path.normalize(primaryRoot))
+  }
+  return snapshot
+}
+
+async function snapshotRootDocuments(snapshot, snapshotRoot, isPrimary) {
   const budget = { entries: 0, documents: 0, bytes: 0 }
   const visit = async (directory, relativeDirectory = '') => {
     let entries = []
@@ -558,22 +647,26 @@ async function snapshotDocuments(root) {
       if (entry.isDirectory()) await visit(absolutePath, relativePath)
       else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
         if (budget.documents >= MAX_SNAPSHOT_DOCUMENTS || budget.bytes >= MAX_SNAPSHOT_BYTES) return
-        const document = await readArtifactDocument(root, relativePath)
+        const document = isPrimary
+          ? await readArtifactDocument(snapshotRoot, relativePath)
+          : await readArtifactDocument(snapshotRoot, absolutePath)
         if (document && budget.bytes + document.size <= MAX_SNAPSHOT_BYTES) {
-          snapshot.set(relativePath, document)
+          const pathKey = isPrimary ? relativePath : normalizeWebPath(absolutePath)
+          snapshot.set(pathKey, document)
           budget.documents += 1
           budget.bytes += document.size
         }
       }
     }
   }
-  await visit(root)
-  return snapshot
+  await visit(snapshotRoot)
 }
 
 async function readArtifactDocument(root, relativePath) {
   try {
-    const absolutePath = path.resolve(root, relativePath)
+    const absolutePath = path.isAbsolute(relativePath)
+      ? path.normalize(relativePath)
+      : path.resolve(root, relativePath)
     if (!isInsidePath(root, absolutePath)) return null
     const canonicalRoot = await fs.promises.realpath(root)
     const canonicalPath = await fs.promises.realpath(absolutePath)
