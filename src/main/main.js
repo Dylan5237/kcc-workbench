@@ -29,6 +29,7 @@ import {
   parseCloudCliSessionId
 } from './cloudcli-context.js'
 import { SettingsService } from './settings-service.js'
+import { WorkbenchConfigService } from './workbench-config.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
 import { createKimiCodeUrlGuard } from './url-trust.js'
@@ -71,6 +72,7 @@ let quotaService = null
 let localKimiService = null
 let cloudCliService = null
 let settingsService = null
+let workbenchConfigService = null
 let activeEngine = 'kimi'
 let viewerContextSync = null
 let viewerContextLogPath = null
@@ -165,6 +167,12 @@ app.whenReady().then(async () => {
     kimiCodeHome,
     sandboxed: settingsSandboxed
   })
+    workbenchConfigService = new WorkbenchConfigService({
+      exeDir: path.dirname(app.getPath('exe')),
+      fallbackDir: app.getPath('userData'),
+      forceFallback: demoMode || settingsSandboxed
+    })
+    await workbenchConfigService.initialize()
   quotaService = new QuotaService({
     userDataPath: app.getPath('userData'),
     partition: SESSION_PARTITION,
