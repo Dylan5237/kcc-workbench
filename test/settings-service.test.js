@@ -5,10 +5,28 @@ import path from 'node:path'
 import test from 'node:test'
 import {
   SettingsService,
+  hasEngineConfigChanged,
   parseManagedConfig,
   patchTomlValue,
   applyModelsToToml
 } from '../src/main/settings-service.js'
+
+
+test('detects any engine config change regardless of key order', () => {
+  assert.equal(hasEngineConfigChanged({ a: 1 }, { a: 1 }), false)
+  assert.equal(hasEngineConfigChanged({ a: 1 }, { a: 2 }), true)
+  assert.equal(hasEngineConfigChanged({ a: 1, b: 2 }, { b: 2, a: 1 }), false)
+  assert.equal(
+    hasEngineConfigChanged({ thinking: { enabled: true } }, { thinking: { enabled: false } }),
+    true
+  )
+  assert.equal(
+    hasEngineConfigChanged({ thinking: { enabled: true, effort: 'high' } }, { thinking: { effort: 'high', enabled: true } }),
+    false
+  )
+  assert.equal(hasEngineConfigChanged({}, {}), false)
+  assert.equal(hasEngineConfigChanged(null, { a: 1 }), true)
+})
 
 test('reads managed fields without changing unknown configuration', () => {
   const text = `# keep me

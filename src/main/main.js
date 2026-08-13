@@ -28,7 +28,7 @@ import {
   extractCloudCliSessionContext,
   parseCloudCliSessionId
 } from './cloudcli-context.js'
-import { SettingsService } from './settings-service.js'
+import { SettingsService, hasEngineConfigChanged } from './settings-service.js'
 import { WorkbenchConfigService } from './workbench-config.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
@@ -876,9 +876,9 @@ function wireIpc() {
   })
   ipcMain.handle('settings:save', async (event, payload) => {
     requireSender(event, settingsView.webContents)
-    const previousMode = (await settingsService.getState()).config.default_permission_mode
+    const previousConfig = (await settingsService.getState()).config
     const nextState = await settingsService.save(payload || {})
-    if (nextState.config.default_permission_mode !== previousMode) {
+    if (hasEngineConfigChanged(previousConfig, nextState.config)) {
       localKimiService.stop()
       await connectLocalKimiView()
     }

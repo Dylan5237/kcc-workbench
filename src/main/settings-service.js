@@ -2,6 +2,12 @@ import path from 'node:path'
 import { promises as fs } from 'node:fs'
 
 const PERMISSION_MODES = new Set(['manual', 'yolo', 'auto'])
+
+export const SETTING_SCOPES = Object.freeze({
+  immediate: 'immediate',
+  nextSession: 'next-session',
+  restartWorkbench: 'restart-workbench'
+})
 const INTEGER_FIELDS = new Set([
   'loop_control.max_steps_per_turn',
   'loop_control.max_retries_per_step',
@@ -152,6 +158,18 @@ export class SettingsService {
     }
     return this.getState()
   }
+}
+
+export function hasEngineConfigChanged(before, after) {
+  if (!before || !after) return Boolean(after && Object.keys(after).length)
+  return stableStringify(before) !== stableStringify(after)
+}
+
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const keys = Object.keys(value).sort()
+  return `{${keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
 }
 
 export function parseManagedConfig(text) {
