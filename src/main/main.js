@@ -572,7 +572,6 @@ function layoutViews() {
 async function switchTab(nextTab) {
   if (!mainWindow || !shellView || !kimiView || !cloudCliView || !viewerView || !settingsView) return
   if (!['kimi', 'viewer', 'settings'].includes(nextTab) || nextTab === activeTab) return
-  if (nextTab === 'settings' && activeEngine !== 'kimi') return
   closeQuotaPopup()
 
   const views = {
