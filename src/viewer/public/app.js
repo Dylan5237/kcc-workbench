@@ -42,6 +42,8 @@
   let viewerMode = normalizeViewerMode(localStorage.getItem('kcc-viewer-mode')); // auto | dev | run
   let activeTypeFacet = 'all'; // 运行模式类型 facets
   let activeDirFacet = 'all'; // 运行模式目录 facets
+  const MAX_DIR_FACETS = 12; // 目录 facets 最多展示数量, 超出折叠
+  const MAX_ARTIFACT_CARDS = 100; // 产物卡片流最多渲染数量
   let mermaidSequence = 0;
   let artifactSession = null;
   let timeMachineState = null;
@@ -155,17 +157,28 @@
 
   function collectFacetDirs(tree) {
     const counts = {};
-    (tree.children || []).forEach(child => {
-      if (child.type === 'dir') counts[child.name] = (counts[child.name] || 0) + countFiles(child);
-    });
+    const walk = node => {
+      if (node.type !== 'dir') return;
+      const directFiles = (node.children || []).filter(c => c.type === 'file' && facetTypeOf(c)).length;
+      if (directFiles > 0) counts[node.path] = (counts[node.path] || 0) + directFiles;
+      (node.children || []).forEach(walk);
+    };
+    walk(tree);
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .map(([value, count]) => ({ value, label: value, count }));
+      .slice(0, MAX_DIR_FACETS)
+      .map(([value, count]) => ({ value, label: facetDirLabel(value), count }));
   }
 
-  function countFiles(node) {
-    if (node.type === 'file') return 1;
-    return (node.children || []).reduce((sum, child) => sum + countFiles(child), 0);
+  function facetDirLabel(value) {
+    if (!value) return value;
+    const parts = value.split('/').filter(Boolean);
+    return parts.length > 1 ? parts.slice(-2).join('/') : value;
+  }
+
+  function dirnameOf(p) {
+    const index = p.lastIndexOf('/');
+    return index < 0 ? '' : p.slice(0, index);
   }
 
   function facetTypeOf(node) {
@@ -180,9 +193,9 @@
     return { md: 'md', html: 'html', mmd: 'mermaid', json: 'json' }[value] || value;
   }
 
-  function dirMatchesFacet(node, facet) {
-    if (node.type !== 'dir') return false;
-    return node.name === facet;
+  function fileMatchesDirFacet(node, facet) {
+    if (node.type !== 'file') return false;
+    return dirnameOf(node.path) === facet;
   }
 
 
@@ -200,7 +213,6 @@
     const ul = document.createElement('ul');
     let anyVisible = false;
     for (const child of treeData.children) {
-      if (activeDirFacet !== 'all' && !dirMatchesFacet(child, activeDirFacet)) continue;
       const li = buildNode(child, filter, 0);
       if (li) { ul.appendChild(li); anyVisible = true; }
     }
@@ -226,12 +238,13 @@
         </div>`;
       return;
     }
+    const visible = artifacts.length > MAX_ARTIFACT_CARDS ? artifacts.slice(0, MAX_ARTIFACT_CARDS) : artifacts;
     artifactListEl.innerHTML = `
       <div class="artifact-session">
         <span>${escapeHtml(artifactSession.label || '当前工作区')}</span>
         <small>${new Date(artifactSession.startedAt).toLocaleTimeString('zh-CN')} 起</small>
       </div>
-      ${artifacts.map(artifact => `
+      ${visible.map(artifact => `
         <button class="artifact-item" data-artifact-id="${artifact.id}">
           <span class="artifact-type ${artifact.type}">${artifactTypeLabel(artifact.type)}</span>
           <span class="artifact-main">
@@ -239,7 +252,8 @@
             <small>${escapeHtml(artifact.path)} · ${new Date(artifact.timestamp).toLocaleTimeString('zh-CN')}</small>
           </span>
           <span class="artifact-stats"><b>+${artifact.stats.added}</b><i>−${artifact.stats.removed}</i></span>
-        </button>`).join('')}`;
+        </button>`).join('')}
+      ${artifacts.length > MAX_ARTIFACT_CARDS ? `<div class="artifact-truncate">仅显示前 ${MAX_ARTIFACT_CARDS} 条, 共 ${artifacts.length} 条</div>` : ''}`;
     artifactListEl.querySelectorAll('.artifact-item').forEach(button => {
       button.onclick = () => showArtifactDiff(
         artifacts.find(artifact => artifact.id === button.dataset.artifactId)
@@ -486,6 +500,15 @@
   function buildNode(node, filter, depth) {
     // 类型 facet:只对文件节点生效
     if (activeTypeFacet !== 'all' && node.type === 'file' && facetTypeOf(node) !== activeTypeFacet) return null;
+    // 目录 facet:文件按所在目录匹配, 目录保留当且仅当其子树含匹配文件
+    if (activeDirFacet !== 'all') {
+      if (node.type === 'file') {
+        if (dirnameOf(node.path) !== activeDirFacet) return null;
+      } else {
+        const hasMatch = (n) => n.type === 'file' ? dirnameOf(n.path) === activeDirFacet : (n.children || []).some(hasMatch);
+        if (!hasMatch(node)) return null;
+      }
+    }
     // 过滤:目录需有匹配后代,文件需名字匹配
     if (filter) {
       if (node.type === 'file' && !node.name.toLowerCase().includes(filter)) return null;
