@@ -910,6 +910,90 @@ function wireIpc() {
       }
     }
   })
+  ipcMain.handle('settings:skills-add', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    if (!payload || typeof payload !== 'object' || typeof payload.sourceDir !== 'string') {
+      throw new Error('Skill 源目录无效')
+    }
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = workbenchInfo.skills?.library || path.join(workbenchConfigService.storageDir, 'skills')
+    const added = await addSkillToLibrary({ libraryPath, sourceDir: payload.sourceDir })
+    const apps = defaultSkillApps(payload.apps)
+    const syncMethods = workbenchInfo.skills?.projection || {}
+    const results = await syncSkillToEngines({
+      libraryPath,
+      skillName: added.name,
+      apps,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      syncMethods
+    })
+    const workbenchNext = await workbenchConfigService.save({
+      skills: {
+        ...workbenchInfo.skills,
+        managed: { ...(workbenchInfo.skills?.managed || {}), [added.name]: { apps } }
+      }
+    })
+    return {
+      added,
+      results,
+      workbench: { config: await workbenchConfigService.get(), ...workbenchNext }
+    }
+  })
+  ipcMain.handle('settings:skills-remove', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    if (!payload || typeof payload !== 'object' || typeof payload.name !== 'string') {
+      throw new Error('Skill 名称无效')
+    }
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = workbenchInfo.skills?.library || path.join(workbenchConfigService.storageDir, 'skills')
+    const managed = workbenchInfo.skills?.managed || {}
+    const apps = managed[payload.name]?.apps || {}
+    const backupDir = path.join(workbenchConfigService.storageDir, 'skill-backups')
+    const removed = await removeSkill({
+      libraryPath,
+      skillName: payload.name,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      backupDir,
+      apps
+    })
+    const nextManaged = { ...managed }
+    delete nextManaged[payload.name]
+    const workbenchNext = await workbenchConfigService.save({
+      skills: { ...workbenchInfo.skills, managed: nextManaged }
+    })
+    return { removed, workbench: { config: await workbenchConfigService.get(), ...workbenchNext } }
+  })
+  ipcMain.handle('settings:skills-sync', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = workbenchInfo.skills?.library || path.join(workbenchConfigService.storageDir, 'skills')
+    const managed = workbenchInfo.skills?.managed || {}
+    const targetApps = payload?.apps || {}
+    const results = {}
+    for (const [name, apps] of Object.entries(managed)) {
+      const effectiveApps = { ...apps, ...(targetApps[name] || {}) }
+      results[name] = await syncSkillToEngines({
+        libraryPath,
+        skillName: name,
+        apps: effectiveApps,
+        homePath: app.getPath('home'),
+        override: workbenchInfo.skills?.targets,
+        syncMethods: workbenchInfo.skills?.projection
+      })
+    }
+    const workbenchNext = await workbenchConfigService.save({
+      skills: {
+        ...workbenchInfo.skills,
+        managed: {
+          ...managed,
+          ...Object.fromEntries(Object.entries(targetApps).map(([name, apps]) => [name, { apps: normalizeSkillApps(apps) }]))
+        }
+      }
+    })
+    return { results, workbench: { config: await workbenchConfigService.get(), ...workbenchNext } }
+  })
   ipcMain.handle('settings:select-directory', async event => {
     requireSender(event, settingsView.webContents)
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -1397,4 +1481,17 @@ async function runSelfTestMode(outputPath) {
       error: error instanceof Error ? error.stack : String(error)
     }, null, 2))
   }
+}
+
+
+function defaultSkillApps(apps) {
+  if (apps && typeof apps === 'object') return normalizeSkillApps(apps)
+  return { kimi: true, claude: true, codex: true }
+}
+
+function normalizeSkillApps(apps) {
+  const result = { kimi: false, claude: false, codex: false }
+  for (const key of ['kimi', 'claude', 'codex']) result[key] = Boolean(apps?.[key])
+  if (!result.kimi && !result.claude && !result.codex) result.kimi = true
+  return result
 }

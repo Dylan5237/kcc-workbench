@@ -21,9 +21,7 @@ const elements = {
   toolsDisabled: document.querySelector('#toolsDisabled'),
   mcpStartupTimeout: document.querySelector('#mcpStartupTimeout'),
   mcpToolTimeout: document.querySelector('#mcpToolTimeout'),
-  mergeSkills: document.querySelector('#mergeSkills'),
-  extraSkillDirs: document.querySelector('#extraSkillDirs'),
-  extraAgentDirs: document.querySelector('#extraAgentDirs'),
+  addGlobalSkill: document.querySelector('#addGlobalSkill'),
   imageMaxEdge: document.querySelector('#imageMaxEdge'),
   imageByteBudget: document.querySelector('#imageByteBudget')
 }
@@ -45,12 +43,6 @@ for (const button of document.querySelectorAll('[data-insert]')) {
 }
 saveButton.addEventListener('click', save)
 resetButton.addEventListener('click', () => render(state))
-document.querySelector('#addSkillDirectory').addEventListener('click', () => {
-  selectDirectoryFor(elements.extraSkillDirs)
-})
-document.querySelector('#addAgentDirectory').addEventListener('click', () => {
-  selectDirectoryFor(elements.extraAgentDirs)
-})
 document.querySelector('#addModelBtn').addEventListener('click', () => {
   const editor = document.querySelector('#modelEditor')
   if (editor.className === 'empty-state') {
@@ -115,9 +107,8 @@ function render(nextState) {
   setValue('toolsDisabled', (config.tools?.disabled || []).join(', '))
   setValue('mcpStartupTimeout', config.mcp?.startup_timeout_ms)
   setValue('mcpToolTimeout', config.mcp?.tool_timeout_ms)
-  setChecked('mergeSkills', config.merge_all_available_skills)
-  setValue('extraSkillDirs', (config.extra_skill_dirs || []).join('\n'))
-  setValue('extraAgentDirs', (config.extra_agent_dirs || []).join('\n'))
+  renderGlobalSkills(state.skills)
+  renderSkillDiagnostics(state.skills)
   setValue('imageMaxEdge', config.image?.max_edge_px)
   setValue('imageByteBudget', config.image?.read_byte_budget)
 
@@ -129,7 +120,6 @@ function render(nextState) {
   document.querySelector('#agentsPath').textContent = state.paths.agentsInstructions
   document.querySelector('#sandboxBanner').classList.toggle('hidden', !state.sandboxed)
   renderMcp(state.mcpServers || [])
-  renderSkills(state.skills || [])
   renderPaths(state.paths)
   renderPromptSource(state.promptSources?.system)
   setDirty(false)
@@ -141,9 +131,9 @@ function collect() {
       default_permission_mode: elements.permissionMode.value || undefined,
       default_plan_mode: elements.defaultPlanMode.checked,
       telemetry: elements.telemetry.checked,
-      merge_all_available_skills: elements.mergeSkills.checked,
-      extra_skill_dirs: lineList(elements.extraSkillDirs.value),
-      extra_agent_dirs: lineList(elements.extraAgentDirs.value),
+      merge_all_available_skills: (state.config?.merge_all_available_skills ?? true),
+      extra_skill_dirs: (state.config?.extra_skill_dirs || []),
+      extra_agent_dirs: (state.config?.extra_agent_dirs || []),
       thinking: {
         enabled: elements.thinkingEnabled.checked,
         effort: elements.thinkingEffort.value,
@@ -302,22 +292,6 @@ function modelCardHtml(model) {
   `
 }
 
-function renderSkills(skills) {
-  const list = document.querySelector('#skillsList')
-  if (!skills.length) {
-    list.className = 'empty-state'
-    list.textContent = '没有发现 Skill。可通过“选择文件夹”添加额外目录。'
-    return
-  }
-  list.className = ''
-  list.innerHTML = skills.map(skill => `
-    <div class="list-row">
-      <strong>${escapeHtml(skill.name)}</strong>
-      <span class="state-chip">${escapeHtml(skill.source)}</span>
-      <small title="${escapeHtml(skill.path)}">${escapeHtml(skill.path)}</small>
-    </div>
-  `).join('')
-}
 
 function renderPromptSource(source) {
   const notice = document.querySelector('#promptSourceNotice')
@@ -439,4 +413,150 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;')
+}
+
+// ===== M1: Skills 全局管理（能力资产库） =====
+let expandedSkillNames = new Set()
+let pendingRemoved = null // { name, apps }
+
+function renderGlobalSkills(skillsState) {
+  const list = document.querySelector('#globalSkillsList')
+  if (!list) return
+  const managed = skillsState?.managed || []
+  if (!managed.length) {
+    list.className = 'empty-state'
+    list.textContent = '能力库为空。点击右上角「+ 添加 Skill」把本地 Skill 导入全局。'
+    return
+  }
+  list.className = ''
+  list.innerHTML = managed.map(skill => {
+    const chips = ['kimi', 'claude', 'codex'].map(key => {
+      const on = skill.apps?.[key]
+      const label = key === 'kimi' ? 'Kimi' : key === 'claude' ? 'Claude' : 'Codex'
+      return `<span class="chip ${on ? 'on' : 'off'}">${label} ${on ? '✓' : '—'}</span>`
+    }).join('')
+    const open = expandedSkillNames.has(skill.name)
+    return `
+      <div class="skill-row">
+        <div class="skill-line">
+          <div class="skill-main">
+            <div class="skill-name">${escapeHtml(skill.name)} <small title="${escapeHtml(skill.directory)}">${escapeHtml(skill.nameFromManifest || skill.name)}</small></div>
+            <div class="skill-desc">${escapeHtml(skill.description || '（无描述）')}</div>
+          </div>
+          <div class="skill-actions">
+            <div class="summary-chips">${chips}</div>
+            <button class="skill-toggle" data-skill="${escapeHtml(skill.name)}" data-toggle-detail>${open ? '收起 ▴' : '详情 ▾'}</button>
+            <button class="skill-ai" disabled title="接入大模型后自动总结用途（本期预留）">AI 摘要</button>
+            <button class="skill-remove" data-skill="${escapeHtml(skill.name)}">移除</button>
+          </div>
+        </div>
+        ${open ? `
+          <div class="skill-detail">
+            ${['kimi', 'claude', 'codex'].map(key => {
+              const cfg = (key === 'kimi' ? { label: 'Kimi Code', dir: 'extra_skill_dirs 指针' } : key === 'claude' ? { label: 'Claude Code', dir: '~/.claude/skills/' } : { label: 'Codex', dir: '~/.agents/skills/' })
+              return `
+                <div class="engine-row">
+                  <div><strong>${cfg.label}</strong><small>${skill.apps?.[key] ? '加载中' : '未加载'} · ${cfg.dir}</small></div>
+                  <input class="switch" type="checkbox" data-skill-app="${escapeHtml(skill.name)}" data-app="${key}" ${skill.apps?.[key] ? 'checked' : ''}>
+                </div>`
+            }).join('')}
+          </div>` : ''}
+      </div>`
+  }).join('')
+}
+
+function renderSkillDiagnostics(skillsState) {
+  const diag = skillsState?.diagnostics || {}
+  if (!diag.kimi) return
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value }
+  setText('diagKimiCount', diag.kimi.enabled ?? 0)
+  setText('diagClaudeCount', diag.claude.enabled ?? 0)
+  setText('diagCodexCount', diag.codex.enabled ?? 0)
+  setText('diagClaudeMethod', diag.claude.method || '自动')
+  setText('diagCodexMethod', diag.codex.method || '自动')
+  setText('diagClaudePath', diag.claude.directory || '—')
+  setText('diagCodexPath', diag.codex.directory || '—')
+  setText('diagClaudeStatus', diag.claude.status === 'ok' ? '已就绪' : (diag.claude.error || '待同步'))
+  setText('diagCodexStatus', diag.codex.status === 'ok' ? '已就绪' : (diag.codex.error || '待同步'))
+}
+
+// 事件路由：列表内的详情/移除/AI 占位 + 引擎开关
+document.addEventListener('click', event => {
+  const toggle = event.target.closest('[data-toggle-detail]')
+  if (toggle) {
+    const name = toggle.dataset.skill
+    if (expandedSkillNames.has(name)) expandedSkillNames.delete(name)
+    else expandedSkillNames.add(name)
+    renderGlobalSkills(state?.skills)
+    return
+  }
+  const removeBtn = event.target.closest('.skill-remove')
+  if (removeBtn) {
+    const name = removeBtn.dataset.skill
+    const skill = state?.skills?.managed?.find(s => s.name === name)
+    if (skill) requestRemoveSkill(skill)
+    return
+  }
+})
+document.addEventListener('change', event => {
+  const input = event.target.closest('[data-skill-app]')
+  if (!input) return
+  const name = input.dataset.skillApp
+  const app = input.dataset.app
+  const skill = state?.skills?.managed?.find(s => s.name === name)
+  if (!skill) return
+  skill.apps[app] = input.checked
+  // 至少保留一个引擎
+  if (!skill.apps.kimi && !skill.apps.claude && !skill.apps.codex) {
+    skill.apps.kimi = true
+    if (input.dataset.app !== 'kimi') input.checked = false
+    else input.checked = true
+    setStatus('至少保留一个引擎启用', true)
+    return
+  }
+  renderGlobalSkills(state.skills)
+  renderSkillDiagnostics(state.skills)
+  setDirty(true)
+  syncDirtySkills()
+})
+
+async function requestRemoveSkill(skill) {
+  const confirmed = window.confirm(`移除「${skill.name}」？\n\n此 Skill 将先从引擎会话停止加载，自动备份到 skill-backups/ 后删除；备份可随时恢复。`)
+  if (!confirmed) return
+  const { removed } = await window.desktopSettings.removeSkill({ name: skill.name })
+  if (removed?.backupPath) {
+    pendingRemoved = { name: skill.name, apps: skill.apps }
+    setStatus(`已移除「${skill.name}」，已备份`, false)
+  }
+  await refreshSkillsState()
+}
+
+function syncDirtySkills() {
+  // 启停变更后立即同步到引擎（不等待全局保存）
+  const managed = state?.skills?.managed || []
+  const apps = {}
+  for (const skill of managed) apps[skill.name] = skill.apps
+  window.desktopSettings.syncSkills({ apps }).then(() => refreshSkillsState()).catch(error => setStatus(`同步失败：${error.message}`, true))
+}
+
+async function refreshSkillsState() {
+  state = await window.desktopSettings.getState()
+  renderGlobalSkills(state.skills)
+  renderSkillDiagnostics(state.skills)
+}
+
+// 添加按钮
+const addGlobalSkillBtn = document.querySelector('#addGlobalSkill')
+if (addGlobalSkillBtn) {
+  addGlobalSkillBtn.addEventListener('click', async () => {
+    const directory = await window.desktopSettings.selectDirectory()
+    if (!directory) return
+    try {
+      const result = await window.desktopSettings.addSkill({ sourceDir: directory })
+      setStatus(`已添加「${result.added?.name}」并同步`, false)
+      await refreshSkillsState()
+    } catch (error) {
+      setStatus(`添加失败：${error.message}`, true)
+    }
+  })
 }

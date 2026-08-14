@@ -139,27 +139,30 @@
         <div class="card list-card"><div id="mcpList" class="empty-state">没有发现 MCP 服务</div></div>
       </section>
 
-      <section class="panel" data-panel="skills">
-        <header class="panel-header"><div><h2>Skills 与 Agent</h2><p>让 Kimi Code 从其他文件夹加载可复用能力和子 Agent 定义。</p></div></header>
-        <div class="notice explanation">
-          <strong>这不是插件商店。</strong>
-          <span>Skill 是带 <code>SKILL.md</code> 的能力目录；Agent 目录用于放置自定义子 Agent。添加目录后仍需点击底部“保存设置”才会生效。</span>
-        </div>
+            <section class="panel" data-panel="skills">
+        <header class="panel-header"><div><h2>Skills 全局管理</h2><p>一份能力资产，按你的选择在 Kimi / Claude / Codex 会话中加载。</p></div><span class="scope-badge">全局</span></header>
         <div class="card">
-          <label class="field"><span><strong>合并多来源 Skills</strong><small>同时加载内置目录和下面添加的额外目录</small></span><input id="mergeSkills" class="switch" type="checkbox"></label>
-          <div class="stack-field">
-            <div class="field-heading"><span><strong>额外 Skill 目录</strong><small>目录本身或其子目录中应包含 SKILL.md</small></span><button id="addSkillDirectory" class="browse-button" type="button">选择文件夹</button></div>
-            <textarea id="extraSkillDirs" class="path-editor" placeholder="每行一个绝对路径"></textarea>
+          <div class="card-title skill-title">
+            <div><strong>我的能力库</strong><small>全局唯一事实源 · 所有 Skill 只维护一份</small></div>
+            <button id="addGlobalSkill" class="browse-button" type="button">+ 添加 Skill</button>
           </div>
-          <div class="stack-field">
-            <div class="field-heading"><span><strong>额外 Agent 目录</strong><small>用于加载自定义子 Agent 定义</small></span><button id="addAgentDirectory" class="browse-button" type="button">选择文件夹</button></div>
-            <textarea id="extraAgentDirs" class="path-editor" placeholder="每行一个绝对路径"></textarea>
+          <div id="globalSkillsList" class="empty-state">正在扫描能力库…</div>
+        </div>
+        <details class="skills-advanced card">
+          <summary><span>高级与诊断</span><small>投影方式、目标目录、同步错误与安全红线</small></summary>
+          <div class="adv-body">
+            <table class="adv-table">
+              <thead><tr><th>引擎</th><th>投影方式</th><th>目标目录</th><th>当前加载</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td>Kimi Code</td><td id="diagKimiMethod">原生指针</td><td><code id="diagKimiPath">extra_skill_dirs → 能力库</code></td><td id="diagKimiCount">0</td><td class="ok">实时生效</td></tr>
+                <tr><td>Claude Code</td><td id="diagClaudeMethod">自动</td><td><code id="diagClaudePath">—</code></td><td id="diagClaudeCount">0</td><td class="ok" id="diagClaudeStatus">待同步</td></tr>
+                <tr><td>Codex</td><td id="diagCodexMethod">自动</td><td><code id="diagCodexPath">—</code></td><td id="diagCodexCount">0</td><td class="ok" id="diagCodexStatus">待同步</td></tr>
+              </tbody>
+            </table>
+            <div class="adv-note"><strong>自动同步：</strong>Kimi 用原生指针实时生效；Claude / Codex 自动选择软链（失败回退复制）；只管理 Workbench 自己创建的投影项，绝不覆盖你手工放置的 Skill；移除前自动备份。</div>
+            <div class="adv-note ai-note"><strong>AI 摘要（即将支持）：</strong>后续接入大模型后，可在此自动总结每个 Skill 的用途与适用场景。本期仅占位，不调用模型。</div>
           </div>
-        </div>
-        <div class="card list-card">
-          <div class="card-title"><strong>已发现的 Skills</strong><small>这里只读展示当前配置能够发现的能力；保存新目录后会重新扫描</small></div>
-          <div id="skillsList" class="empty-state">正在扫描…</div>
-        </div>
+        </details>
       </section>
 
       <section class="panel" data-panel="hooks">
