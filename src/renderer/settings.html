@@ -48,6 +48,7 @@
         <div class="card">
           <label class="field"><span><strong>默认引擎</strong><small>下次启动时优先使用的引擎；手动切换后是否记住见下方开关</small></span><select id="defaultEngine"><option value="kimi">Kimi Code</option><option value="cloudcli">CloudCLI</option></select></label>
           <label class="field"><span><strong>记住上次引擎</strong><small>启动时恢复到上次退出时使用的引擎</small></span><input id="rememberEngine" class="switch" type="checkbox"></label>
+            <label class="field"><span><strong>Viewer 默认模式</strong><small>文件查看器的新会话默认视图；自动=按会话推断，开发=全量文件，运行=人类可读产物</small></span><select id="viewerMode"><option value="auto">auto · 自动推断</option><option value="dev">dev · 开发（全量文件）</option><option value="run">run · 运行（人类可读产物）</option></select></label>
           <div class="path-row"><span>配置存储</span><code id="workbenchStorage">读取中…</code></div>
         </div>
       </section>

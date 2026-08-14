@@ -694,6 +694,7 @@ function wireIpc() {
   ipcMain.removeHandler('quota:set-preferred-height')
   ipcMain.removeHandler('viewer:select-directory')
   ipcMain.removeHandler('viewer:set-root')
+  ipcMain.removeHandler('viewer:get-workbench-mode')
   ipcMain.removeHandler('viewer:fork-checkpoint')
   ipcMain.removeHandler('viewer:copy-files')
   ipcMain.removeHandler('viewer:copy-png')
@@ -781,6 +782,11 @@ function wireIpc() {
       properties: ['openDirectory']
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+  ipcMain.handle('viewer:get-workbench-mode', async event => {
+    requireSender(event, viewerView.webContents)
+    const config = await workbenchConfigService.get()
+    return config.viewerMode || 'auto'
   })
   ipcMain.handle('viewer:set-root', async (event, nextRoot) => {
     requireSender(event, viewerView.webContents)

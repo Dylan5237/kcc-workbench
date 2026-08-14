@@ -1,6 +1,7 @@
 const elements = {
   defaultEngine: document.querySelector('#defaultEngine'),
   rememberEngine: document.querySelector('#rememberEngine'),
+  viewerMode: document.querySelector('#viewerMode'),
   defaultModel: document.querySelector('#defaultModel'),
   permissionMode: document.querySelector('#permissionMode'),
   defaultPlanMode: document.querySelector('#defaultPlanMode'),
@@ -90,6 +91,7 @@ function render(nextState) {
   const workbench = state.workbench || {}
   setValue('defaultEngine', workbench.config?.defaultEngine || 'kimi')
   setChecked('rememberEngine', Boolean(workbench.config?.rememberEngine))
+  setValue('viewerMode', workbench.config?.viewerMode || 'auto')
   document.querySelector('#workbenchStorage').textContent =
       workbench.storage === 'exe'
         ? ('exe 旁 ' + (workbench.configPath || ''))
@@ -174,7 +176,8 @@ function collect() {
     config: changedConfig(completeConfig, state.config || {}),
     workbench: {
       defaultEngine: elements.defaultEngine.value,
-      rememberEngine: elements.rememberEngine.checked
+      rememberEngine: elements.rememberEngine.checked,
+      viewerMode: elements.viewerMode.value
     }
   }
   const models = collectModels()

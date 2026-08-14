@@ -39,7 +39,8 @@
   let treeData = null;
   let currentPath = null; // 当前打开的文件相对路径
   let currentRoot = ''; // 当前监听根目录(绝对路径)
-  let viewerMode = normalizeViewerMode(localStorage.getItem('kcc-viewer-mode')); // auto | dev | run
+  const storedMode = localStorage.getItem('kcc-viewer-mode'); // null=未手动设置
+  let viewerMode = normalizeViewerMode(storedMode); // auto | dev | run
   let activeTypeFacet = 'all'; // 运行模式类型 facets
   let activeDirFacet = 'all'; // 运行模式目录 facets
   const MAX_DIR_FACETS = 12; // 目录 facets 最多展示数量, 超出折叠
@@ -1595,6 +1596,22 @@
     return value === 'dev' || value === 'run' || value === 'auto' ? value : 'auto';
   }
 
+  async function initViewerMode() {
+    if (storedMode !== null) return; // 用户已手动设置过, 尊重 localStorage
+    if (!window.electronAPI?.getViewerMode) return;
+    try {
+      const defaultMode = await window.electronAPI.getViewerMode();
+      if (storedMode === null) {
+        viewerMode = normalizeViewerMode(defaultMode);
+        document.querySelectorAll('#modeSwitch button').forEach(button => {
+          button.classList.toggle('active', button.dataset.mode === viewerMode);
+        });
+        loadTree(false);
+      }
+    } catch {
+      // 读取 workbench 配置失败时保持 auto
+    }
+  }
   function applyMode(nextMode) {
     viewerMode = normalizeViewerMode(nextMode);
     localStorage.setItem('kcc-viewer-mode', nextMode);
@@ -1652,6 +1669,7 @@
   });
   initSplitter();
   loadRootInfo();
+  initViewerMode();
   loadTree(false);
   loadArtifacts();
   loadTimeMachine();
