@@ -39,7 +39,9 @@
   let treeData = null;
   let currentPath = null; // 当前打开的文件相对路径
   let currentRoot = ''; // 当前监听根目录(绝对路径)
-  let viewerMode = localStorage.getItem('kcc-viewer-mode') || 'auto'; // auto | dev | run
+  let viewerMode = normalizeViewerMode(localStorage.getItem('kcc-viewer-mode')); // auto | dev | run
+  let activeTypeFacet = 'all'; // 运行模式类型 facets
+  let activeDirFacet = 'all'; // 运行模式目录 facets
   let mermaidSequence = 0;
   let artifactSession = null;
   let timeMachineState = null;
@@ -79,6 +81,7 @@
     currentRoot = data.root;
     if (document.activeElement !== rootInput) rootInput.value = data.root;
     renderTree();
+    renderFacets();
     if (!keepSelection) return;
     // 当前文件可能被删除
     if (currentPath && !findNode(treeData, currentPath)) {
@@ -98,6 +101,91 @@
     return null;
   }
 
+
+  function renderFacets() {
+    const facetsEl = document.getElementById('facets');
+    if (viewerMode === 'dev' || !treeData) {
+      facetsEl.classList.add('hidden');
+      facetsEl.innerHTML = '';
+      return;
+    }
+    const types = collectFacetTypes(treeData);
+    const dirs = collectFacetDirs(treeData);
+    if (!types.length && !dirs.length) {
+      facetsEl.classList.add('hidden');
+      facetsEl.innerHTML = '';
+      return;
+    }
+    facetsEl.classList.remove('hidden');
+    const chipsFor = (values, active, label) => {
+      const allChip = `<span class="facet-chip ${active === 'all' ? 'active' : ''}" data-value="all">全部</span>`;
+      const items = values.map(item => {
+        const activeCls = active === item.value ? ' active' : '';
+        return `<span class="facet-chip${activeCls}" data-value="${escapeHtml(item.value)}">${escapeHtml(item.label)}<span class="count">${item.count}</span></span>`;
+      }).join('');
+      return `<div class="facet-row"><span class="facet-label">${label}</span><div class="facet-chips">${allChip}${items}</div></div>`;
+    };
+    facetsEl.innerHTML = chipsFor(types, activeTypeFacet, '类型') + chipsFor(dirs, activeDirFacet, '目录');
+    facetsEl.querySelectorAll('.facet-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const value = chip.dataset.value;
+        const row = chip.closest('.facet-row');
+        const isType = row.querySelector('.facet-label').textContent === '类型';
+        if (isType) activeTypeFacet = value; else activeDirFacet = value;
+        renderFacets();
+        renderTree();
+      });
+    });
+  }
+
+  function collectFacetTypes(tree) {
+    const counts = {};
+    const walk = node => {
+      if (node.type === 'file') {
+        const t = facetTypeOf(node);
+        if (t) counts[t] = (counts[t] || 0) + 1;
+      }
+      (node.children || []).forEach(walk);
+    };
+    walk(tree);
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([value, count]) => ({ value, label: facetTypeLabel(value), count }));
+  }
+
+  function collectFacetDirs(tree) {
+    const counts = {};
+    (tree.children || []).forEach(child => {
+      if (child.type === 'dir') counts[child.name] = (counts[child.name] || 0) + countFiles(child);
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([value, count]) => ({ value, label: value, count }));
+  }
+
+  function countFiles(node) {
+    if (node.type === 'file') return 1;
+    return (node.children || []).reduce((sum, child) => sum + countFiles(child), 0);
+  }
+
+  function facetTypeOf(node) {
+    if (node.ext === '.md') return 'md';
+    if (node.ext === '.html' || node.ext === '.htm') return 'html';
+    if (node.ext === '.mmd' || node.ext === '.mermaid') return 'mmd';
+    if (node.ext === '.json') return 'json';
+    return null;
+  }
+
+  function facetTypeLabel(value) {
+    return { md: 'md', html: 'html', mmd: 'mermaid', json: 'json' }[value] || value;
+  }
+
+  function dirMatchesFacet(node, facet) {
+    if (node.type !== 'dir') return false;
+    return node.name === facet;
+  }
+
+
   function renderTree() {
     const filter = filterInput.value.trim().toLowerCase();
     treeEl.innerHTML = '';
@@ -112,6 +200,7 @@
     const ul = document.createElement('ul');
     let anyVisible = false;
     for (const child of treeData.children) {
+      if (activeDirFacet !== 'all' && !dirMatchesFacet(child, activeDirFacet)) continue;
       const li = buildNode(child, filter, 0);
       if (li) { ul.appendChild(li); anyVisible = true; }
     }
@@ -395,6 +484,8 @@
   }
 
   function buildNode(node, filter, depth) {
+    // 类型 facet:只对文件节点生效
+    if (activeTypeFacet !== 'all' && node.type === 'file' && facetTypeOf(node) !== activeTypeFacet) return null;
     // 过滤:目录需有匹配后代,文件需名字匹配
     if (filter) {
       if (node.type === 'file' && !node.name.toLowerCase().includes(filter)) return null;
@@ -1477,8 +1568,12 @@
 
   // ---------- 事件绑定 ----------
 
+  function normalizeViewerMode(value) {
+    return value === 'dev' || value === 'run' || value === 'auto' ? value : 'auto';
+  }
+
   function applyMode(nextMode) {
-    viewerMode = nextMode;
+    viewerMode = normalizeViewerMode(nextMode);
     localStorage.setItem('kcc-viewer-mode', nextMode);
     document.querySelectorAll('#modeSwitch button').forEach(button => {
       button.classList.toggle('active', button.dataset.mode === nextMode);

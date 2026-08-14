@@ -1059,3 +1059,38 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
 .binary-hint .icon { font-size: 40px; }
 .binary-hint .name { font-weight: 600; color: #171717; }
 .binary-hint .meta { font-size: 12px; color: #999; }
+
+/* ---------- 运行模式 facets ---------- */
+.facets {
+  padding: 8px 12px;
+  border-bottom: 1px solid #ececec;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.facets.hidden { display: none; }
+.facet-row { display: flex; align-items: flex-start; gap: 6px; }
+.facet-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #999;
+  padding-top: 3px;
+}
+.facet-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.facet-chip {
+  border: 1px solid #e2e2e2;
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 1px 9px;
+  font-size: 11.5px;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+}
+.facet-chip:hover { border-color: #c7c7c7; }
+.facet-chip.active {
+  background: #171717;
+  border-color: #171717;
+  color: #fff;
+}
+.facet-chip .count { opacity: .65; margin-left: 3px; }
