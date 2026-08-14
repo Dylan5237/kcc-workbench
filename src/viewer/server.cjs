@@ -11,7 +11,7 @@ const CODE_EXTENSIONS = new Set([
   '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.css', '.scss', '.less',
   '.sh', '.bash', '.zsh', '.ps1', '.yml', '.yaml', '.toml', '.xml', '.sql',
   '.java', '.go', '.rs', '.c', '.h', '.cpp', '.hpp', '.rb', '.php', '.vue',
-  '.txt', '.log', '.ini', '.conf', '.env'
+  '.txt', '.log', '.ini', '.conf'
 ])
 const IMAGE_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp'
@@ -352,9 +352,6 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       const relativePath = url.searchParams.get('p') || ''
       const absolutePath = safeResolve(relativePath)
       if (!absolutePath) return sendJson(response, 403, { error: '非法文件路径' })
-      if (!WATCHED_EXTENSIONS.has(path.extname(absolutePath).toLowerCase())) {
-        return sendJson(response, 403, { error: '不支持的文件类型' })
-      }
       try {
         const stat = fs.statSync(absolutePath)
         if (!stat.isFile()) throw new Error('目标不是文件')
@@ -604,16 +601,15 @@ async function scanTree(directory, relativePath, budget = { entries: 0 }, includ
       }
     } else {
       const ext = path.extname(entry.name).toLowerCase()
-      const kind = includeAll ? classifyFileKind(ext) : null
       if (!includeAll && !WATCHED_EXTENSIONS.has(ext)) continue
-      if (includeAll && kind === null) continue
+      const kind = includeAll ? classifyFileKind(ext) : 'doc'
       const stat = await fs.promises.stat(absolutePath)
       node.children.push({
         name: entry.name,
         path: childRelativePath,
         type: 'file',
         ext,
-        kind: kind || 'doc',
+        kind,
         size: stat.size,
         mtime: stat.mtimeMs
       })

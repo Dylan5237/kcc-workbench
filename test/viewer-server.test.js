@@ -332,4 +332,12 @@ test('serves a full file tree and source previews in dev mode', async t => {
 
   const binary = await viewerFetch(server, '/api/file?p=data.bin')
   assert.equal(binary.status, 403)
+
+  const imageMeta = await viewerFetch(server, '/api/file-meta?p=logo.svg').then(response => response.json())
+  assert.equal(imageMeta.path, 'logo.svg')
+  assert.ok(imageMeta.size > 0)
+
+  const binaryMeta = await viewerFetch(server, '/api/file-meta?p=data.bin').then(response => response.json())
+  assert.equal(binaryMeta.path, 'data.bin')
+  assert.ok(binaryMeta.size > 0)
 })
