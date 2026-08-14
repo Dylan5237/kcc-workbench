@@ -28,8 +28,10 @@ const MAX_SCANNED_ENTRIES = 20_000
 const MAX_SNAPSHOT_DOCUMENTS = 2_000
 const MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024
 const IGNORED_DIRECTORY_NAMES = new Set([
-  'node_modules', 'dist', 'build', 'coverage', 'out'
+  'node_modules', 'dist', 'build', 'coverage', 'out', 'tmp'
 ])
+const TRANSIENT_DIR_PREFIXES = ['tmp-', 'temp-', 'tmp_', 'temp_']
+const TRANSIENT_FILE_SUFFIXES = ['.tmp', '.draft.md', '.draft.json', '.draft.html']
 const RESTRICTED_BROWSER_PORTS = new Set([
   1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
   87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
@@ -762,14 +764,29 @@ function sameArtifactDocument(left, right) {
 }
 
 function shouldIgnoreDirectoryEntry(entry) {
-  return entry.name.startsWith('.')
-    || (entry.isDirectory() && IGNORED_DIRECTORY_NAMES.has(entry.name.toLowerCase()))
+  const name = entry.name.toLowerCase()
+  if (name.startsWith('.')) return true
+  if (entry.isDirectory()) {
+    return IGNORED_DIRECTORY_NAMES.has(name)
+      || TRANSIENT_DIR_PREFIXES.some(prefix => name.startsWith(prefix))
+  }
+  return isIgnoredPathSegment(name)
 }
 
 function isIgnoredRelativePath(relativePath) {
   return normalizeWebPath(relativePath)
     .split('/')
-    .some(segment => segment.startsWith('.') || IGNORED_DIRECTORY_NAMES.has(segment.toLowerCase()))
+    .some(segment => isIgnoredPathSegment(segment))
+}
+
+function isIgnoredPathSegment(segment) {
+  const lower = segment.toLowerCase()
+  if (lower.startsWith('.')) return true
+  if (IGNORED_DIRECTORY_NAMES.has(lower)) return true
+  if (TRANSIENT_DIR_PREFIXES.some(prefix => lower.startsWith(prefix))) return true
+  if (TRANSIENT_FILE_SUFFIXES.some(suffix => lower.endsWith(suffix))) return true
+  if (lower.endsWith('~')) return true
+  return false
 }
 
 function validDirectory(value) {
