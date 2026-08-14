@@ -251,6 +251,21 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
   }
 
+  function pathInScope(relativePath) {
+    if (!root) return false
+    const base = rootForPath(relativePath)
+    if (!base) return false
+    const resolved = path.resolve(base, relativePath)
+    if (!isInsidePath(base, resolved)) return false
+    try {
+      const canonicalBase = fs.realpathSync(base)
+      const canonicalTarget = fs.realpathSync(resolved)
+      return isInsidePath(canonicalBase, canonicalTarget)
+    } catch {
+      return true
+    }
+  }
+
   function rootForPath(relativePath) {
     if (!root) return null
     if (path.isAbsolute(relativePath)) {
@@ -326,7 +341,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/api/file') {
       const relativePath = url.searchParams.get('p') || ''
       const absolutePath = safeResolve(relativePath)
-      if (!absolutePath) return sendJson(response, 403, { error: '非法文件路径' })
+      if (!absolutePath) {
+        if (pathInScope(relativePath)) return sendJson(response, 404, { error: '文件不存在或已被删除' })
+        return sendJson(response, 403, { error: '非法文件路径' })
+      }
       if (!isTextFileExtension(path.extname(absolutePath).toLowerCase())) {
         return sendJson(response, 403, { error: '不支持的文件类型' })
       }
@@ -351,7 +369,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/api/file-meta') {
       const relativePath = url.searchParams.get('p') || ''
       const absolutePath = safeResolve(relativePath)
-      if (!absolutePath) return sendJson(response, 403, { error: '非法文件路径' })
+      if (!absolutePath) {
+        if (pathInScope(relativePath)) return sendJson(response, 404, { error: '文件不存在或已被删除' })
+        return sendJson(response, 403, { error: '非法文件路径' })
+      }
       try {
         const stat = fs.statSync(absolutePath)
         if (!stat.isFile()) throw new Error('目标不是文件')
