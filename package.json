@@ -238,7 +238,7 @@
     }
   },
   "dependencies": {
-    "@cloudcli-ai/cloudcli": "^1.37.0",
+    "@cloudcli-ai/cloudcli": "^1.37.1",
     "@mermaid-js/layout-elk": "^0.2.2",
     "better-sqlite3": "^12.6.2",
     "dompurify": "3.4.13",
