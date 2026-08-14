@@ -39,6 +39,7 @@
   let treeData = null;
   let currentPath = null; // 当前打开的文件相对路径
   let currentRoot = ''; // 当前监听根目录(绝对路径)
+  let viewerMode = localStorage.getItem('kcc-viewer-mode') || 'auto'; // auto | dev | run
   let mermaidSequence = 0;
   let artifactSession = null;
   let timeMachineState = null;
@@ -72,7 +73,7 @@
 
   // ---------- 文件树 ----------
   async function loadTree(keepSelection) {
-    const res = await fetch('/api/tree');
+    const res = await fetch('/api/tree' + (viewerMode === 'dev' ? '?mode=dev' : ''));
     const data = await res.json();
     treeData = data.tree;
     currentRoot = data.root;
@@ -443,7 +444,7 @@
       }
     } else {
       const ext = node.ext.slice(1);
-      const icon = node.ext === '.md' ? '📝' : (node.ext === '.json' ? '🧩' : '🌐');
+      const icon = fileIconOf(node);
       row.innerHTML = `<span class="arrow"></span><span class="icon">${icon}</span><span class="tree-name">${escapeHtml(node.name)}</span><span class="ext-tag ${ext}">${ext}</span><time class="file-time" datetime="${new Date(node.mtime).toISOString()}">${window.ViewerTreeState.formatTimestamp(node.mtime)}</time>`;
       if (node.path === currentPath) row.classList.add('active');
       row.onclick = () => openFile(node.path);
@@ -597,6 +598,9 @@
   // ---------- 文件渲染 ----------
   async function openFile(p, silent, refreshSource) {
     const refreshingCurrentFile = currentFileVersion?.path === p;
+    const node = treeData ? findNode(treeData, p) : null;
+    if (node?.kind === 'image') return renderImage(p, node);
+    if (node?.kind === 'binary') return renderBinary(p, node);
     try {
       const res = await fetch('/api/file?p=' + encodeURIComponent(p));
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
@@ -633,6 +637,8 @@
       await renderMermaidBlocks(markdownBody);
     } else if (file.ext === '.json') {
       renderJson(file);
+    } else if (file.kind === 'code') {
+      renderCode(file);
     } else {
       renderHtml(file);
     }
@@ -715,6 +721,77 @@
 
   const htmlModeByPath = new Map();
 
+
+  function renderCode(file) {
+    const lang = codeLanguageOf(file.ext);
+    const highlighted = window.hljs
+      ? window.hljs.highlight(file.content, { language: lang, ignoreIllegals: true }).value
+      : escapeHtml(file.content);
+    viewerEl.innerHTML = [
+      '<div class="code-viewer"><pre><code class="hljs">',
+      highlighted,
+      '</code></pre></div>'
+    ].join('');
+  }
+
+  function renderImage(p, node) {
+    clearLiveFileState();
+    currentPath = p;
+    renderTree();
+    fileHeaderEl.classList.remove('hidden');
+    fileNameEl.textContent = p;
+    fileMetaEl.textContent = `${formatSize(node.size)} · 更新于 ${window.ViewerTreeState.formatTimestamp(node.mtime)}`;
+    viewerEl.innerHTML = [
+      '<div class="image-viewer"><img src="/api/raw-file?p=',
+      encodeURIComponent(p),
+      '" alt="',
+      escapeHtml(node.name),
+      '"></div>'
+    ].join('');
+    currentFileVersion = { path: p, mtime: node.mtime, size: node.size };
+    fileRefreshBtn.classList.remove('hidden', 'needs-refresh');
+  }
+
+  function renderBinary(p, node) {
+    clearLiveFileState();
+    currentPath = p;
+    renderTree();
+    fileHeaderEl.classList.remove('hidden');
+    fileNameEl.textContent = p;
+    fileMetaEl.textContent = `${formatSize(node.size)} · 二进制文件`;
+    viewerEl.innerHTML = [
+      '<div class="binary-hint">',
+      '<span class="icon">📦</span>',
+      '<span class="name">', escapeHtml(node.name), '</span>',
+      '<span class="meta">二进制文件 · ', formatSize(node.size), ' · 无法预览</span>',
+      '</div>'
+    ].join('');
+    currentFileVersion = { path: p, mtime: node.mtime, size: node.size };
+    fileRefreshBtn.classList.remove('hidden', 'needs-refresh');
+  }
+
+  function fileIconOf(node) {
+    if (node.kind === 'code') return '⌨️';
+    if (node.kind === 'image') return '🖼️';
+    if (node.kind === 'binary') return '📦';
+    if (node.ext === '.md') return '📝';
+    if (node.ext === '.json') return '🧩';
+    if (node.ext === '.mmd' || node.ext === '.mermaid') return '🔀';
+    return '🌐';
+  }
+  function codeLanguageOf(ext) {
+    const map = {
+      '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript', '.jsx': 'javascript',
+      '.ts': 'typescript', '.tsx': 'typescript', '.py': 'python', '.css': 'css',
+      '.scss': 'scss', '.less': 'less', '.sh': 'bash', '.bash': 'bash', '.zsh': 'bash',
+      '.ps1': 'powershell', '.yml': 'yaml', '.yaml': 'yaml', '.toml': 'ini',
+      '.xml': 'xml', '.sql': 'sql', '.java': 'java', '.go': 'go', '.rs': 'rust',
+      '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.hpp': 'cpp', '.rb': 'ruby',
+      '.php': 'php', '.vue': 'xml', '.json': 'json', '.md': 'markdown',
+      '.ini': 'ini', '.conf': 'ini', '.env': 'bash', '.txt': 'plaintext', '.log': 'plaintext'
+    };
+    return map[ext] || 'plaintext';
+  }
   function renderHtml(file) {
     const mode = htmlModeByPath.get(file.path) || 'preview';
     viewerEl.innerHTML = `
@@ -1399,6 +1476,19 @@
   }
 
   // ---------- 事件绑定 ----------
+
+  function applyMode(nextMode) {
+    viewerMode = nextMode;
+    localStorage.setItem('kcc-viewer-mode', nextMode);
+    document.querySelectorAll('#modeSwitch button').forEach(button => {
+      button.classList.toggle('active', button.dataset.mode === nextMode);
+    });
+    loadTree(true);
+  }
+
+  document.querySelectorAll('#modeSwitch button').forEach(button => {
+    button.addEventListener('click', () => applyMode(button.dataset.mode));
+  });
   filterInput.addEventListener('input', renderTree);
   refreshBtn.addEventListener('click', () => loadTree(true));
   fileRefreshBtn.addEventListener('click', async () => {
@@ -1439,6 +1529,9 @@
   });
 
   // ---------- 启动 ----------
+  document.querySelectorAll('#modeSwitch button').forEach(button => {
+    button.classList.toggle('active', button.dataset.mode === viewerMode);
+  });
   initSplitter();
   loadRootInfo();
   loadTree(false);

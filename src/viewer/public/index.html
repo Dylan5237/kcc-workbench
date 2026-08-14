@@ -36,6 +36,11 @@
       <button id="browseBtn" title="浏览选择目录">选择文件夹</button>
       <button id="applyRootBtn">打开</button>
     </div>
+    <div class="mode-switch" id="modeSwitch" role="group" aria-label="查看模式">
+      <button type="button" data-mode="auto" class="active" title="自动推断">自动</button>
+      <button type="button" data-mode="dev" title="开发模式:全量文件">开发</button>
+      <button type="button" data-mode="run" title="运行模式:人类可读产物">运行</button>
+    </div>
     <div class="status">
       <span id="liveDot" class="dot"></span>
       <span id="liveText">连接中…</span>
@@ -124,6 +129,7 @@
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/mermaid.min.js"></script>
   <script src="/vendor/purify.min.js"></script>
+  <script src="/vendor/highlight.min.js"></script>
   <script src="/tree-state.js"></script>
   <script src="/app.js"></script>
 </body>

@@ -982,3 +982,80 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
   background: #fef2f2;
   font-size: 11.5px;
 }
+
+/* ---------- 查看模式切换 ---------- */
+.mode-switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  background: #f5f5f5;
+  flex: 0 0 auto;
+}
+.mode-switch button {
+  border: 0;
+  background: transparent;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  transition: all .15s;
+}
+.mode-switch button:hover { color: #171717; }
+.mode-switch button.active {
+  background: #fff;
+  color: #171717;
+  font-weight: 650;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+/* ---------- 源码预览 ---------- */
+.code-viewer {
+  margin: 0;
+  overflow: auto;
+}
+.code-viewer pre {
+  margin: 0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.code-viewer code.hljs {
+  display: block;
+  padding: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow-x: auto;
+}
+
+/* ---------- 图片预览 ---------- */
+.image-viewer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 16px;
+}
+.image-viewer img {
+  max-width: 100%;
+  max-height: 70vh;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+/* ---------- 二进制降级 ---------- */
+.binary-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: #666;
+  text-align: center;
+}
+.binary-hint .icon { font-size: 40px; }
+.binary-hint .name { font-weight: 600; color: #171717; }
+.binary-hint .meta { font-size: 12px; color: #999; }

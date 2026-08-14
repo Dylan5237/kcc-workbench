@@ -11,6 +11,7 @@
     "demo": "electron . --demo",
     "test": "node --test",
     "bundle:elk": "node scripts/bundle-layout-elk.mjs",
+    "bundle:highlight": "node scripts/bundle-highlight.mjs",
     "build": "electron-builder --win --dir",
     "dist": "electron-builder --win",
     "pack": "node scripts/pack.mjs"
@@ -242,6 +243,7 @@
     "@mermaid-js/layout-elk": "^0.2.2",
     "better-sqlite3": "^12.6.2",
     "dompurify": "3.4.13",
+    "highlight.js": "^11.12.0",
     "marked": "^12.0.2",
     "mermaid": "11.16.1"
   }
