@@ -287,3 +287,49 @@ test('contains synchronous request failures without terminating the server', asy
   assert.equal(malformed.status, 500)
   assert.equal((await viewerFetch(server, '/api/root')).status, 200)
 })
+
+test('serves a full file tree and source previews in dev mode', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-dev-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Main')
+  await fs.writeFile(path.join(projectDir, 'app.ts'), 'const value: number = 42')
+  await fs.writeFile(path.join(projectDir, 'style.css'), 'body { color: red }')
+  await fs.writeFile(path.join(projectDir, 'logo.svg'), '<svg></svg>')
+  await fs.writeFile(path.join(projectDir, 'data.bin'), Buffer.from([0, 1, 2, 3]))
+
+  const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  const runTree = await viewerFetch(server, '/api/tree').then(response => response.json())
+  assert.equal(runTree.mode, 'run')
+  assert.deepEqual(
+    runTree.tree.children.map(item => item.name).sort(),
+    ['README.md']
+  )
+
+  const devTree = await viewerFetch(server, '/api/tree?mode=dev').then(response => response.json())
+  assert.equal(devTree.mode, 'dev')
+  const byName = Object.fromEntries(devTree.tree.children.map(item => [item.name, item]))
+  assert.equal(byName['app.ts'].kind, 'code')
+  assert.equal(byName['style.css'].kind, 'code')
+  assert.equal(byName['logo.svg'].kind, 'image')
+  assert.equal(byName['data.bin'].kind, 'binary')
+  assert.equal(byName['README.md'].kind, 'doc')
+
+  const source = await viewerFetch(server, '/api/file?p=app.ts').then(response => response.json())
+  assert.equal(source.kind, 'code')
+  assert.equal(source.content, 'const value: number = 42')
+
+  const image = await viewerFetch(server, '/api/raw-file?p=logo.svg')
+  assert.equal(image.status, 200)
+  assert.equal(image.headers.get('content-type'), 'image/svg+xml')
+  assert.equal(await image.text(), '<svg></svg>')
+
+  const binary = await viewerFetch(server, '/api/file?p=data.bin')
+  assert.equal(binary.status, 403)
+})

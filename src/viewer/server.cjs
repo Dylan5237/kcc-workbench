@@ -7,6 +7,15 @@ const { createTimeMachine } = require('./time-machine.cjs')
 
 const PUBLIC_ROOT = path.join(__dirname, 'public')
 const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm', '.mmd', '.mermaid'])
+const CODE_EXTENSIONS = new Set([
+  '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.css', '.scss', '.less',
+  '.sh', '.bash', '.zsh', '.ps1', '.yml', '.yaml', '.toml', '.xml', '.sql',
+  '.java', '.go', '.rs', '.c', '.h', '.cpp', '.hpp', '.rb', '.php', '.vue',
+  '.txt', '.log', '.ini', '.conf', '.env'
+])
+const IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp'
+])
 const HTML_ASSET_EXTENSIONS = new Set([
   '.css', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico',
   '.woff', '.woff2', '.ttf', '.otf'
@@ -291,8 +300,9 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/api/tree') {
       if (!root) return sendJson(response, 200, { root: '', tree: emptyTree() })
       try {
-        const tree = await scanAllRoots(root, extraRoots)
-        return sendJson(response, 200, { root, extraRoots, tree })
+        const includeAll = url.searchParams.get('mode') === 'dev'
+        const tree = await scanAllRoots(root, extraRoots, includeAll)
+        return sendJson(response, 200, { root, extraRoots, mode: includeAll ? 'dev' : 'run', tree })
       } catch (error) {
         return sendJson(response, 500, { error: error.message })
       }
@@ -317,7 +327,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       const relativePath = url.searchParams.get('p') || ''
       const absolutePath = safeResolve(relativePath)
       if (!absolutePath) return sendJson(response, 403, { error: '非法文件路径' })
-      if (!WATCHED_EXTENSIONS.has(path.extname(absolutePath).toLowerCase())) {
+      if (!isTextFileExtension(path.extname(absolutePath).toLowerCase())) {
         return sendJson(response, 403, { error: '不支持的文件类型' })
       }
       try {
@@ -328,6 +338,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
           path: relativePath,
           name: path.basename(absolutePath),
           ext: path.extname(absolutePath).toLowerCase(),
+          kind: classifyFileKind(path.extname(absolutePath).toLowerCase()),
           content: fs.readFileSync(absolutePath, 'utf8'),
           mtime: stat.mtimeMs,
           size: stat.size
@@ -354,6 +365,29 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         })
       } catch (error) {
         return sendJson(response, 404, { error: error.message })
+      }
+    }
+
+    if (url.pathname === '/api/raw-file') {
+      const relativePath = url.searchParams.get('p') || ''
+      const absolutePath = safeResolve(relativePath)
+      const extension = absolutePath ? path.extname(absolutePath).toLowerCase() : ''
+      if (!absolutePath) return sendText(response, 403, '非法文件路径')
+      if (!IMAGE_EXTENSIONS.has(extension)) {
+        return sendText(response, 403, '不支持的图片类型')
+      }
+      try {
+        const stat = fs.statSync(absolutePath)
+        if (!stat.isFile()) throw new Error('目标不是文件')
+        if (stat.size > MAX_ASSET_BYTES) throw new Error('图片超过 20 MB')
+        response.writeHead(200, {
+          'Content-Type': MIME_TYPES[extension] || 'application/octet-stream',
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'no-cache'
+        })
+        return pipeFile(response, absolutePath)
+      } catch (error) {
+        return sendText(response, 404, error.message)
       }
     }
 
@@ -526,7 +560,18 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   }
 }
 
-async function scanTree(directory, relativePath, budget = { entries: 0 }) {
+function isTextFileExtension(ext) {
+  return WATCHED_EXTENSIONS.has(ext) || CODE_EXTENSIONS.has(ext)
+}
+
+function classifyFileKind(ext) {
+  if (WATCHED_EXTENSIONS.has(ext)) return 'doc'
+  if (CODE_EXTENSIONS.has(ext)) return 'code'
+  if (IMAGE_EXTENSIONS.has(ext)) return 'image'
+  return 'binary'
+}
+
+async function scanTree(directory, relativePath, budget = { entries: 0 }, includeAll = false) {
   const node = {
     name: path.basename(directory),
     path: relativePath,
@@ -546,18 +591,23 @@ async function scanTree(directory, relativePath, budget = { entries: 0 }) {
     const absolutePath = path.join(directory, entry.name)
     if (entry.isDirectory()) {
       try {
-        const child = await scanTree(absolutePath, childRelativePath, budget)
+        const child = await scanTree(absolutePath, childRelativePath, budget, includeAll)
         if (child.children.length) node.children.push(child)
       } catch {
         // Skip folders that cannot be read.
       }
-    } else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+    } else {
+      const ext = path.extname(entry.name).toLowerCase()
+      const kind = includeAll ? classifyFileKind(ext) : null
+      if (!includeAll && !WATCHED_EXTENSIONS.has(ext)) continue
+      if (includeAll && kind === null) continue
       const stat = await fs.promises.stat(absolutePath)
       node.children.push({
         name: entry.name,
         path: childRelativePath,
         type: 'file',
-        ext: path.extname(entry.name).toLowerCase(),
+        ext,
+        kind: kind || 'doc',
         size: stat.size,
         mtime: stat.mtimeMs
       })
@@ -570,9 +620,9 @@ async function scanTree(directory, relativePath, budget = { entries: 0 }) {
   return node
 }
 
-async function scanAllRoots(primaryRoot, extraRootList) {
+async function scanAllRoots(primaryRoot, extraRootList, includeAll = false) {
   const budget = { entries: 0 }
-  const rootNode = await scanTree(primaryRoot, '', budget)
+  const rootNode = await scanTree(primaryRoot, '', budget, includeAll)
   for (const extraRoot of extraRootList) {
     if (path.normalize(extraRoot) === path.normalize(primaryRoot)) continue
     if (budget.entries >= MAX_SCANNED_ENTRIES) {
@@ -580,7 +630,7 @@ async function scanAllRoots(primaryRoot, extraRootList) {
       break
     }
     const extraPrefix = normalizeWebPath(extraRoot)
-    const extraNode = await scanTree(extraRoot, '', budget)
+    const extraNode = await scanTree(extraRoot, '', budget, includeAll)
     prefixTreePaths(extraNode, extraPrefix)
     rootNode.children.push(extraNode)
   }
