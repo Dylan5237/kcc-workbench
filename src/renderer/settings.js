@@ -1,4 +1,6 @@
 const elements = {
+  defaultEngine: document.querySelector('#defaultEngine'),
+  rememberEngine: document.querySelector('#rememberEngine'),
   defaultModel: document.querySelector('#defaultModel'),
   permissionMode: document.querySelector('#permissionMode'),
   defaultPlanMode: document.querySelector('#defaultPlanMode'),
@@ -85,6 +87,13 @@ async function load() {
 function render(nextState) {
   state = nextState
   const config = state.config || {}
+  const workbench = state.workbench || {}
+  setValue('defaultEngine', workbench.config?.defaultEngine || 'kimi')
+  setChecked('rememberEngine', Boolean(workbench.config?.rememberEngine))
+  document.querySelector('#workbenchStorage').textContent =
+      workbench.storage === 'exe'
+        ? ('exe 旁 ' + (workbench.configPath || ''))
+        : ('userData ' + (workbench.configPath || ''))
   renderModels(state.models || [], config.default_model)
   setValue('permissionMode', config.default_permission_mode)
   setChecked('defaultPlanMode', config.default_plan_mode)
@@ -162,7 +171,11 @@ function collect() {
       }
   }
   const payload = {
-    config: changedConfig(completeConfig, state.config || {})
+    config: changedConfig(completeConfig, state.config || {}),
+    workbench: {
+      defaultEngine: elements.defaultEngine.value,
+      rememberEngine: elements.rememberEngine.checked
+    }
   }
   const models = collectModels()
   if (!modelsEqual(models, state.models || [])) {

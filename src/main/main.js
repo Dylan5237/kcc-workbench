@@ -29,7 +29,7 @@ import {
   parseCloudCliSessionId
 } from './cloudcli-context.js'
 import { SettingsService, hasEngineConfigChanged } from './settings-service.js'
-import { WorkbenchConfigService } from './workbench-config.js'
+import { WorkbenchConfigService, resolveStartupEngine } from './workbench-config.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
 import { createKimiCodeUrlGuard } from './url-trust.js'
@@ -173,6 +173,7 @@ app.whenReady().then(async () => {
       forceFallback: demoMode || settingsSandboxed
     })
     await workbenchConfigService.initialize()
+    activeEngine = resolveStartupEngine(await workbenchConfigService.get())
   quotaService = new QuotaService({
     userDataPath: app.getPath('userData'),
     partition: SESSION_PARTITION,
@@ -312,6 +313,10 @@ async function createMainWindow() {
   })
   createKimiView()
   createCloudCliView()
+  if (activeEngine === 'cloudcli') {
+    mainWindow.contentView.removeChildView(kimiView)
+    mainWindow.contentView.addChildView(cloudCliView)
+  }
   createViewerView()
   viewerContextSync.start()
   createSettingsView()
@@ -609,27 +614,28 @@ async function switchEngine(nextEngine) {
   closeQuotaPopup()
   activeEngine = nextEngine
   const nextView = activeEngineView()
-  if (activeTab === 'settings' && activeEngine === 'cloudcli' && mainWindow) {
-    mainWindow.contentView.removeChildView(settingsView)
-    mainWindow.contentView.addChildView(nextView)
-    activeTab = 'kimi'
-    layoutViews()
-    nextView.webContents.focus()
-    shellView?.webContents.send('shell:tab-changed', {
-      activeTab,
-      activeEngine,
-      viewerRoot: viewerServer.root
-    })
-  } else if (activeTab === 'kimi' && mainWindow) {
+  if (activeTab === 'kimi' && mainWindow) {
     mainWindow.contentView.removeChildView(previousView)
     mainWindow.contentView.addChildView(nextView)
     layoutViews()
     nextView.webContents.focus()
   }
+  await persistLastEngine()
   sendNavigationState()
   shellView?.webContents.send('engine:changed', { engine: activeEngine })
   await syncViewerConversationContext()
   return { engine: activeEngine }
+}
+
+async function persistLastEngine() {
+  try {
+    const config = await workbenchConfigService.get()
+    if (config.rememberEngine) {
+      await workbenchConfigService.save({ lastEngine: activeEngine })
+    }
+  } catch (error) {
+    console.error('Unable to persist last engine:', error)
+  }
 }
 
 function toggleEngine() {
@@ -872,7 +878,14 @@ function wireIpc() {
   ipcMain.handle('settings:get-state', async event => {
     requireSender(event, settingsView.webContents)
     settingsService.setProjectDirectory(await detectKimiProjectDirectory())
-    return settingsService.getState()
+    const kimiState = await settingsService.getState()
+    return {
+      ...kimiState,
+      workbench: {
+        config: await workbenchConfigService.get(),
+        ...workbenchConfigService.describe()
+      }
+    }
   })
   ipcMain.handle('settings:save', async (event, payload) => {
     requireSender(event, settingsView.webContents)
@@ -882,7 +895,14 @@ function wireIpc() {
       localKimiService.stop()
       await connectLocalKimiView()
     }
-    return nextState
+    const workbenchInfo = await workbenchConfigService.save(payload?.workbench || {})
+    return {
+      ...nextState,
+      workbench: {
+        config: await workbenchConfigService.get(),
+        ...workbenchInfo
+      }
+    }
   })
   ipcMain.handle('settings:select-directory', async event => {
     requireSender(event, settingsView.webContents)

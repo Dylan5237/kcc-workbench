@@ -3,6 +3,18 @@ import { promises as fs } from 'node:fs'
 
 const CONFIG_DIR_NAME = 'config'
 const CONFIG_FILE_NAME = 'workbench-config.json'
+const ENGINES = new Set(['kimi', 'cloudcli'])
+
+/**
+ * 根据 workbench 配置决定启动引擎。
+ * 优先级：rememberEngine 且 lastEngine 有效 → lastEngine；否则 defaultEngine；否则 kimi。
+ */
+export function resolveStartupEngine(config) {
+  if (!config || typeof config !== 'object') return 'kimi'
+  if (config.rememberEngine && ENGINES.has(config.lastEngine)) return config.lastEngine
+  if (ENGINES.has(config.defaultEngine)) return config.defaultEngine
+  return 'kimi'
+}
 
 /**
  * Workbench 自己的全局配置（L1 产品层）。

@@ -3,7 +3,23 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { WorkbenchConfigService } from '../src/main/workbench-config.js'
+import { WorkbenchConfigService, resolveStartupEngine } from '../src/main/workbench-config.js'
+
+
+test('resolves startup engine from workbench config', () => {
+  assert.equal(resolveStartupEngine(null), 'kimi')
+  assert.equal(resolveStartupEngine({}), 'kimi')
+  assert.equal(resolveStartupEngine({ defaultEngine: 'cloudcli' }), 'cloudcli')
+  assert.equal(resolveStartupEngine({ defaultEngine: 'bogus' }), 'kimi')
+  assert.equal(
+    resolveStartupEngine({ defaultEngine: 'cloudcli', rememberEngine: true, lastEngine: 'kimi' }),
+    'kimi'
+  )
+  assert.equal(
+    resolveStartupEngine({ defaultEngine: 'cloudcli', rememberEngine: true, lastEngine: 'bogus' }),
+    'cloudcli'
+  )
+})
 
 test('persists config beside the exe when the exe dir is writable', async t => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'kcc-workbench-config-'))

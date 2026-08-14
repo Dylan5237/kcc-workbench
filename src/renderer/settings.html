@@ -12,10 +12,13 @@
     <aside class="sidebar">
       <div class="sidebar-heading">
         <h1>系统设置</h1>
-        <p>配置 Kimi Code 与桌面工作区</p>
+        <p>配置 KCC Workbench 与各引擎</p>
       </div>
       <nav aria-label="设置分类">
-        <button class="nav-item active" data-panel="general"><span>⌘</span>常规</button>
+        <div class="nav-label">Workbench</div>
+        <button class="nav-item active" data-panel="workbench"><span>▦</span>通用</button>
+        <div class="nav-label">Kimi Code</div>
+        <button class="nav-item" data-panel="general"><span>⌘</span>常规</button>
         <button class="nav-item" data-panel="prompt"><span>✦</span>系统提示词</button>
         <button class="nav-item" data-panel="model"><span>◇</span>模型与思考</button>
         <button class="nav-item" data-panel="agent"><span>◎</span>Agent 执行</button>
@@ -40,7 +43,16 @@
         <span>当前读写临时配置，不会修改真实 Kimi 配置文件。</span>
       </div>
 
-      <section class="panel active" data-panel="general">
+      <section class="panel active" data-panel="workbench">
+        <header class="panel-header"><div><h2>Workbench 通用</h2><p>本应用（KCC Workbench）自己的全局配置，与具体引擎无关。</p></div></header>
+        <div class="card">
+          <label class="field"><span><strong>默认引擎</strong><small>下次启动时优先使用的引擎；手动切换后是否记住见下方开关</small></span><select id="defaultEngine"><option value="kimi">Kimi Code</option><option value="cloudcli">CloudCLI</option></select></label>
+          <label class="field"><span><strong>记住上次引擎</strong><small>启动时恢复到上次退出时使用的引擎</small></span><input id="rememberEngine" class="switch" type="checkbox"></label>
+          <div class="path-row"><span>配置存储</span><code id="workbenchStorage">读取中…</code></div>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="general">
         <header class="panel-header"><div><h2>常规</h2><p>设置默认启动行为和基础偏好。</p></div></header>
         <div class="card">
           <label class="field"><span><strong>默认模型</strong><small>新会话使用的模型别名</small></span><select id="defaultModel" aria-label="默认模型"><option value="">由 Kimi Code 决定</option></select></label>
