@@ -1102,3 +1102,35 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
   border-top: 1px solid #f0f0f0;
 }
 .facet-chip { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- highlight.js token 配色 (github-dark 风格) ---------- */
+.code-viewer code.hljs { color: #e6edf3; background: #0d1117; }
+.code-viewer .hljs-comment,
+.code-viewer .hljs-quote { color: #8b949e; font-style: italic; }
+.code-viewer .hljs-keyword,
+.code-viewer .hljs-selector-tag,
+.code-viewer .hljs-doctag { color: #ff7b72; }
+.code-viewer .hljs-string,
+.code-viewer .hljs-regexp { color: #a5d6ff; }
+.code-viewer .hljs-number,
+.code-viewer .hljs-literal,
+.code-viewer .hljs-symbol,
+.code-viewer .hljs-bullet { color: #79c0ff; }
+.code-viewer .hljs-title,
+.code-viewer .hljs-title.function_,
+.code-viewer .hljs-section { color: #d2a8ff; }
+.code-viewer .hljs-built_in,
+.code-viewer .hljs-type,
+.code-viewer .hljs-class .hljs-title { color: #ffa657; }
+.code-viewer .hljs-attr,
+.code-viewer .hljs-attribute,
+.code-viewer .hljs-variable,
+.code-viewer .hljs-template-variable { color: #79c0ff; }
+.code-viewer .hljs-name,
+.code-viewer .hljs-selector-id,
+.code-viewer .hljs-selector-class { color: #d2a8ff; }
+.code-viewer .hljs-meta,
+.code-viewer .hljs-meta .hljs-keyword { color: #ff7b72; }
+.code-viewer .hljs-tag { color: #7ee787; }
+.code-viewer .hljs-addition { color: #aff5b4; }
+.code-viewer .hljs-deletion { color: #ffdcd7; }
