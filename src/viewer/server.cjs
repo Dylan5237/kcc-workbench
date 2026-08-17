@@ -91,6 +91,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
   })
   let watcher = null
+  let pollingTimer = null
   let debounceTimer = null
   const artifactTimers = new Map()
   let artifactSnapshot = new Map()
@@ -122,6 +123,8 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   async function startWatcher() {
     watcher?.close()
     watcher = null
+    clearInterval(pollingTimer)
+    pollingTimer = null
     clearTimeout(debounceTimer)
     for (const timer of artifactTimers.values()) clearTimeout(timer)
     artifactTimers.clear()
@@ -161,6 +164,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         for (const handle of watchers) handle.close()
       }
     }
+    pollingTimer = setInterval(() => pollArtifactSnapshot(), 3000)
   }
 
   function scheduleArtifact(relativePath) {
@@ -265,6 +269,39 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       return isInsidePath(canonicalBase, canonicalTarget)
     } catch {
       return true
+    }
+  }
+
+  async function pollArtifactSnapshot() {
+    if (!root) return
+    const watchRoots = [root, ...extraRoots]
+    const seen = new Set()
+    for (const watchRoot of watchRoots) {
+      try {
+        const scan = (dir, relDir = '') => {
+          if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) return
+          let entries = []
+          try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+          for (const entry of entries) {
+            if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) return
+            if (shouldIgnoreDirectoryEntry(entry)) continue
+            const abs = path.join(dir, entry.name)
+            const rel = relDir ? `${relDir}/${entry.name}` : entry.name
+            if (entry.isDirectory()) { scan(abs, rel); continue }
+            const ext = path.extname(entry.name).toLowerCase()
+            if (!WATCHED_EXTENSIONS.has(ext)) continue
+            const isMain = path.normalize(watchRoot) === path.normalize(root)
+            const webPath = isMain ? normalizeWebPath(rel.replace(/\\/g, '/')) : normalizeWebPath(abs)
+            if (isIgnoredRelativePath(webPath)) continue
+            seen.add(webPath)
+            const prev = artifactSnapshot.get(webPath)
+            let mtime = 0
+            try { mtime = fs.statSync(abs).mtimeMs } catch {}
+            if (!prev || prev.mtime !== mtime) scheduleArtifact(webPath)
+          }
+        }
+        scan(watchRoot)
+      } catch { /* polling root silent */ }
     }
   }
 
@@ -552,6 +589,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         async close() {
           watcher?.close()
           clearTimeout(debounceTimer)
+          clearInterval(pollingTimer)
           for (const timer of artifactTimers.values()) clearTimeout(timer)
           await timeMachine.close()
           for (const client of clients) client.end()
