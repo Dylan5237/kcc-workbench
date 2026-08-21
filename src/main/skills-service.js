@@ -11,6 +11,7 @@ export const ENGINE_DIRS = Object.freeze({
 })
 
 const DEFAULT_APPS = () => ({ kimi: true, claude: true, codex: true })
+const PROJECTION_MARKER = '.kcc-workbench-projection.json'
 
 function normalizeApps(apps) {
   const result = { kimi: false, claude: false, codex: false }
@@ -57,6 +58,15 @@ async function isSymlink(filePath) {
   try { return (await fs.lstat(filePath)).isSymbolicLink() } catch { return false }
 }
 
+async function pathExists(filePath) {
+  try {
+    await fs.lstat(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function readManifest(skillDir) {
   const manifestPath = path.join(skillDir, 'SKILL.md')
   if (!(await fileExists(manifestPath))) return null
@@ -82,7 +92,7 @@ function parseFrontmatter(text) {
  * 从全局库读取管理状态与各引擎诊断。
  * override：可选 { claude, codex } 自定义投影目标目录（供测试/高级配置）。
  */
-export async function loadSkillsState({ libraryPath, homePath, override, syncMethods = {} }) {
+export async function loadSkillsState({ libraryPath, homePath, override, syncMethods = {}, managedConfig = {} }) {
   const ssotDir = path.resolve(libraryPath)
   const managed = []
   let entries = []
@@ -102,7 +112,7 @@ export async function loadSkillsState({ libraryPath, homePath, override, syncMet
       nameFromManifest: front.name || entry.name,
       description: front.description || '',
       directory: skillDir,
-      apps: DEFAULT_APPS()
+      apps: withMinimumOneEnabled(managedConfig?.[entry.name]?.apps || DEFAULT_APPS())
     })
   }
   managed.sort((a, b) => a.name.localeCompare(b.name))
@@ -196,6 +206,11 @@ async function copyReplace(source, dest) {
   const tmpDir = `${dest}.tmp-${process.pid}-${Date.now()}`
   await fs.cp(source, tmpDir, { recursive: true })
   try {
+    await fs.writeFile(path.join(tmpDir, PROJECTION_MARKER), JSON.stringify({
+      source: path.resolve(source),
+      skillName: path.basename(source),
+      version: 1
+    }), 'utf8')
     await removePath(dest)
     await fs.rename(tmpDir, dest)
   } catch (error) {
@@ -211,6 +226,7 @@ async function copyReplace(source, dest) {
  * - 目标已有用户手工真实目录 → 不覆盖，返回 conflict
  */
 export async function syncToEngine({ libraryPath, skillName, engine, homePath, override, method, force = false }) {
+  if (!sanitizeName(skillName)) throw new Error(`无效的 Skill 名称：${skillName}`)
   const ssotDir = path.resolve(libraryPath)
   const source = path.join(ssotDir, skillName)
   if (!(await readManifest(source))) throw new Error(`Skill 源缺失：${skillName}`)
@@ -220,15 +236,23 @@ export async function syncToEngine({ libraryPath, skillName, engine, homePath, o
 
   await fs.mkdir(target, { recursive: true })
   const dest = path.join(target, skillName)
+  const resolvedMethod = SYNC_METHODS.includes(method) ? method : 'auto'
+  const existingPath = await pathExists(dest)
   const existingDir = await dirExists(dest)
   const existingLink = await isSymlink(dest)
   const isSelfLink = existingLink && await linkPointsTo(source, dest)
+  const isOwnedCopy = existingDir && await projectionMarkerMatches(dest, source, skillName)
 
-  if (existingDir && !existingLink && !force) {
-    return { ok: false, conflict: true, error: `目标已存在同名目录：${dest}` }
+  if (existingPath && !force && !existingLink && !isOwnedCopy) {
+    return { ok: false, conflict: true, error: `目标已存在同名路径：${dest}` }
+  }
+  if (existingLink && !isSelfLink && !force) {
+    return { ok: false, conflict: true, error: `目标是非 Workbench 链接：${dest}` }
+  }
+  if (existingLink && isSelfLink && resolvedMethod !== 'copy') {
+    return { ok: true, method: 'symlink', reused: true }
   }
 
-  const resolvedMethod = SYNC_METHODS.includes(method) ? method : 'auto'
   if (resolvedMethod === 'copy') {
     await copyReplace(source, dest)
     return { ok: true, method: 'copy' }
@@ -269,6 +293,7 @@ export async function syncSkillToEngines({ libraryPath, skillName, apps, homePat
 }
 
 export async function backupSkill({ libraryPath, skillName, backupDir }) {
+  if (!sanitizeName(skillName)) throw new Error(`无效的 Skill 名称：${skillName}`)
   const source = path.join(path.resolve(libraryPath), skillName)
   if (!(await dirExists(source))) return null
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -278,11 +303,55 @@ export async function backupSkill({ libraryPath, skillName, backupDir }) {
   return dest
 }
 
+async function projectionMarkerMatches(dest, source, skillName) {
+  try {
+    const marker = JSON.parse(await fs.readFile(path.join(dest, PROJECTION_MARKER), 'utf8'))
+    return marker?.version === 1
+      && marker.skillName === skillName
+      && path.resolve(marker.source || '') === path.resolve(source)
+  } catch {
+    return false
+  }
+}
+
+export async function restoreSkill({ libraryPath, skillName, backupDir, backupPath }) {
+  if (!sanitizeName(skillName)) throw new Error(`无效的 Skill 名称：${skillName}`)
+  const root = path.resolve(backupDir)
+  const source = path.resolve(backupPath)
+  if (source !== root && !source.startsWith(`${root}${path.sep}`)) {
+    throw new Error('备份路径不在 Skill 备份目录中')
+  }
+  if (!(await readManifest(source))) throw new Error('备份不是有效 Skill：缺少 SKILL.md')
+  const destination = path.join(path.resolve(libraryPath), skillName)
+  if (await dirExists(destination)) throw new Error(`全局库已存在同名 Skill：${skillName}`)
+  await fs.mkdir(path.dirname(destination), { recursive: true })
+  const temporary = `${destination}.restore-${process.pid}-${Date.now()}`
+  try {
+    await fs.cp(source, temporary, { recursive: true })
+    await fs.rename(temporary, destination)
+  } catch (error) {
+    await fs.rm(temporary, { recursive: true, force: true }).catch(() => {})
+    throw error
+  }
+  const manifest = await readManifest(destination)
+  const front = parseFrontmatter(manifest?.text || '')
+  return {
+    name: skillName,
+    nameFromManifest: front.name || skillName,
+    description: front.description || '',
+    directory: destination,
+    apps: DEFAULT_APPS()
+  }
+}
+
 /**
  * 移除 skill：先备份，再从启用引擎投影目录移除自建项，最后删除 SSOT 项。
  */
 export async function removeSkill({ libraryPath, skillName, homePath, override, backupDir, apps }) {
+  if (!sanitizeName(skillName)) throw new Error(`无效的 Skill 名称：${skillName}`)
   const backupPath = await backupSkill({ libraryPath, skillName, backupDir })
+  if (!backupPath) throw new Error(`Skill 不存在：${skillName}`)
+  const source = path.join(path.resolve(libraryPath), skillName)
   const removal = {}
   for (const engine of ENGINES) {
     if (!apps?.[engine]) continue
@@ -291,11 +360,22 @@ export async function removeSkill({ libraryPath, skillName, homePath, override, 
     const dest = path.join(target, skillName)
     try {
       if (await isSymlink(dest)) {
-        await fs.unlink(dest)
-        removal[engine] = 'removed'
+        if (await linkPointsTo(source, dest)) {
+          await fs.unlink(dest)
+          removal[engine] = 'removed'
+        } else {
+          removal[engine] = { status: 'conflict', error: `未删除非 Workbench 链接：${dest}` }
+        }
+      } else if (await dirExists(dest)) {
+        if (await projectionMarkerMatches(dest, source, skillName)) {
+          await fs.rm(dest, { recursive: true, force: false })
+          removal[engine] = 'removed'
+        } else {
+          removal[engine] = { status: 'conflict', error: `未删除用户目录：${dest}` }
+        }
+      } else if (await pathExists(dest)) {
+        removal[engine] = { status: 'conflict', error: `未删除用户路径：${dest}` }
       } else {
-        const selfLink = await linkPointsTo(dest, dest)
-        if (await dirExists(dest) && selfLink) await fs.rm(dest, { recursive: true, force: false })
         removal[engine] = 'removed'
       }
     } catch (error) {
@@ -312,5 +392,6 @@ export const __testing = {
   resolveHome,
   engineTargetDir,
   linkPointsTo,
+  projectionMarkerMatches,
   buildDiagnostics
 }

@@ -121,6 +121,8 @@ button:disabled { cursor: default; opacity: .42; }
 .skill-ai { height: 27px; padding: 0 9px; color: #9b9b9b; font-size: 11px; background: #f7f7f7; border: 1px dashed #d8d8d8; border-radius: 7px; cursor: default; }
 .skill-remove { height: 27px; padding: 0 9px; color: #a13c33; font-size: 11px; background: #fff; border: 1px solid #f0d5d0; border-radius: 7px; }
 .skill-remove:hover { background: #fdf2f0; }
+.skill-undo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -4px 0 14px; padding: 10px 14px; color: #73570b; font-size: 11px; background: #fffaf0; border: 1px solid #f0dfb7; border-radius: 10px; }
+.skill-undo.hidden { display: none; }
 .skill-detail { display: flex; flex-direction: column; padding: 0 18px 14px; }
 .engine-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px dashed #eee; }
 .engine-row:first-child { border-top: 0; }

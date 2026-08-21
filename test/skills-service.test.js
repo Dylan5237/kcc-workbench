@@ -8,6 +8,7 @@ import {
   backupSkill,
   loadSkillsState,
   removeSkill,
+  restoreSkill,
   syncSkillToEngines,
   syncToEngine,
   withMinimumOneEnabled,
@@ -37,6 +38,20 @@ test('sanitizeName rejects path separators / traversal / control chars', () => {
   assert.equal(__testing.sanitizeName('..'), null)
   assert.equal(__testing.sanitizeName('a\u0000b'), null)
   assert.equal(__testing.sanitizeName('valid-name'), 'valid-name')
+})
+
+test('skill filesystem operations reject traversal names', async t => {
+  const home = await makeTempHome(t)
+  const args = {
+    libraryPath: path.join(home, 'lib'),
+    skillName: '../outside',
+    homePath: home,
+    backupDir: path.join(home, 'backups'),
+    apps: { kimi: true, claude: false, codex: false }
+  }
+  await assert.rejects(() => syncToEngine({ ...args, engine: 'kimi' }), /无效的 Skill 名称/)
+  await assert.rejects(() => backupSkill(args), /无效的 Skill 名称/)
+  await assert.rejects(() => removeSkill(args), /无效的 Skill 名称/)
 })
 
 test('withMinimumOneEnabled always keeps at least one engine, defaulting to kimi', () => {
@@ -79,6 +94,17 @@ test('loadSkillsState returns managed list and engine diagnostics', async t => {
   assert.equal(state.diagnostics.claude.directory, path.join(home, 'custom-claude'))
   assert.equal(state.diagnostics.claude.enabled, 2)
   assert.equal(state.diagnostics.codex.enabled, 2)
+
+  const persisted = await loadSkillsState({
+    libraryPath: lib,
+    homePath: home,
+    managedConfig: { alpha: { apps: { kimi: false, claude: true, codex: false } } }
+  })
+  assert.deepEqual(persisted.managed.find(skill => skill.name === 'alpha').apps, {
+    kimi: false,
+    claude: true,
+    codex: false
+  })
 })
 
 test('syncToEngine: symlink path works and copy fallback works', async t => {
@@ -113,6 +139,48 @@ test('syncToEngine: conflict with user-managed real directory is not overwritten
   // 用户内容未被触碰
   const kept = await fs.readFile(path.join(target, 'demo', 'SKILL.md'), 'utf8')
   assert.match(kept, /user owned/)
+})
+
+test('syncToEngine: foreign symlink is not replaced', async t => {
+  const home = await makeTempHome(t)
+  const lib = path.join(home, 'lib')
+  const foreign = path.join(home, 'foreign')
+  await writeSkillDir({ parent: lib, name: 'demo' })
+  await writeSkillDir({ parent: home, name: 'foreign' })
+  const target = path.join(home, 'claude', 'skills')
+  await fs.mkdir(target, { recursive: true })
+  await fs.symlink(foreign, path.join(target, 'demo'), 'dir')
+  const result = await syncToEngine({
+    libraryPath: lib,
+    skillName: 'demo',
+    engine: 'claude',
+    homePath: home,
+    override: { claude: target }
+  })
+  assert.equal(result.ok, false)
+  assert.equal(result.conflict, true)
+  assert.equal(await fs.readlink(path.join(target, 'demo')), foreign)
+})
+
+test('syncToEngine: foreign files are not overwritten', async t => {
+  const home = await makeTempHome(t)
+  const lib = path.join(home, 'lib')
+  const target = path.join(home, 'codex', 'skills')
+  await writeSkillDir({ parent: lib, name: 'demo' })
+  await fs.mkdir(target, { recursive: true })
+  const destination = path.join(target, 'demo')
+  await fs.writeFile(destination, 'user-owned file')
+  const result = await syncToEngine({
+    libraryPath: lib,
+    skillName: 'demo',
+    engine: 'codex',
+    homePath: home,
+    override: { codex: target },
+    method: 'copy'
+  })
+  assert.equal(result.ok, false)
+  assert.equal(result.conflict, true)
+  assert.equal(await fs.readFile(destination, 'utf8'), 'user-owned file')
 })
 
 test('syncSkillToEngines respects apps matrix and reports per-engine', async t => {
@@ -153,6 +221,61 @@ test('removeSkill: backs up then removes from enabled engines and ssot', async t
   assert.equal(await fs.stat(removed.backupPath).then(s => s.isDirectory()), true)
   await assert.rejects(() => fs.access(path.join(override.claude, 'demo')))
   await assert.rejects(() => fs.access(path.join(lib, 'demo')))
+})
+
+test('copy projections are marked and can be safely removed, then restored', async t => {
+  const home = await makeTempHome(t)
+  const lib = path.join(home, 'lib')
+  const target = path.join(home, 'codex', 'skills')
+  await writeSkillDir({ parent: lib, name: 'demo' })
+  await syncToEngine({
+    libraryPath: lib,
+    skillName: 'demo',
+    engine: 'codex',
+    homePath: home,
+    override: { codex: target },
+    method: 'copy'
+  })
+  await fs.writeFile(path.join(lib, 'demo', 'SKILL.md'), '# Updated')
+  const resynced = await syncToEngine({
+    libraryPath: lib,
+    skillName: 'demo',
+    engine: 'codex',
+    homePath: home,
+    override: { codex: target },
+    method: 'copy'
+  })
+  assert.equal(resynced.ok, true)
+  assert.equal(await fs.readFile(path.join(target, 'demo', 'SKILL.md'), 'utf8'), '# Updated')
+  const backupDir = path.join(home, 'backups')
+  const removed = await removeSkill({
+    libraryPath: lib,
+    skillName: 'demo',
+    homePath: home,
+    override: { codex: target },
+    backupDir,
+    apps: { kimi: false, claude: false, codex: true }
+  })
+  assert.equal(removed.removal.codex, 'removed')
+  await assert.rejects(() => fs.access(path.join(target, 'demo')))
+  const restored = await restoreSkill({
+    libraryPath: lib,
+    skillName: 'demo',
+    backupDir,
+    backupPath: removed.backupPath
+  })
+  assert.equal(restored.name, 'demo')
+  assert.equal(await fs.stat(path.join(lib, 'demo', 'SKILL.md')).then(stat => stat.isFile()), true)
+})
+
+test('restoreSkill rejects a backup path outside the backup directory', async t => {
+  const home = await makeTempHome(t)
+  await assert.rejects(() => restoreSkill({
+    libraryPath: path.join(home, 'lib'),
+    skillName: 'demo',
+    backupDir: path.join(home, 'backups'),
+    backupPath: path.join(home, 'outside')
+  }), /备份路径不在 Skill 备份目录中/)
 })
 
 test('backupSkill creates timestamped backup directory', async t => {

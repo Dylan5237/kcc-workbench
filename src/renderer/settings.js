@@ -417,7 +417,7 @@ function escapeHtml(value) {
 
 // ===== M1: Skills 全局管理（能力资产库） =====
 let expandedSkillNames = new Set()
-let pendingRemoved = null // { name, apps }
+let pendingRemoved = null // { name, apps, backupPath }
 
 function renderGlobalSkills(skillsState) {
   const list = document.querySelector('#globalSkillsList')
@@ -525,10 +525,30 @@ async function requestRemoveSkill(skill) {
   if (!confirmed) return
   const { removed } = await window.desktopSettings.removeSkill({ name: skill.name })
   if (removed?.backupPath) {
-    pendingRemoved = { name: skill.name, apps: skill.apps }
+    pendingRemoved = { name: skill.name, apps: skill.apps, backupPath: removed.backupPath }
+    const undoBar = document.querySelector('#skillUndoBar')
+    const undoText = document.querySelector('#skillUndoText')
+    if (undoBar && undoText) {
+      undoText.textContent = `已移除「${skill.name}」，备份仍可恢复`
+      undoBar.classList.remove('hidden')
+    }
     setStatus(`已移除「${skill.name}」，已备份`, false)
   }
   await refreshSkillsState()
+}
+
+async function restoreRemovedSkill() {
+  if (!pendingRemoved) return
+  const pending = pendingRemoved
+  try {
+    await window.desktopSettings.restoreSkill(pending)
+    pendingRemoved = null
+    document.querySelector('#skillUndoBar')?.classList.add('hidden')
+    setStatus(`已恢复「${pending.name}」并同步`, false)
+    await refreshSkillsState()
+  } catch (error) {
+    setStatus(`恢复失败：${error.message}`, true)
+  }
 }
 
 function syncDirtySkills() {
@@ -560,3 +580,5 @@ if (addGlobalSkillBtn) {
     }
   })
 }
+
+document.querySelector('#restoreSkillButton')?.addEventListener('click', restoreRemovedSkill)

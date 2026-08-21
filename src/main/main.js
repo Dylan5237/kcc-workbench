@@ -30,6 +30,13 @@ import {
 } from './cloudcli-context.js'
 import { SettingsService, hasEngineConfigChanged } from './settings-service.js'
 import { WorkbenchConfigService, resolveStartupEngine } from './workbench-config.js'
+import {
+  addSkillToLibrary,
+  loadSkillsState,
+  removeSkill,
+  restoreSkill,
+  syncSkillToEngines
+} from './skills-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
 import { createKimiCodeUrlGuard } from './url-trust.js'
@@ -701,6 +708,10 @@ function wireIpc() {
   ipcMain.removeHandler('settings:get-state')
   ipcMain.removeHandler('settings:save')
   ipcMain.removeHandler('settings:select-directory')
+  ipcMain.removeHandler('settings:skills-add')
+  ipcMain.removeHandler('settings:skills-remove')
+  ipcMain.removeHandler('settings:skills-restore')
+  ipcMain.removeHandler('settings:skills-sync')
 
   ipcMain.handle('shell:get-state', event => {
     requireSender(event, shellView.webContents)
@@ -884,9 +895,20 @@ function wireIpc() {
   ipcMain.handle('settings:get-state', async event => {
     requireSender(event, settingsView.webContents)
     settingsService.setProjectDirectory(await detectKimiProjectDirectory())
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    await ensureKimiSkillPointer(libraryPath)
     const kimiState = await settingsService.getState()
+    const skills = await loadSkillsState({
+      libraryPath,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      syncMethods: workbenchInfo.skills?.projection,
+      managedConfig: workbenchInfo.skills?.managed
+    })
     return {
       ...kimiState,
+      skills,
       workbench: {
         config: await workbenchConfigService.get(),
         ...workbenchConfigService.describe()
@@ -916,7 +938,8 @@ function wireIpc() {
       throw new Error('Skill 源目录无效')
     }
     const workbenchInfo = await workbenchConfigService.get()
-    const libraryPath = workbenchInfo.skills?.library || path.join(workbenchConfigService.storageDir, 'skills')
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    await ensureKimiSkillPointer(libraryPath)
     const added = await addSkillToLibrary({ libraryPath, sourceDir: payload.sourceDir })
     const apps = defaultSkillApps(payload.apps)
     const syncMethods = workbenchInfo.skills?.projection || {}
@@ -946,7 +969,7 @@ function wireIpc() {
       throw new Error('Skill 名称无效')
     }
     const workbenchInfo = await workbenchConfigService.get()
-    const libraryPath = workbenchInfo.skills?.library || path.join(workbenchConfigService.storageDir, 'skills')
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
     const managed = workbenchInfo.skills?.managed || {}
     const apps = managed[payload.name]?.apps || {}
     const backupDir = path.join(workbenchConfigService.storageDir, 'skill-backups')
@@ -965,10 +988,52 @@ function wireIpc() {
     })
     return { removed, workbench: { config: await workbenchConfigService.get(), ...workbenchNext } }
   })
+  ipcMain.handle('settings:skills-restore', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    if (!payload || typeof payload !== 'object'
+      || typeof payload.name !== 'string'
+      || typeof payload.backupPath !== 'string') {
+      throw new Error('Skill 恢复参数无效')
+    }
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    const backupDir = path.join(workbenchConfigService.storageDir, 'skill-backups')
+    const restored = await restoreSkill({
+      libraryPath,
+      skillName: payload.name,
+      backupDir,
+      backupPath: payload.backupPath
+    })
+    const apps = defaultSkillApps(payload.apps)
+    await ensureKimiSkillPointer(libraryPath)
+    const results = await syncSkillToEngines({
+      libraryPath,
+      skillName: restored.name,
+      apps,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      syncMethods: workbenchInfo.skills?.projection
+    })
+    const workbenchNext = await workbenchConfigService.save({
+      skills: {
+        ...workbenchInfo.skills,
+        managed: {
+          ...(workbenchInfo.skills?.managed || {}),
+          [restored.name]: { apps }
+        }
+      }
+    })
+    return {
+      restored: { ...restored, apps },
+      results,
+      workbench: { config: await workbenchConfigService.get(), ...workbenchNext }
+    }
+  })
   ipcMain.handle('settings:skills-sync', async (event, payload) => {
     requireSender(event, settingsView.webContents)
     const workbenchInfo = await workbenchConfigService.get()
-    const libraryPath = workbenchInfo.skills?.library || path.join(workbenchConfigService.storageDir, 'skills')
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    await ensureKimiSkillPointer(libraryPath)
     const managed = workbenchInfo.skills?.managed || {}
     const targetApps = payload?.apps || {}
     const results = {}
@@ -1481,6 +1546,30 @@ async function runSelfTestMode(outputPath) {
       error: error instanceof Error ? error.stack : String(error)
     }, null, 2))
   }
+}
+
+function resolveSkillsLibraryPath(workbenchInfo) {
+  return path.resolve(
+    workbenchInfo?.skills?.library
+    || path.join(workbenchConfigService.storageDir, 'skills')
+  )
+}
+
+async function ensureKimiSkillPointer(libraryPath) {
+  if (!settingsService) return false
+  const before = await settingsService.getState()
+  const current = Array.isArray(before.config?.extra_skill_dirs)
+    ? before.config.extra_skill_dirs
+    : []
+  const normalizedLibrary = path.resolve(libraryPath)
+  if (current.some(item => path.resolve(String(item)) === normalizedLibrary)) return false
+  const next = [...current, normalizedLibrary]
+  const after = await settingsService.save({ config: { extra_skill_dirs: next } })
+  if (hasEngineConfigChanged(before.config, after.config)) {
+    localKimiService?.stop()
+    if (kimiView && !kimiView.webContents.isDestroyed()) await connectLocalKimiView()
+  }
+  return true
 }
 
 
