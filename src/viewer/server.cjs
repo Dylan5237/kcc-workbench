@@ -7,6 +7,15 @@ const { createTimeMachine } = require('./time-machine.cjs')
 
 const PUBLIC_ROOT = path.join(__dirname, 'public')
 const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm', '.mmd', '.mermaid'])
+const CODE_EXTENSIONS = new Set([
+  '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.css', '.scss', '.less',
+  '.sh', '.bash', '.zsh', '.ps1', '.yml', '.yaml', '.toml', '.xml', '.sql',
+  '.java', '.go', '.rs', '.c', '.h', '.cpp', '.hpp', '.rb', '.php', '.vue',
+  '.txt', '.log', '.ini', '.conf'
+])
+const IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp'
+])
 const HTML_ASSET_EXTENSIONS = new Set([
   '.css', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico',
   '.woff', '.woff2', '.ttf', '.otf'
@@ -19,8 +28,10 @@ const MAX_SCANNED_ENTRIES = 20_000
 const MAX_SNAPSHOT_DOCUMENTS = 2_000
 const MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024
 const IGNORED_DIRECTORY_NAMES = new Set([
-  'node_modules', 'dist', 'build', 'coverage', 'out'
+  'node_modules', 'dist', 'build', 'coverage', 'out', 'tmp'
 ])
+const TRANSIENT_DIR_PREFIXES = ['tmp-', 'temp-', 'tmp_', 'temp_']
+const TRANSIENT_FILE_SUFFIXES = ['.tmp', '.draft.md', '.draft.json', '.draft.html']
 const RESTRICTED_BROWSER_PORTS = new Set([
   1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
   87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
@@ -80,6 +91,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
   })
   let watcher = null
+  let pollingTimer = null
   let debounceTimer = null
   const artifactTimers = new Map()
   let artifactSnapshot = new Map()
@@ -111,6 +123,8 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   async function startWatcher() {
     watcher?.close()
     watcher = null
+    clearInterval(pollingTimer)
+    pollingTimer = null
     clearTimeout(debounceTimer)
     for (const timer of artifactTimers.values()) clearTimeout(timer)
     artifactTimers.clear()
@@ -150,6 +164,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         for (const handle of watchers) handle.close()
       }
     }
+    pollingTimer = setInterval(() => pollArtifactSnapshot(), 3000)
   }
 
   function scheduleArtifact(relativePath) {
@@ -242,6 +257,68 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
   }
 
+  function pathInScope(relativePath) {
+    if (!root) return false
+    const base = rootForPath(relativePath)
+    if (!base) return false
+    const resolved = path.resolve(base, relativePath)
+    if (!isInsidePath(base, resolved)) return false
+    try {
+      const canonicalBase = fs.realpathSync(base)
+      const canonicalTarget = fs.realpathSync(resolved)
+      return isInsidePath(canonicalBase, canonicalTarget)
+    } catch {
+      return true
+    }
+  }
+
+  async function pollArtifactSnapshot() {
+    if (!root) return
+    const watchRoots = [root, ...extraRoots]
+    const seen = new Set()
+    let scanComplete = true
+    for (const watchRoot of watchRoots) {
+      try {
+        const scan = (dir, relDir = '') => {
+          if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) {
+            scanComplete = false
+            return
+          }
+          let entries = []
+          try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch {
+            scanComplete = false
+            return
+          }
+          for (const entry of entries) {
+            if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) {
+              scanComplete = false
+              return
+            }
+            if (shouldIgnoreDirectoryEntry(entry)) continue
+            const abs = path.join(dir, entry.name)
+            const rel = relDir ? `${relDir}/${entry.name}` : entry.name
+            if (entry.isDirectory()) { scan(abs, rel); continue }
+            const ext = path.extname(entry.name).toLowerCase()
+            if (!WATCHED_EXTENSIONS.has(ext)) continue
+            const isMain = path.normalize(watchRoot) === path.normalize(root)
+            const webPath = isMain ? normalizeWebPath(rel.replace(/\\/g, '/')) : normalizeWebPath(abs)
+            if (isIgnoredRelativePath(webPath)) continue
+            seen.add(webPath)
+            const prev = artifactSnapshot.get(webPath)
+            let mtime = 0
+            try { mtime = fs.statSync(abs).mtimeMs } catch {}
+            if (!prev || prev.mtime !== mtime) scheduleArtifact(webPath)
+          }
+        }
+        scan(watchRoot)
+      } catch { /* polling root silent */ }
+    }
+    if (!scanComplete) return
+    for (const previousPath of artifactSnapshot.keys()) {
+      if (!seen.has(previousPath) && rootForPath(previousPath)) scheduleArtifact(previousPath)
+    }
+  }
+
   function rootForPath(relativePath) {
     if (!root) return null
     if (path.isAbsolute(relativePath)) {
@@ -291,8 +368,9 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/api/tree') {
       if (!root) return sendJson(response, 200, { root: '', tree: emptyTree() })
       try {
-        const tree = await scanAllRoots(root, extraRoots)
-        return sendJson(response, 200, { root, extraRoots, tree })
+        const includeAll = url.searchParams.get('mode') === 'dev'
+        const tree = await scanAllRoots(root, extraRoots, includeAll)
+        return sendJson(response, 200, { root, extraRoots, mode: includeAll ? 'dev' : 'run', tree })
       } catch (error) {
         return sendJson(response, 500, { error: error.message })
       }
@@ -316,8 +394,11 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/api/file') {
       const relativePath = url.searchParams.get('p') || ''
       const absolutePath = safeResolve(relativePath)
-      if (!absolutePath) return sendJson(response, 403, { error: '非法文件路径' })
-      if (!WATCHED_EXTENSIONS.has(path.extname(absolutePath).toLowerCase())) {
+      if (!absolutePath) {
+        if (pathInScope(relativePath)) return sendJson(response, 404, { error: '文件不存在或已被删除' })
+        return sendJson(response, 403, { error: '非法文件路径' })
+      }
+      if (!isTextFileExtension(path.extname(absolutePath).toLowerCase())) {
         return sendJson(response, 403, { error: '不支持的文件类型' })
       }
       try {
@@ -328,6 +409,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
           path: relativePath,
           name: path.basename(absolutePath),
           ext: path.extname(absolutePath).toLowerCase(),
+          kind: classifyFileKind(path.extname(absolutePath).toLowerCase()),
           content: fs.readFileSync(absolutePath, 'utf8'),
           mtime: stat.mtimeMs,
           size: stat.size
@@ -340,9 +422,9 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (url.pathname === '/api/file-meta') {
       const relativePath = url.searchParams.get('p') || ''
       const absolutePath = safeResolve(relativePath)
-      if (!absolutePath) return sendJson(response, 403, { error: '非法文件路径' })
-      if (!WATCHED_EXTENSIONS.has(path.extname(absolutePath).toLowerCase())) {
-        return sendJson(response, 403, { error: '不支持的文件类型' })
+      if (!absolutePath) {
+        if (pathInScope(relativePath)) return sendJson(response, 404, { error: '文件不存在或已被删除' })
+        return sendJson(response, 403, { error: '非法文件路径' })
       }
       try {
         const stat = fs.statSync(absolutePath)
@@ -354,6 +436,29 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         })
       } catch (error) {
         return sendJson(response, 404, { error: error.message })
+      }
+    }
+
+    if (url.pathname === '/api/raw-file') {
+      const relativePath = url.searchParams.get('p') || ''
+      const absolutePath = safeResolve(relativePath)
+      const extension = absolutePath ? path.extname(absolutePath).toLowerCase() : ''
+      if (!absolutePath) return sendText(response, 403, '非法文件路径')
+      if (!IMAGE_EXTENSIONS.has(extension)) {
+        return sendText(response, 403, '不支持的图片类型')
+      }
+      try {
+        const stat = fs.statSync(absolutePath)
+        if (!stat.isFile()) throw new Error('目标不是文件')
+        if (stat.size > MAX_ASSET_BYTES) throw new Error('图片超过 20 MB')
+        response.writeHead(200, {
+          'Content-Type': MIME_TYPES[extension] || 'application/octet-stream',
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'no-cache'
+        })
+        return pipeFile(response, absolutePath)
+      } catch (error) {
+        return sendText(response, 404, error.message)
       }
     }
 
@@ -436,6 +541,12 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       return pipeFile(response, mermaidPath)
     }
 
+    if (url.pathname === '/vendor/highlight.min.js') {
+      const highlightPath = path.join(PUBLIC_ROOT, 'vendor', 'highlight.min.js')
+      response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
+      return pipeFile(response, highlightPath)
+    }
+
     if (url.pathname === '/vendor/purify.min.js') {
       const purifyPath = path.join(
         path.dirname(require.resolve('dompurify')),
@@ -492,6 +603,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         async close() {
           watcher?.close()
           clearTimeout(debounceTimer)
+          clearInterval(pollingTimer)
           for (const timer of artifactTimers.values()) clearTimeout(timer)
           await timeMachine.close()
           for (const client of clients) client.end()
@@ -526,7 +638,18 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   }
 }
 
-async function scanTree(directory, relativePath, budget = { entries: 0 }) {
+function isTextFileExtension(ext) {
+  return WATCHED_EXTENSIONS.has(ext) || CODE_EXTENSIONS.has(ext)
+}
+
+function classifyFileKind(ext) {
+  if (WATCHED_EXTENSIONS.has(ext)) return 'doc'
+  if (CODE_EXTENSIONS.has(ext)) return 'code'
+  if (IMAGE_EXTENSIONS.has(ext)) return 'image'
+  return 'binary'
+}
+
+async function scanTree(directory, relativePath, budget = { entries: 0 }, includeAll = false) {
   const node = {
     name: path.basename(directory),
     path: relativePath,
@@ -546,18 +669,22 @@ async function scanTree(directory, relativePath, budget = { entries: 0 }) {
     const absolutePath = path.join(directory, entry.name)
     if (entry.isDirectory()) {
       try {
-        const child = await scanTree(absolutePath, childRelativePath, budget)
+        const child = await scanTree(absolutePath, childRelativePath, budget, includeAll)
         if (child.children.length) node.children.push(child)
       } catch {
         // Skip folders that cannot be read.
       }
-    } else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+    } else {
+      const ext = path.extname(entry.name).toLowerCase()
+      if (!includeAll && !WATCHED_EXTENSIONS.has(ext)) continue
+      const kind = includeAll ? classifyFileKind(ext) : 'doc'
       const stat = await fs.promises.stat(absolutePath)
       node.children.push({
         name: entry.name,
         path: childRelativePath,
         type: 'file',
-        ext: path.extname(entry.name).toLowerCase(),
+        ext,
+        kind,
         size: stat.size,
         mtime: stat.mtimeMs
       })
@@ -570,9 +697,9 @@ async function scanTree(directory, relativePath, budget = { entries: 0 }) {
   return node
 }
 
-async function scanAllRoots(primaryRoot, extraRootList) {
+async function scanAllRoots(primaryRoot, extraRootList, includeAll = false) {
   const budget = { entries: 0 }
-  const rootNode = await scanTree(primaryRoot, '', budget)
+  const rootNode = await scanTree(primaryRoot, '', budget, includeAll)
   for (const extraRoot of extraRootList) {
     if (path.normalize(extraRoot) === path.normalize(primaryRoot)) continue
     if (budget.entries >= MAX_SCANNED_ENTRIES) {
@@ -580,7 +707,7 @@ async function scanAllRoots(primaryRoot, extraRootList) {
       break
     }
     const extraPrefix = normalizeWebPath(extraRoot)
-    const extraNode = await scanTree(extraRoot, '', budget)
+    const extraNode = await scanTree(extraRoot, '', budget, includeAll)
     prefixTreePaths(extraNode, extraPrefix)
     rootNode.children.push(extraNode)
   }
@@ -689,14 +816,29 @@ function sameArtifactDocument(left, right) {
 }
 
 function shouldIgnoreDirectoryEntry(entry) {
-  return entry.name.startsWith('.')
-    || (entry.isDirectory() && IGNORED_DIRECTORY_NAMES.has(entry.name.toLowerCase()))
+  const name = entry.name.toLowerCase()
+  if (name.startsWith('.')) return true
+  if (entry.isDirectory()) {
+    return IGNORED_DIRECTORY_NAMES.has(name)
+      || TRANSIENT_DIR_PREFIXES.some(prefix => name.startsWith(prefix))
+  }
+  return isIgnoredPathSegment(name)
 }
 
 function isIgnoredRelativePath(relativePath) {
   return normalizeWebPath(relativePath)
     .split('/')
-    .some(segment => segment.startsWith('.') || IGNORED_DIRECTORY_NAMES.has(segment.toLowerCase()))
+    .some(segment => isIgnoredPathSegment(segment))
+}
+
+function isIgnoredPathSegment(segment) {
+  const lower = segment.toLowerCase()
+  if (lower.startsWith('.')) return true
+  if (IGNORED_DIRECTORY_NAMES.has(lower)) return true
+  if (TRANSIENT_DIR_PREFIXES.some(prefix => lower.startsWith(prefix))) return true
+  if (TRANSIENT_FILE_SUFFIXES.some(suffix => lower.endsWith(suffix))) return true
+  if (lower.endsWith('~')) return true
+  return false
 }
 
 function validDirectory(value) {

@@ -9,6 +9,9 @@ const MAX_ARTIFACTS = 100
 const MAX_PATCH_BYTES = 8 * 1024 * 1024
 const MAX_UNTRACKED_BYTES = 10 * 1024 * 1024
 const MAX_UNTRACKED_FILE_BYTES = 2 * 1024 * 1024
+const TRANSIENT_DIR_PREFIXES = ['tmp-', 'temp-', 'tmp_', 'temp_']
+const TRANSIENT_FILE_SUFFIXES = ['.tmp', '.draft.md', '.draft.json', '.draft.html']
+const TRANSIENT_DIR_NAMES = new Set(['tmp'])
 
 function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 3700 }) {
   const storageDir = path.join(configDir, 'time-machine')
@@ -48,8 +51,21 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 3
     return getState()
   }
 
+  function isTransientPath(value) {
+    const segments = String(value || '').replace(/\\\\/g, '/').split('/')
+    return segments.some(segment => {
+      const lower = segment.toLowerCase()
+      if (TRANSIENT_DIR_NAMES.has(lower)) return true
+      if (TRANSIENT_DIR_PREFIXES.some(prefix => lower.startsWith(prefix))) return true
+      if (TRANSIENT_FILE_SUFFIXES.some(suffix => lower.endsWith(suffix))) return true
+      if (lower.endsWith('~')) return true
+      return false
+    })
+  }
+
   function recordChange({ artifact, beforeContent = '', afterContent = '' }) {
     if (!activeSession || !artifact) return
+    if (isTransientPath(artifact.path)) return
     pendingChanges.push({
       ...artifact,
       beforeContent,
@@ -114,6 +130,7 @@ function createTimeMachine({ configDir, onChange = () => {}, checkpointDelay = 3
     const byPath = new Map()
     for (const checkpoint of activeSession.checkpoints) {
       for (const change of checkpoint.changes) {
+        if (isTransientPath(change.path)) continue
         if (byPath.has(change.path)) continue
         byPath.set(change.path, change)
       }

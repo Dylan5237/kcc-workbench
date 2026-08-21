@@ -12,10 +12,13 @@
     <aside class="sidebar">
       <div class="sidebar-heading">
         <h1>系统设置</h1>
-        <p>配置 Kimi Code 与桌面工作区</p>
+        <p>配置 KCC Workbench 与各引擎</p>
       </div>
       <nav aria-label="设置分类">
-        <button class="nav-item active" data-panel="general"><span>⌘</span>常规</button>
+        <div class="nav-label">Workbench</div>
+        <button class="nav-item active" data-panel="workbench"><span>▦</span>通用</button>
+        <div class="nav-label">Kimi Code</div>
+        <button class="nav-item" data-panel="general"><span>⌘</span>常规</button>
         <button class="nav-item" data-panel="prompt"><span>✦</span>系统提示词</button>
         <button class="nav-item" data-panel="model"><span>◇</span>模型与思考</button>
         <button class="nav-item" data-panel="agent"><span>◎</span>Agent 执行</button>
@@ -40,7 +43,17 @@
         <span>当前读写临时配置，不会修改真实 Kimi 配置文件。</span>
       </div>
 
-      <section class="panel active" data-panel="general">
+      <section class="panel active" data-panel="workbench">
+        <header class="panel-header"><div><h2>Workbench 通用</h2><p>本应用（KCC Workbench）自己的全局配置，与具体引擎无关。</p></div></header>
+        <div class="card">
+          <label class="field"><span><strong>默认引擎</strong><small>下次启动时优先使用的引擎；手动切换后是否记住见下方开关</small></span><select id="defaultEngine"><option value="kimi">Kimi Code</option><option value="cloudcli">CloudCLI</option></select></label>
+          <label class="field"><span><strong>记住上次引擎</strong><small>启动时恢复到上次退出时使用的引擎</small></span><input id="rememberEngine" class="switch" type="checkbox"></label>
+            <label class="field"><span><strong>Viewer 默认模式</strong><small>文件查看器的新会话默认视图；自动=按会话推断，开发=全量文件，运行=人类可读产物</small></span><select id="viewerMode"><option value="auto">auto · 自动推断</option><option value="dev">dev · 开发（全量文件）</option><option value="run">run · 运行（人类可读产物）</option></select></label>
+          <div class="path-row"><span>配置存储</span><code id="workbenchStorage">读取中…</code></div>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="general">
         <header class="panel-header"><div><h2>常规</h2><p>设置默认启动行为和基础偏好。</p></div></header>
         <div class="card">
           <label class="field"><span><strong>默认模型</strong><small>新会话使用的模型别名</small></span><select id="defaultModel" aria-label="默认模型"><option value="">由 Kimi Code 决定</option></select></label>
@@ -126,27 +139,34 @@
         <div class="card list-card"><div id="mcpList" class="empty-state">没有发现 MCP 服务</div></div>
       </section>
 
-      <section class="panel" data-panel="skills">
-        <header class="panel-header"><div><h2>Skills 与 Agent</h2><p>让 Kimi Code 从其他文件夹加载可复用能力和子 Agent 定义。</p></div></header>
-        <div class="notice explanation">
-          <strong>这不是插件商店。</strong>
-          <span>Skill 是带 <code>SKILL.md</code> 的能力目录；Agent 目录用于放置自定义子 Agent。添加目录后仍需点击底部“保存设置”才会生效。</span>
-        </div>
+            <section class="panel" data-panel="skills">
+        <header class="panel-header"><div><h2>Skills 全局管理</h2><p>一份能力资产，按你的选择在 Kimi / Claude / Codex 会话中加载。</p></div><span class="scope-badge">全局</span></header>
         <div class="card">
-          <label class="field"><span><strong>合并多来源 Skills</strong><small>同时加载内置目录和下面添加的额外目录</small></span><input id="mergeSkills" class="switch" type="checkbox"></label>
-          <div class="stack-field">
-            <div class="field-heading"><span><strong>额外 Skill 目录</strong><small>目录本身或其子目录中应包含 SKILL.md</small></span><button id="addSkillDirectory" class="browse-button" type="button">选择文件夹</button></div>
-            <textarea id="extraSkillDirs" class="path-editor" placeholder="每行一个绝对路径"></textarea>
+          <div class="card-title skill-title">
+            <div><strong>我的能力库</strong><small>全局唯一事实源 · 所有 Skill 只维护一份</small></div>
+            <button id="addGlobalSkill" class="browse-button" type="button">+ 添加 Skill</button>
           </div>
-          <div class="stack-field">
-            <div class="field-heading"><span><strong>额外 Agent 目录</strong><small>用于加载自定义子 Agent 定义</small></span><button id="addAgentDirectory" class="browse-button" type="button">选择文件夹</button></div>
-            <textarea id="extraAgentDirs" class="path-editor" placeholder="每行一个绝对路径"></textarea>
+          <div id="globalSkillsList" class="empty-state">正在扫描能力库…</div>
+        </div>
+        <div id="skillUndoBar" class="skill-undo hidden">
+          <span id="skillUndoText"></span>
+          <button id="restoreSkillButton" class="browse-button" type="button">撤销移除</button>
+        </div>
+        <details class="skills-advanced card">
+          <summary><span>高级与诊断</span><small>投影方式、目标目录、同步错误与安全红线</small></summary>
+          <div class="adv-body">
+            <table class="adv-table">
+              <thead><tr><th>引擎</th><th>投影方式</th><th>目标目录</th><th>当前加载</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td>Kimi Code</td><td id="diagKimiMethod">原生指针</td><td><code id="diagKimiPath">extra_skill_dirs → 能力库</code></td><td id="diagKimiCount">0</td><td class="ok">实时生效</td></tr>
+                <tr><td>Claude Code</td><td id="diagClaudeMethod">自动</td><td><code id="diagClaudePath">—</code></td><td id="diagClaudeCount">0</td><td class="ok" id="diagClaudeStatus">待同步</td></tr>
+                <tr><td>Codex</td><td id="diagCodexMethod">自动</td><td><code id="diagCodexPath">—</code></td><td id="diagCodexCount">0</td><td class="ok" id="diagCodexStatus">待同步</td></tr>
+              </tbody>
+            </table>
+            <div class="adv-note"><strong>自动同步：</strong>Kimi 用原生指针实时生效；Claude / Codex 自动选择软链（失败回退复制）；只管理 Workbench 自己创建的投影项，绝不覆盖你手工放置的 Skill；移除前自动备份。</div>
+            <div class="adv-note ai-note"><strong>AI 摘要（即将支持）：</strong>后续接入大模型后，可在此自动总结每个 Skill 的用途与适用场景。本期仅占位，不调用模型。</div>
           </div>
-        </div>
-        <div class="card list-card">
-          <div class="card-title"><strong>已发现的 Skills</strong><small>这里只读展示当前配置能够发现的能力；保存新目录后会重新扫描</small></div>
-          <div id="skillsList" class="empty-state">正在扫描…</div>
-        </div>
+        </details>
       </section>
 
       <section class="panel" data-panel="hooks">

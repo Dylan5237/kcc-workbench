@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import fsSync from 'node:fs'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -221,6 +222,41 @@ test('tracks document changes inside the current artifact session', async t => {
   assert.ok(session.changes[0].stats.removed > 0)
 })
 
+test('polling fallback records deleted documents', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-delete-poll-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  const documentPath = path.join(projectDir, 'draft.md')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(documentPath, '# Draft')
+
+  const originalWatch = fsSync.watch
+  fsSync.watch = () => { throw new Error('forced polling fallback') }
+  let server
+  try {
+    server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  } finally {
+    fsSync.watch = originalWatch
+  }
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+  await server.setConversationContext({
+    id: 'session:delete-poll',
+    label: '删除轮询',
+    root: projectDir
+  })
+
+  await fs.rm(documentPath)
+  // 轮询周期为 3s, 防抖落盘再加 350ms。
+  await new Promise(resolve => setTimeout(resolve, 3600))
+  const session = await viewerFetch(server, '/api/artifacts').then(response => response.json())
+  const deletion = session.changes.find(change => change.path === 'draft.md')
+  assert.ok(deletion, '轮询应记录已删除文档')
+  assert.equal(deletion.type, 'deleted')
+})
+
 test('rebuilds the current-round artifact list from persisted checkpoints', async t => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-persist-'))
   const configDir = path.join(tempRoot, 'config')
@@ -286,4 +322,95 @@ test('contains synchronous request failures without terminating the server', asy
   const malformed = await fetch(`http://127.0.0.1:${server.port}/%E0%A4%A`)
   assert.equal(malformed.status, 500)
   assert.equal((await viewerFetch(server, '/api/root')).status, 200)
+})
+
+test('serves a full file tree and source previews in dev mode', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-dev-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Main')
+  await fs.writeFile(path.join(projectDir, 'app.ts'), 'const value: number = 42')
+  await fs.writeFile(path.join(projectDir, 'style.css'), 'body { color: red }')
+  await fs.writeFile(path.join(projectDir, 'logo.svg'), '<svg></svg>')
+  await fs.writeFile(path.join(projectDir, 'data.bin'), Buffer.from([0, 1, 2, 3]))
+
+  const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  const runTree = await viewerFetch(server, '/api/tree').then(response => response.json())
+  assert.equal(runTree.mode, 'run')
+  assert.deepEqual(
+    runTree.tree.children.map(item => item.name).sort(),
+    ['README.md']
+  )
+
+  const devTree = await viewerFetch(server, '/api/tree?mode=dev').then(response => response.json())
+  assert.equal(devTree.mode, 'dev')
+  const byName = Object.fromEntries(devTree.tree.children.map(item => [item.name, item]))
+  assert.equal(byName['app.ts'].kind, 'code')
+  assert.equal(byName['style.css'].kind, 'code')
+  assert.equal(byName['logo.svg'].kind, 'image')
+  assert.equal(byName['data.bin'].kind, 'binary')
+  assert.equal(byName['README.md'].kind, 'doc')
+
+  const source = await viewerFetch(server, '/api/file?p=app.ts').then(response => response.json())
+  assert.equal(source.kind, 'code')
+  assert.equal(source.content, 'const value: number = 42')
+
+  const image = await viewerFetch(server, '/api/raw-file?p=logo.svg')
+  assert.equal(image.status, 200)
+  assert.equal(image.headers.get('content-type'), 'image/svg+xml')
+  assert.equal(await image.text(), '<svg></svg>')
+
+  const binary = await viewerFetch(server, '/api/file?p=data.bin')
+  assert.equal(binary.status, 403)
+
+  const imageMeta = await viewerFetch(server, '/api/file-meta?p=logo.svg').then(response => response.json())
+  assert.equal(imageMeta.path, 'logo.svg')
+  assert.ok(imageMeta.size > 0)
+
+  const binaryMeta = await viewerFetch(server, '/api/file-meta?p=data.bin').then(response => response.json())
+  assert.equal(binaryMeta.path, 'data.bin')
+  assert.ok(binaryMeta.size > 0)
+})
+
+test('excludes transient directories and process files from tree and artifacts', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-transient-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(path.join(projectDir, 'docs'), { recursive: true })
+  await fs.mkdir(path.join(projectDir, 'tmp-distill-123'), { recursive: true })
+  await fs.mkdir(path.join(projectDir, '.git'), { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'docs', 'real.md'), '# real')
+  await fs.writeFile(path.join(projectDir, 'tmp-distill-123', 'throwaway.md'), '# throwaway')
+  await fs.writeFile(path.join(projectDir, 'notes.draft.md'), '# draft')
+  await fs.writeFile(path.join(projectDir, 'backup.md~'), '# backup')
+  await fs.writeFile(path.join(projectDir, '.git', 'config'), 'secret')
+
+  const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  // 开发模式全量树: 正式文件保留, tmp 目录/过程文件/点目录被过滤
+  const tree = await viewerFetch(server, '/api/tree?mode=dev').then(response => response.json())
+  const names = tree.tree.children.map(item => item.name)
+  assert.ok(names.includes('docs'), '正式目录应保留')
+  assert.ok(!names.includes('tmp-distill-123'), 'tmp 目录应被过滤')
+  assert.ok(!names.includes('.git'), '点目录应被过滤')
+  assert.ok(!names.includes('notes.draft.md'), 'draft 文件应被过滤')
+  assert.ok(!names.includes('backup.md~'), '备份文件应被过滤')
+
+  // 产物快照同样过滤
+  await fs.writeFile(path.join(projectDir, 'docs', 'real.md'), '# real updated')
+  await new Promise(resolve => setTimeout(resolve, 900))
+  const session = await viewerFetch(server, '/api/artifacts').then(response => response.json())
+  const paths = session.changes.map(change => change.path)
+  assert.ok(paths.some(p => p.includes('real.md')), '正式文件变更应出现在产物')
+  assert.ok(!paths.some(p => p.includes('throwaway') || p.includes('draft') || p.includes('backup')), '临时/过程文件不应出现在产物')
 })

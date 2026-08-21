@@ -13,7 +13,7 @@ async function loadTreeState() {
   return context.ViewerTreeState
 }
 
-test('expands only first-level directories by default', async () => {
+test('expands top two directory levels by default', async () => {
   const state = await loadTreeState()
   const expanded = new Set()
   const collapsed = new Set()
@@ -31,7 +31,7 @@ test('expands only first-level directories by default', async () => {
     filter: '',
     expanded,
     collapsed
-  }), false)
+  }), true)
   assert.equal(state.isExpanded({
     depth: 2,
     path: 'src/viewer/public',
@@ -51,14 +51,14 @@ test('preserves manual directory toggles and expands filtered matches', async ()
     path: 'src/viewer',
     expanded,
     collapsed
-  }), true)
+  }), false)
   assert.equal(state.isExpanded({
     depth: 1,
     path: 'src/viewer',
     filter: '',
     expanded,
     collapsed
-  }), true)
+  }), false)
 
   assert.equal(state.toggle({
     depth: 0,

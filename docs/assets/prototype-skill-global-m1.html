@@ -1,0 +1,338 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M1 原型 v2 · Skills 全局管理（能力资产库）</title>
+<style>
+:root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif; color:#1f1f1f; background:#f6f6f6; --border:#e5e5e5; --muted:#737373; --blue:#377cf6; --green:#23743d; }
+* { box-sizing:border-box; }
+body { margin:0; padding:28px clamp(24px,4vw,64px) 120px; }
+button { cursor:pointer; font:inherit; }
+h1 { margin:0 0 5px; font-size:24px; letter-spacing:-.4px; }
+.sub { margin:0 0 22px; color:var(--muted); font-size:12px; }
+.prototype-banner { display:flex; align-items:center; gap:8px; margin-bottom:22px; padding:10px 14px; color:#4a4a4a; font-size:12px; background:#f1f5fc; border:1px solid #dce7fb; border-radius:10px; }
+.prototype-banner b { color:#31527a; }
+.card { margin-bottom:16px; background:#fff; border:1px solid var(--border); border-radius:13px; box-shadow:0 1px 2px rgb(0 0 0 / 2%); overflow:hidden; }
+.card-head { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:15px 18px; border-bottom:1px solid var(--border); }
+.card-head .t { display:flex; flex-direction:column; gap:4px; }
+.card-head strong { font-size:13px; font-weight:650; }
+.card-head small { color:#8a8a8a; font-size:11px; font-weight:400; }
+.skill-row { border-bottom:1px solid #ededed; }
+.skill-row:last-child { border-bottom:0; }
+.skill-line { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 16px; padding:13px 18px; align-items:center; }
+.skill-main { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.skill-name { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:650; }
+.skill-name small { padding:2px 7px; color:#666; font-size:10px; background:#f2f2f2; border-radius:999px; font-weight:400; }
+.skill-desc { color:#8a8a8a; font-size:11px; line-height:1.5; }
+.skill-actions { display:flex; align-items:center; gap:8px; }
+.summary-chips { display:flex; gap:5px; }
+.chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; color:#666; font-size:10px; background:#f4f4f4; border-radius:999px; }
+.chip.on { color:var(--green); background:#effaf2; }
+.chip.off { color:#a7a7a7; background:#f4f4f4; }
+.tool-btn { height:28px; padding:0 10px; color:#555; font-size:11px; background:#fff; border:1px solid #dcdcdc; border-radius:7px; }
+.tool-btn:hover { background:#f4f4f4; }
+.tool-btn.remove { color:#a13c33; border-color:#f0d5d0; }
+.tool-btn.remove:hover { background:#fdf2f0; }
+.tool-btn.primary { color:#fff; font-weight:650; background:#171717; border-color:#171717; }
+.tool-btn.ghost { border-color:transparent; background:transparent; color:#377cf6; }
+.skill-detail { display:none; padding:0 18px 14px; }
+.skill-detail.open { display:block; }
+.engine-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px dashed #eee; }
+.engine-row:first-child { border-top:0; }
+.engine-row .l { display:flex; flex-direction:column; gap:3px; font-size:12px; }
+.engine-row .l small { color:#8a8a8a; font-size:10px; font-family:Consolas,monospace; }
+.switch { appearance:none; position:relative; width:36px; height:20px; margin:0; background:#cfcfcf; border:0; border-radius:999px; transition:.16s; flex:0 0 auto; }
+.switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgb(0 0 0 / 22%); transition:.16s; }
+.switch:checked { background:var(--blue); }
+.switch:checked::after { transform:translateX(16px); }
+.empty { padding:30px; color:#999; font-size:12px; text-align:center; }
+.undo-bar { display:none; align-items:center; gap:10px; margin-bottom:16px; padding:10px 14px; color:#4a4a4a; font-size:12px; background:#fffaf0; border:1px solid #f0dfb7; border-radius:10px; }
+.undo-bar.show { display:flex; }
+.undo-bar button { margin-left:auto; height:26px; padding:0 10px; color:#31527a; font-size:11px; background:#f2f6fc; border:1px solid #d9e5f5; border-radius:7px; }
+.result-bar { display:none; align-items:flex-start; gap:8px; padding:12px 14px; color:#206039; font-size:12px; background:#effaf3; border:1px solid #cdebd7; border-radius:10px; margin-bottom:16px; }
+.result-bar.error { color:#7a2e26; background:#fdf2f0; border-color:#f0d5d0; }
+.result-bar.show { display:flex; }
+.result-bar b { font-weight:650; }
+details.adv { margin-top:4px; }
+details.adv > summary { display:flex; align-items:center; gap:8px; padding:14px 18px; color:#666; font-size:12px; cursor:pointer; list-style:none; }
+details.adv > summary::after { content:"▾"; margin-left:auto; color:#999; transition:.15s; }
+details.adv[open] > summary::after { transform:rotate(180deg); }
+.adv-body { padding:0 18px 16px; }
+.adv-table { width:100%; border-collapse:collapse; font-size:11px; }
+.adv-table th { padding:7px 8px; color:#8a8a8a; font-size:10px; text-align:left; font-weight:650; border-bottom:1px solid #e8e8e8; }
+.adv-table td { padding:8px; color:#555; border-bottom:1px solid #f2f2f2; }
+.adv-table code { color:#444; font-family:Consolas,monospace; font-size:10px; }
+.ok { color:var(--green); font-weight:650; }
+.adv-note { margin-top:12px; padding:10px 12px; color:#31527a; font-size:11px; background:#f2f6fc; border-radius:9px; }
+.footer { position:fixed; right:0; bottom:0; left:0; display:flex; align-items:center; gap:10px; min-height:70px; padding:12px clamp(24px,4vw,64px); background:rgb(250 250 250 / 94%); border-top:1px solid var(--border); backdrop-filter:blur(12px); z-index:5; }
+.footer .status { display:flex; flex:1; flex-direction:column; gap:4px; font-size:12px; }
+.footer .status small { color:#8a8a8a; font-size:11px; }
+.footer button { height:35px; padding:0 15px; border-radius:8px; }
+#saveProgress { position:absolute; top:-1px; left:0; height:2px; width:0; background:var(--blue); transition:width .2s; }
+.modal-mask { display:none; position:fixed; inset:0; z-index:20; background:rgb(0 0 0 / 28%); align-items:center; justify-content:center; }
+.modal-mask.show { display:flex; }
+.modal { width:min(440px,90vw); background:#fff; border-radius:14px; box-shadow:0 12px 40px rgb(0 0 0 / 18%); overflow:hidden; }
+.modal-head { padding:16px 18px 0; font-size:14px; font-weight:650; }
+.modal-body { padding:10px 18px 18px; color:#555; font-size:12px; line-height:1.6; }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px; padding:0 18px 16px; }
+.modal-actions button { height:32px; padding:0 14px; border-radius:8px; }
+.modal path { font-family:Consolas,monospace; font-size:11px; color:#444; word-break:break-all; }
+.danger { color:#a13c33; background:#dfe8f0; border:1px solid #f0d5d0; }
+</style>
+</head>
+<body>
+<div class="prototype-banner"><b>交互原型 v2 · 重新设计</b><span>能力资产库方向：一个 Skill 只维护一份，按你的选择在引擎会话中加载；同步机制默认隐藏</span></div>
+
+<h1>Skills 全局管理</h1>
+<p class="sub">我的能力资产，一次维护，三引擎随处可用</p>
+
+<div class="card">
+  <div class="card-head">
+    <div class="t"><strong>我的能力库</strong><small>全局唯一事实源 · <code style="font-family:Consolas,monospace;color:#666;background:#f5f5f5;padding:1px 5px;border-radius:5px;">&lt;exe&gt;/config/skills/</code></small></div>
+    <button class="tool-btn primary" id="addSkillBtn">+ 添加 Skill</button>
+  </div>
+  <div id="skillList"></div>
+</div>
+
+<div class="undo-bar" id="undoBar">
+  <span id="undoText"></span>
+  <button id="undoBtn">撤销移除</button>
+</div>
+<div class="result-bar" id="resultBar"><span id="resultText"></span></div>
+
+<div class="card">
+  <details class="adv">
+    <summary>高级与诊断</summary>
+    <div class="adv-body">
+      <table class="adv-table">
+        <thead><tr><th>引擎</th><th>投影方式</th><th>目标目录</th><th>当前加载</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>Kimi Code</td><td>原生指针（实时）</td><td><code>extra_skill_dirs → &lt;exe&gt;/config/skills/</code></td><td id="advKimiCount">0</td><td class="ok">实时生效</td></tr>
+          <tr><td>Claude Code</td><td>自动（软链优先）</td><td><code>~/.claude/skills/</code></td><td id="advClaudeCount">0</td><td class="ok" id="advClaudeSt">待同步</td></tr>
+          <tr><td>Codex</td><td>自动（软链优先）</td><td><code>~/.agents/skills/</code></td><td id="advCodexCount">0</td><td class="ok" id="advCodexSt">待同步</td></tr>
+        </tbody>
+      </table>
+      <div class="adv-note"><b>自动同步策略：</b>优先软链（省空间、实时），失败自动回退复制；只管理 Workbench 自己创建的投影项，绝不触碰你手工放置的 Skill；移除前自动备份到 <code>&lt;exe&gt;/config/skill-backups/</code>，可随时恢复。</div>
+    </div>
+  </details>
+</div>
+
+<div class="footer">
+  <div id="saveProgress"></div>
+  <div class="status"><span id="saveStatus">尚未修改</span><small id="saveSubStatus">Kimi 实时生效；Claude / Codex 新会话生效</small></div>
+  <button class="tool-btn" id="resetBtn" disabled>放弃更改</button>
+  <button class="tool-btn primary" id="saveBtn" disabled>保存并同步</button>
+</div>
+
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <div class="modal-head" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="tool-btn" id="modalCancel">取消</button>
+      <button class="tool-btn" id="modalConfirm" style="background:#171717;color:#fff;font-weight:650;">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ENGINES = [
+  { key:'kimi', label:'Kimi Code', dir:'extra_skill_dirs 指针（实时，无副本）' },
+  { key:'claude', label:'Claude Code', dir:'~/.claude/skills/' },
+  { key:'codex', label:'Codex', dir:'~/.agents/skills/' },
+];
+let SKILLS = [
+  { name:'web-research', desc:'结构化网络调研：先规划查询集，再串行执行并输出带来源证据的结论', source:'GitHub · Dylan5237/agent-skills', apps:{kimi:true,claude:true,codex:true} },
+  { name:'code-review', desc:'严格代码审查：按架构/安全/性能/风格输出结构化中文报告', source:'GitHub · Dylan5237/agent-skills', apps:{kimi:true,claude:true,codex:true} },
+  { name:'gitlab-ops', desc:'GitLab 仓库操作：push/分支/MR/pipeline/tag，逐步说明风险后执行', source:'本地目录 · D:/_projects/skills/gitlab-ops', apps:{kimi:true,claude:true,codex:true} },
+  { name:'fuxi-deploy', desc:'Fuxi 平台原型打包上传回归：验证后再上传，避免白屏 / 404', source:'本地目录 · D:/_projects/skills/deployment-validator', apps:{kimi:true,claude:true,codex:true} },
+];
+let state = SKILLS.map(s => JSON.parse(JSON.stringify(s)));
+let expanded = {};
+let dirty = false;
+let removedStack = []; // {skill, index}
+
+function enabledCounts() {
+  const c = { kimi:0, claude:0, codex:0 };
+  state.forEach(s => { ENGINES.forEach(e => { if (s.apps[e.key]) c[e.key]++; }); });
+  return c;
+}
+function syncDiagnostics() {
+  const c = enabledCounts();
+  document.querySelector('#advKimiCount').textContent = c.kimi;
+  document.querySelector('#advClaudeCount').textContent = c.claude;
+  document.querySelector('#advCodexCount').textContent = c.codex;
+}
+function renderList() {
+  const el = document.querySelector('#skillList');
+  el.innerHTML = state.length ? '' : '<div class="empty">还没有 Skill。点击右上角“+ 添加 Skill”开始。</div>';
+  state.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'skill-row';
+    const chips = ENGINES.map(e => {
+      const on = s.apps[e.key];
+      const label = e.key === 'kimi' ? 'Kimi' : (e.key === 'claude' ? 'Claude' : 'Codex');
+      return `<span class="chip ${on?'on':'off'}">${label} ${on?'✓':'—'}</span>`;
+    }).join('');
+    row.innerHTML = `
+      <div class="skill-line">
+        <div class="skill-main">
+          <div class="skill-name">${s.name} <small>${s.source}</small></div>
+          <div class="skill-desc">${s.desc}</div>
+        </div>
+        <div class="skill-actions">
+          <div class="summary-chips">${chips}</div>
+          <button class="tool-btn ghost" data-detail="${s.name}">${expanded[s.name] ? '收起 ▴' : '详情 ▾'}</button>
+          <button class="tool-btn remove" data-remove="${s.name}">移除</button>
+        </div>
+      </div>
+      <div class="skill-detail ${expanded[s.name]?'open':''}" data-detail-body="${s.name}">
+        ${ENGINES.map(e => `
+          <div class="engine-row">
+            <div class="l"><span>${e.label}</span><small>${s.apps[e.key] ? '加载中 · ' : '未加载 · '}${e.dir}</small></div>
+            <input class="switch" type="checkbox" data-app="${s.name}|${e.key}" ${s.apps[e.key]?'checked':''}>
+          </div>`).join('')}
+      </div>`;
+    el.appendChild(row);
+  });
+  syncDiagnostics();
+}
+function setDirty(v=true) {
+  dirty = v;
+  document.querySelector('#saveBtn').disabled = !v;
+  document.querySelector('#resetBtn').disabled = !v;
+  document.querySelector('#saveStatus').textContent = v ? '有未保存的更改' : '尚未修改';
+}
+function showResult(msg, error=false) {
+  const bar = document.querySelector('#resultBar');
+  bar.classList.add('show');
+  bar.classList.toggle('error', error);
+  document.querySelector('#resultText').innerHTML = msg;
+}
+function simulateSync() {
+  const prog = document.querySelector('#saveProgress');
+  prog.style.width = '0%';
+  document.querySelector('#saveStatus').textContent = '正在同步到各引擎…';
+  document.querySelector('#saveSubStatus').textContent = 'Kimi 指针无需复制；Claude / Codex 逐项投影中';
+  let p = 0;
+  const t = setInterval(() => {
+    p += 11;
+    prog.style.width = Math.min(p,100) + '%';
+    if (p >= 100) {
+      clearInterval(t);
+      const c = enabledCounts();
+      document.querySelector('#saveStatus').textContent = `已同步 Kimi ${c.kimi} / Claude ${c.claude} / Codex ${c.codex}`;
+      document.querySelector('#saveSubStatus').textContent = 'Kimi 实时生效；Claude / Codex 新会话生效；保存完成 ✓';
+      prog.style.width = '0%';
+      setDirty(false);
+      showResult('<b>保存已同步 3/3。</b>&nbsp;Kimi 实时生效；Claude / Codex 新会话生效；Codex 目录为 ~/.agents/skills/。');
+      document.querySelector('#advClaudeSt').textContent = '已同步';
+      document.querySelector('#advCodexSt').textContent = '已同步';
+    }
+  }, 55);
+}
+
+document.querySelector('#skillList').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const name = btn.dataset.detail || btn.dataset.remove;
+  if (!name) return;
+  if (btn.dataset.detail) {
+    expanded[name] = !expanded[name];
+    renderList();
+    return;
+  }
+  if (btn.dataset.remove) {
+    const skill = state.find(s => s.name === name);
+    openModal(
+      `移除「${name}」？`,
+      `此 Skill 将先从引擎会话中停止加载，并自动备份到 <path>&lt;exe&gt;/config/skill-backups/</path> 后再移除；备份可随时恢复。`,
+      () => {
+        removedStack.push({ skill: JSON.parse(JSON.stringify(skill)) });
+        state = state.filter(s => s.name !== skill.name);
+        delete expanded[name];
+        renderList();
+        setDirty();
+        document.querySelector('#undoBar').classList.add('show');
+        document.querySelector('#undoText').textContent = `已移除「${skill.name}」，已备份到 <exe>/config/skill-backups/`;
+      },
+      '移除并备份'
+    );
+  }
+});
+document.querySelector('#skillList').addEventListener('change', e => {
+  const input = e.target;
+  if (!input.dataset.app) return;
+  const [name, key] = input.dataset.app.split('|');
+  const s = state.find(x => x.name === name);
+  s.apps[key] = input.checked;
+  if (!s.apps.kimi && !s.apps.claude && !s.apps.codex) {
+    input.checked = true;
+    s.apps[key] = true;
+    alert('至少保留一个引擎启用');
+    return;
+  }
+  renderList();
+  setDirty();
+});
+document.querySelector('#undoBtn').addEventListener('click', () => {
+  const item = removedStack.pop();
+  if (!item) return;
+  state.push(item.skill);
+  renderList();
+  document.querySelector('#undoBar').classList.remove('show');
+  setDirty();
+  showResult(`已恢复「${item.skill.name}」，重新加入能力库。`);
+});
+document.querySelector('#addSkillBtn').addEventListener('click', () => {
+  openModal(
+    '添加 Skill',
+    '选择包含 <code>SKILL.md</code> 的能力目录，导入到全局库后默认三引擎全部启用；你也可以随后在「详情」里单独关闭某引擎。',
+    () => {
+      const candidates = [
+        { name:'fuxi-release', desc:'Fuxi 生产发布：只读探查、打包、部署验证、回滚；默认绝不擅自上线', source:'本地目录 · D:/_projects/skills/fuxi-platform-release' },
+        { name:'wechat-article', desc:'微信公众号文章抓取：链接转 Markdown 与本地图片', source:'GitHub · Dylan5237/agent-skills' },
+      ];
+      const pick = candidates[state.length % 2];
+      if (state.some(s => s.name === pick.name)) {
+        showResult(`「${pick.name}」已在能力库中，无需重复添加。`);
+      } else {
+        state.push({ ...pick, apps:{kimi:true,claude:true,codex:true} });
+        renderList();
+        setDirty();
+        showResult(`已添加「${pick.name}」并默认三引擎启用；保存后生效。`);
+      }
+    }
+  );
+});
+document.querySelector('#saveBtn').addEventListener('click', simulateSync);
+document.querySelector('#resetBtn').addEventListener('click', () => {
+  state = SKILLS.map(s => JSON.parse(JSON.stringify(s)));
+  expanded = {};
+  document.querySelector('#undoBar').classList.remove('show');
+  document.querySelector('#resultBar').classList.remove('show');
+  renderList();
+  setDirty(false);
+});
+
+let modalAction = null;
+function openModal(title, body, onConfirm, confirmText='确定') {
+  document.querySelector('#modalTitle').textContent = title;
+  document.querySelector('#modalBody').innerHTML = body;
+  document.querySelector('#modalConfirm').textContent = confirmText;
+  modalAction = onConfirm;
+  document.querySelector('#modalMask').classList.add('show');
+}
+document.querySelector('#modalCancel').addEventListener('click', () => document.querySelector('#modalMask').classList.remove('show'));
+document.querySelector('#modalConfirm').addEventListener('click', () => {
+  document.querySelector('#modalMask').classList.remove('show');
+  if (modalAction) modalAction();
+  modalAction = null;
+});
+document.querySelector('#modalMask').addEventListener('click', e => { if (e.target === e.currentTarget) document.querySelector('#modalMask').classList.remove('show'); });
+
+renderList();
+</script>
+</body>
+</html>

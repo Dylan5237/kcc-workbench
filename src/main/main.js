@@ -28,7 +28,15 @@ import {
   extractCloudCliSessionContext,
   parseCloudCliSessionId
 } from './cloudcli-context.js'
-import { SettingsService } from './settings-service.js'
+import { SettingsService, hasEngineConfigChanged } from './settings-service.js'
+import { WorkbenchConfigService, resolveStartupEngine } from './workbench-config.js'
+import {
+  addSkillToLibrary,
+  loadSkillsState,
+  removeSkill,
+  restoreSkill,
+  syncSkillToEngines
+} from './skills-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { requireSender, normalizeForkRequest } from './ipc-validators.js'
 import { createKimiCodeUrlGuard } from './url-trust.js'
@@ -71,6 +79,7 @@ let quotaService = null
 let localKimiService = null
 let cloudCliService = null
 let settingsService = null
+let workbenchConfigService = null
 let activeEngine = 'kimi'
 let viewerContextSync = null
 let viewerContextLogPath = null
@@ -165,6 +174,13 @@ app.whenReady().then(async () => {
     kimiCodeHome,
     sandboxed: settingsSandboxed
   })
+    workbenchConfigService = new WorkbenchConfigService({
+      exeDir: path.dirname(app.getPath('exe')),
+      fallbackDir: app.getPath('userData'),
+      forceFallback: demoMode || settingsSandboxed
+    })
+    await workbenchConfigService.initialize()
+    activeEngine = resolveStartupEngine(await workbenchConfigService.get())
   quotaService = new QuotaService({
     userDataPath: app.getPath('userData'),
     partition: SESSION_PARTITION,
@@ -304,6 +320,10 @@ async function createMainWindow() {
   })
   createKimiView()
   createCloudCliView()
+  if (activeEngine === 'cloudcli') {
+    mainWindow.contentView.removeChildView(kimiView)
+    mainWindow.contentView.addChildView(cloudCliView)
+  }
   createViewerView()
   viewerContextSync.start()
   createSettingsView()
@@ -564,7 +584,6 @@ function layoutViews() {
 async function switchTab(nextTab) {
   if (!mainWindow || !shellView || !kimiView || !cloudCliView || !viewerView || !settingsView) return
   if (!['kimi', 'viewer', 'settings'].includes(nextTab) || nextTab === activeTab) return
-  if (nextTab === 'settings' && activeEngine !== 'kimi') return
   closeQuotaPopup()
 
   const views = {
@@ -602,27 +621,28 @@ async function switchEngine(nextEngine) {
   closeQuotaPopup()
   activeEngine = nextEngine
   const nextView = activeEngineView()
-  if (activeTab === 'settings' && activeEngine === 'cloudcli' && mainWindow) {
-    mainWindow.contentView.removeChildView(settingsView)
-    mainWindow.contentView.addChildView(nextView)
-    activeTab = 'kimi'
-    layoutViews()
-    nextView.webContents.focus()
-    shellView?.webContents.send('shell:tab-changed', {
-      activeTab,
-      activeEngine,
-      viewerRoot: viewerServer.root
-    })
-  } else if (activeTab === 'kimi' && mainWindow) {
+  if (activeTab === 'kimi' && mainWindow) {
     mainWindow.contentView.removeChildView(previousView)
     mainWindow.contentView.addChildView(nextView)
     layoutViews()
     nextView.webContents.focus()
   }
+  await persistLastEngine()
   sendNavigationState()
   shellView?.webContents.send('engine:changed', { engine: activeEngine })
   await syncViewerConversationContext()
   return { engine: activeEngine }
+}
+
+async function persistLastEngine() {
+  try {
+    const config = await workbenchConfigService.get()
+    if (config.rememberEngine) {
+      await workbenchConfigService.save({ lastEngine: activeEngine })
+    }
+  } catch (error) {
+    console.error('Unable to persist last engine:', error)
+  }
 }
 
 function toggleEngine() {
@@ -681,12 +701,17 @@ function wireIpc() {
   ipcMain.removeHandler('quota:set-preferred-height')
   ipcMain.removeHandler('viewer:select-directory')
   ipcMain.removeHandler('viewer:set-root')
+  ipcMain.removeHandler('viewer:get-workbench-mode')
   ipcMain.removeHandler('viewer:fork-checkpoint')
   ipcMain.removeHandler('viewer:copy-files')
   ipcMain.removeHandler('viewer:copy-png')
   ipcMain.removeHandler('settings:get-state')
   ipcMain.removeHandler('settings:save')
   ipcMain.removeHandler('settings:select-directory')
+  ipcMain.removeHandler('settings:skills-add')
+  ipcMain.removeHandler('settings:skills-remove')
+  ipcMain.removeHandler('settings:skills-restore')
+  ipcMain.removeHandler('settings:skills-sync')
 
   ipcMain.handle('shell:get-state', event => {
     requireSender(event, shellView.webContents)
@@ -768,6 +793,11 @@ function wireIpc() {
       properties: ['openDirectory']
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+  ipcMain.handle('viewer:get-workbench-mode', async event => {
+    requireSender(event, viewerView.webContents)
+    const config = await workbenchConfigService.get()
+    return config.viewerMode || 'auto'
   })
   ipcMain.handle('viewer:set-root', async (event, nextRoot) => {
     requireSender(event, viewerView.webContents)
@@ -865,17 +895,169 @@ function wireIpc() {
   ipcMain.handle('settings:get-state', async event => {
     requireSender(event, settingsView.webContents)
     settingsService.setProjectDirectory(await detectKimiProjectDirectory())
-    return settingsService.getState()
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    await ensureKimiSkillPointer(libraryPath)
+    const kimiState = await settingsService.getState()
+    const skills = await loadSkillsState({
+      libraryPath,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      syncMethods: workbenchInfo.skills?.projection,
+      managedConfig: workbenchInfo.skills?.managed
+    })
+    return {
+      ...kimiState,
+      skills,
+      workbench: {
+        config: await workbenchConfigService.get(),
+        ...workbenchConfigService.describe()
+      }
+    }
   })
   ipcMain.handle('settings:save', async (event, payload) => {
     requireSender(event, settingsView.webContents)
-    const previousMode = (await settingsService.getState()).config.default_permission_mode
+    const previousConfig = (await settingsService.getState()).config
     const nextState = await settingsService.save(payload || {})
-    if (nextState.config.default_permission_mode !== previousMode) {
+    if (hasEngineConfigChanged(previousConfig, nextState.config)) {
       localKimiService.stop()
       await connectLocalKimiView()
     }
-    return nextState
+    const workbenchInfo = await workbenchConfigService.save(payload?.workbench || {})
+    return {
+      ...nextState,
+      workbench: {
+        config: await workbenchConfigService.get(),
+        ...workbenchInfo
+      }
+    }
+  })
+  ipcMain.handle('settings:skills-add', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    if (!payload || typeof payload !== 'object' || typeof payload.sourceDir !== 'string') {
+      throw new Error('Skill 源目录无效')
+    }
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    await ensureKimiSkillPointer(libraryPath)
+    const added = await addSkillToLibrary({ libraryPath, sourceDir: payload.sourceDir })
+    const apps = defaultSkillApps(payload.apps)
+    const syncMethods = workbenchInfo.skills?.projection || {}
+    const results = await syncSkillToEngines({
+      libraryPath,
+      skillName: added.name,
+      apps,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      syncMethods
+    })
+    const workbenchNext = await workbenchConfigService.save({
+      skills: {
+        ...workbenchInfo.skills,
+        managed: { ...(workbenchInfo.skills?.managed || {}), [added.name]: { apps } }
+      }
+    })
+    return {
+      added,
+      results,
+      workbench: { config: await workbenchConfigService.get(), ...workbenchNext }
+    }
+  })
+  ipcMain.handle('settings:skills-remove', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    if (!payload || typeof payload !== 'object' || typeof payload.name !== 'string') {
+      throw new Error('Skill 名称无效')
+    }
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    const managed = workbenchInfo.skills?.managed || {}
+    const apps = managed[payload.name]?.apps || {}
+    const backupDir = path.join(workbenchConfigService.storageDir, 'skill-backups')
+    const removed = await removeSkill({
+      libraryPath,
+      skillName: payload.name,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      backupDir,
+      apps
+    })
+    const nextManaged = { ...managed }
+    delete nextManaged[payload.name]
+    const workbenchNext = await workbenchConfigService.save({
+      skills: { ...workbenchInfo.skills, managed: nextManaged }
+    })
+    return { removed, workbench: { config: await workbenchConfigService.get(), ...workbenchNext } }
+  })
+  ipcMain.handle('settings:skills-restore', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    if (!payload || typeof payload !== 'object'
+      || typeof payload.name !== 'string'
+      || typeof payload.backupPath !== 'string') {
+      throw new Error('Skill 恢复参数无效')
+    }
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    const backupDir = path.join(workbenchConfigService.storageDir, 'skill-backups')
+    const restored = await restoreSkill({
+      libraryPath,
+      skillName: payload.name,
+      backupDir,
+      backupPath: payload.backupPath
+    })
+    const apps = defaultSkillApps(payload.apps)
+    await ensureKimiSkillPointer(libraryPath)
+    const results = await syncSkillToEngines({
+      libraryPath,
+      skillName: restored.name,
+      apps,
+      homePath: app.getPath('home'),
+      override: workbenchInfo.skills?.targets,
+      syncMethods: workbenchInfo.skills?.projection
+    })
+    const workbenchNext = await workbenchConfigService.save({
+      skills: {
+        ...workbenchInfo.skills,
+        managed: {
+          ...(workbenchInfo.skills?.managed || {}),
+          [restored.name]: { apps }
+        }
+      }
+    })
+    return {
+      restored: { ...restored, apps },
+      results,
+      workbench: { config: await workbenchConfigService.get(), ...workbenchNext }
+    }
+  })
+  ipcMain.handle('settings:skills-sync', async (event, payload) => {
+    requireSender(event, settingsView.webContents)
+    const workbenchInfo = await workbenchConfigService.get()
+    const libraryPath = resolveSkillsLibraryPath(workbenchInfo)
+    await ensureKimiSkillPointer(libraryPath)
+    const managed = workbenchInfo.skills?.managed || {}
+    const targetApps = payload?.apps || {}
+    const results = {}
+    for (const [name, apps] of Object.entries(managed)) {
+      const effectiveApps = { ...apps, ...(targetApps[name] || {}) }
+      results[name] = await syncSkillToEngines({
+        libraryPath,
+        skillName: name,
+        apps: effectiveApps,
+        homePath: app.getPath('home'),
+        override: workbenchInfo.skills?.targets,
+        syncMethods: workbenchInfo.skills?.projection
+      })
+    }
+    const workbenchNext = await workbenchConfigService.save({
+      skills: {
+        ...workbenchInfo.skills,
+        managed: {
+          ...managed,
+          ...Object.fromEntries(Object.entries(targetApps).map(([name, apps]) => [name, { apps: normalizeSkillApps(apps) }]))
+        }
+      }
+    })
+    return { results, workbench: { config: await workbenchConfigService.get(), ...workbenchNext } }
   })
   ipcMain.handle('settings:select-directory', async event => {
     requireSender(event, settingsView.webContents)
@@ -1364,4 +1546,41 @@ async function runSelfTestMode(outputPath) {
       error: error instanceof Error ? error.stack : String(error)
     }, null, 2))
   }
+}
+
+function resolveSkillsLibraryPath(workbenchInfo) {
+  return path.resolve(
+    workbenchInfo?.skills?.library
+    || path.join(workbenchConfigService.storageDir, 'skills')
+  )
+}
+
+async function ensureKimiSkillPointer(libraryPath) {
+  if (!settingsService) return false
+  const before = await settingsService.getState()
+  const current = Array.isArray(before.config?.extra_skill_dirs)
+    ? before.config.extra_skill_dirs
+    : []
+  const normalizedLibrary = path.resolve(libraryPath)
+  if (current.some(item => path.resolve(String(item)) === normalizedLibrary)) return false
+  const next = [...current, normalizedLibrary]
+  const after = await settingsService.save({ config: { extra_skill_dirs: next } })
+  if (hasEngineConfigChanged(before.config, after.config)) {
+    localKimiService?.stop()
+    if (kimiView && !kimiView.webContents.isDestroyed()) await connectLocalKimiView()
+  }
+  return true
+}
+
+
+function defaultSkillApps(apps) {
+  if (apps && typeof apps === 'object') return normalizeSkillApps(apps)
+  return { kimi: true, claude: true, codex: true }
+}
+
+function normalizeSkillApps(apps) {
+  const result = { kimi: false, claude: false, codex: false }
+  for (const key of ['kimi', 'claude', 'codex']) result[key] = Boolean(apps?.[key])
+  if (!result.kimi && !result.claude && !result.codex) result.kimi = true
+  return result
 }

@@ -39,6 +39,12 @@
   let treeData = null;
   let currentPath = null; // 当前打开的文件相对路径
   let currentRoot = ''; // 当前监听根目录(绝对路径)
+  const storedMode = localStorage.getItem('kcc-viewer-mode'); // null=未手动设置
+  let viewerMode = normalizeViewerMode(storedMode); // auto | dev | run
+  let activeTypeFacet = 'all'; // 运行模式类型 facets
+  let activeDirFacet = 'all'; // 运行模式目录 facets
+  const MAX_DIR_FACETS = 12; // 目录 facets 最多展示数量, 超出折叠
+  const MAX_ARTIFACT_CARDS = 100; // 产物卡片流最多渲染数量
   let mermaidSequence = 0;
   let artifactSession = null;
   let timeMachineState = null;
@@ -72,12 +78,13 @@
 
   // ---------- 文件树 ----------
   async function loadTree(keepSelection) {
-    const res = await fetch('/api/tree');
+    const res = await fetch('/api/tree' + (viewerMode === 'dev' ? '?mode=dev' : ''));
     const data = await res.json();
     treeData = data.tree;
     currentRoot = data.root;
     if (document.activeElement !== rootInput) rootInput.value = data.root;
     renderTree();
+    renderFacets();
     if (!keepSelection) return;
     // 当前文件可能被删除
     if (currentPath && !findNode(treeData, currentPath)) {
@@ -96,6 +103,102 @@
     }
     return null;
   }
+
+
+  function renderFacets() {
+    const facetsEl = document.getElementById('facets');
+    if (viewerMode === 'dev' || !treeData) {
+      facetsEl.classList.add('hidden');
+      facetsEl.innerHTML = '';
+      return;
+    }
+    const types = collectFacetTypes(treeData);
+    const dirs = collectFacetDirs(treeData);
+    if (!types.length && !dirs.length) {
+      facetsEl.classList.add('hidden');
+      facetsEl.innerHTML = '';
+      return;
+    }
+    facetsEl.classList.remove('hidden');
+    const chipsFor = (values, active, label) => {
+      const allChip = `<span class="facet-chip ${active === 'all' ? 'active' : ''}" data-value="all">全部</span>`;
+      const items = values.map(item => {
+        const activeCls = active === item.value ? ' active' : '';
+        return `<span class="facet-chip${activeCls}" data-value="${escapeHtml(item.value)}">${escapeHtml(item.label)}<span class="count">${item.count}</span></span>`;
+      }).join('');
+      return `<div class="facet-row"><span class="facet-label">${label}</span><div class="facet-chips">${allChip}${items}</div></div>`;
+    };
+    facetsEl.innerHTML = chipsFor(types, activeTypeFacet, '类型') + chipsFor(dirs, activeDirFacet, '目录');
+    facetsEl.querySelectorAll('.facet-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const value = chip.dataset.value;
+        const row = chip.closest('.facet-row');
+        const isType = row.querySelector('.facet-label').textContent === '类型';
+        if (isType) activeTypeFacet = value; else activeDirFacet = value;
+        renderFacets();
+        renderTree();
+      });
+    });
+  }
+
+  function collectFacetTypes(tree) {
+    const counts = {};
+    const walk = node => {
+      if (node.type === 'file') {
+        const t = facetTypeOf(node);
+        if (t) counts[t] = (counts[t] || 0) + 1;
+      }
+      (node.children || []).forEach(walk);
+    };
+    walk(tree);
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([value, count]) => ({ value, label: facetTypeLabel(value), count }));
+  }
+
+  function collectFacetDirs(tree) {
+    const counts = {};
+    const walk = node => {
+      if (node.type !== 'dir') return;
+      const directFiles = (node.children || []).filter(c => c.type === 'file' && facetTypeOf(c)).length;
+      if (directFiles > 0) counts[node.path] = (counts[node.path] || 0) + directFiles;
+      (node.children || []).forEach(walk);
+    };
+    walk(tree);
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, MAX_DIR_FACETS)
+      .map(([value, count]) => ({ value, label: facetDirLabel(value), count }));
+  }
+
+  function facetDirLabel(value) {
+    if (!value) return value;
+    const parts = value.split('/').filter(Boolean);
+    return parts.length > 1 ? parts.slice(-2).join('/') : value;
+  }
+
+  function dirnameOf(p) {
+    const index = p.lastIndexOf('/');
+    return index < 0 ? '' : p.slice(0, index);
+  }
+
+  function facetTypeOf(node) {
+    if (node.ext === '.md') return 'md';
+    if (node.ext === '.html' || node.ext === '.htm') return 'html';
+    if (node.ext === '.mmd' || node.ext === '.mermaid') return 'mmd';
+    if (node.ext === '.json') return 'json';
+    return null;
+  }
+
+  function facetTypeLabel(value) {
+    return { md: 'md', html: 'html', mmd: 'mermaid', json: 'json' }[value] || value;
+  }
+
+  function fileMatchesDirFacet(node, facet) {
+    if (node.type !== 'file') return false;
+    return dirnameOf(node.path) === facet;
+  }
+
 
   function renderTree() {
     const filter = filterInput.value.trim().toLowerCase();
@@ -136,12 +239,13 @@
         </div>`;
       return;
     }
+    const visible = artifacts.length > MAX_ARTIFACT_CARDS ? artifacts.slice(0, MAX_ARTIFACT_CARDS) : artifacts;
     artifactListEl.innerHTML = `
       <div class="artifact-session">
         <span>${escapeHtml(artifactSession.label || '当前工作区')}</span>
         <small>${new Date(artifactSession.startedAt).toLocaleTimeString('zh-CN')} 起</small>
       </div>
-      ${artifacts.map(artifact => `
+      ${visible.map(artifact => `
         <button class="artifact-item" data-artifact-id="${artifact.id}">
           <span class="artifact-type ${artifact.type}">${artifactTypeLabel(artifact.type)}</span>
           <span class="artifact-main">
@@ -149,7 +253,8 @@
             <small>${escapeHtml(artifact.path)} · ${new Date(artifact.timestamp).toLocaleTimeString('zh-CN')}</small>
           </span>
           <span class="artifact-stats"><b>+${artifact.stats.added}</b><i>−${artifact.stats.removed}</i></span>
-        </button>`).join('')}`;
+        </button>`).join('')}
+      ${artifacts.length > MAX_ARTIFACT_CARDS ? `<div class="artifact-truncate">仅显示前 ${MAX_ARTIFACT_CARDS} 条, 共 ${artifacts.length} 条</div>` : ''}`;
     artifactListEl.querySelectorAll('.artifact-item').forEach(button => {
       button.onclick = () => showArtifactDiff(
         artifacts.find(artifact => artifact.id === button.dataset.artifactId)
@@ -394,6 +499,17 @@
   }
 
   function buildNode(node, filter, depth) {
+    // 类型 facet:只对文件节点生效
+    if (activeTypeFacet !== 'all' && node.type === 'file' && facetTypeOf(node) !== activeTypeFacet) return null;
+    // 目录 facet:文件按所在目录匹配, 目录保留当且仅当其子树含匹配文件
+    if (activeDirFacet !== 'all') {
+      if (node.type === 'file') {
+        if (dirnameOf(node.path) !== activeDirFacet) return null;
+      } else {
+        const hasMatch = (n) => n.type === 'file' ? dirnameOf(n.path) === activeDirFacet : (n.children || []).some(hasMatch);
+        if (!hasMatch(node)) return null;
+      }
+    }
     // 过滤:目录需有匹配后代,文件需名字匹配
     if (filter) {
       if (node.type === 'file' && !node.name.toLowerCase().includes(filter)) return null;
@@ -443,7 +559,7 @@
       }
     } else {
       const ext = node.ext.slice(1);
-      const icon = node.ext === '.md' ? '📝' : (node.ext === '.json' ? '🧩' : '🌐');
+      const icon = fileIconOf(node);
       row.innerHTML = `<span class="arrow"></span><span class="icon">${icon}</span><span class="tree-name">${escapeHtml(node.name)}</span><span class="ext-tag ${ext}">${ext}</span><time class="file-time" datetime="${new Date(node.mtime).toISOString()}">${window.ViewerTreeState.formatTimestamp(node.mtime)}</time>`;
       if (node.path === currentPath) row.classList.add('active');
       row.onclick = () => openFile(node.path);
@@ -597,6 +713,9 @@
   // ---------- 文件渲染 ----------
   async function openFile(p, silent, refreshSource) {
     const refreshingCurrentFile = currentFileVersion?.path === p;
+    const node = treeData ? findNode(treeData, p) : null;
+    if (node?.kind === 'image') return renderImage(p, node);
+    if (node?.kind === 'binary') return renderBinary(p, node);
     try {
       const res = await fetch('/api/file?p=' + encodeURIComponent(p));
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
@@ -633,6 +752,8 @@
       await renderMermaidBlocks(markdownBody);
     } else if (file.ext === '.json') {
       renderJson(file);
+    } else if (file.kind === 'code') {
+      renderCode(file);
     } else {
       renderHtml(file);
     }
@@ -715,6 +836,77 @@
 
   const htmlModeByPath = new Map();
 
+
+  function renderCode(file) {
+    const lang = codeLanguageOf(file.ext);
+    const highlighted = window.hljs
+      ? window.hljs.highlight(file.content, { language: lang, ignoreIllegals: true }).value
+      : escapeHtml(file.content);
+    viewerEl.innerHTML = [
+      '<div class="code-viewer"><pre><code class="hljs">',
+      highlighted,
+      '</code></pre></div>'
+    ].join('');
+  }
+
+  function renderImage(p, node) {
+    clearLiveFileState();
+    currentPath = p;
+    renderTree();
+    fileHeaderEl.classList.remove('hidden');
+    fileNameEl.textContent = p;
+    fileMetaEl.textContent = `${formatSize(node.size)} · 更新于 ${window.ViewerTreeState.formatTimestamp(node.mtime)}`;
+    viewerEl.innerHTML = [
+      '<div class="image-viewer"><img src="/api/raw-file?p=',
+      encodeURIComponent(p),
+      '" alt="',
+      escapeHtml(node.name),
+      '"></div>'
+    ].join('');
+    currentFileVersion = { path: p, mtime: node.mtime, size: node.size };
+    fileRefreshBtn.classList.remove('hidden', 'needs-refresh');
+  }
+
+  function renderBinary(p, node) {
+    clearLiveFileState();
+    currentPath = p;
+    renderTree();
+    fileHeaderEl.classList.remove('hidden');
+    fileNameEl.textContent = p;
+    fileMetaEl.textContent = `${formatSize(node.size)} · 二进制文件`;
+    viewerEl.innerHTML = [
+      '<div class="binary-hint">',
+      '<span class="icon">📦</span>',
+      '<span class="name">', escapeHtml(node.name), '</span>',
+      '<span class="meta">二进制文件 · ', formatSize(node.size), ' · 无法预览</span>',
+      '</div>'
+    ].join('');
+    currentFileVersion = { path: p, mtime: node.mtime, size: node.size };
+    fileRefreshBtn.classList.remove('hidden', 'needs-refresh');
+  }
+
+  function fileIconOf(node) {
+    if (node.kind === 'code') return '⌨️';
+    if (node.kind === 'image') return '🖼️';
+    if (node.kind === 'binary') return '📦';
+    if (node.ext === '.md') return '📝';
+    if (node.ext === '.json') return '🧩';
+    if (node.ext === '.mmd' || node.ext === '.mermaid') return '🔀';
+    return '🌐';
+  }
+  function codeLanguageOf(ext) {
+    const map = {
+      '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript', '.jsx': 'javascript',
+      '.ts': 'typescript', '.tsx': 'typescript', '.py': 'python', '.css': 'css',
+      '.scss': 'scss', '.less': 'less', '.sh': 'bash', '.bash': 'bash', '.zsh': 'bash',
+      '.ps1': 'powershell', '.yml': 'yaml', '.yaml': 'yaml', '.toml': 'ini',
+      '.xml': 'xml', '.sql': 'sql', '.java': 'java', '.go': 'go', '.rs': 'rust',
+      '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.hpp': 'cpp', '.rb': 'ruby',
+      '.php': 'php', '.vue': 'xml', '.json': 'json', '.md': 'markdown',
+      '.ini': 'ini', '.conf': 'ini', '.env': 'bash', '.txt': 'plaintext', '.log': 'plaintext'
+    };
+    return map[ext] || 'plaintext';
+  }
   function renderHtml(file) {
     const mode = htmlModeByPath.get(file.path) || 'preview';
     viewerEl.innerHTML = `
@@ -1399,6 +1591,39 @@
   }
 
   // ---------- 事件绑定 ----------
+
+  function normalizeViewerMode(value) {
+    return value === 'dev' || value === 'run' || value === 'auto' ? value : 'auto';
+  }
+
+  async function initViewerMode() {
+    if (storedMode !== null) return; // 用户已手动设置过, 尊重 localStorage
+    if (!window.electronAPI?.getViewerMode) return;
+    try {
+      const defaultMode = await window.electronAPI.getViewerMode();
+      if (storedMode === null) {
+        viewerMode = normalizeViewerMode(defaultMode);
+        document.querySelectorAll('#modeSwitch button').forEach(button => {
+          button.classList.toggle('active', button.dataset.mode === viewerMode);
+        });
+        loadTree(false);
+      }
+    } catch {
+      // 读取 workbench 配置失败时保持 auto
+    }
+  }
+  function applyMode(nextMode) {
+    viewerMode = normalizeViewerMode(nextMode);
+    localStorage.setItem('kcc-viewer-mode', nextMode);
+    document.querySelectorAll('#modeSwitch button').forEach(button => {
+      button.classList.toggle('active', button.dataset.mode === nextMode);
+    });
+    loadTree(true);
+  }
+
+  document.querySelectorAll('#modeSwitch button').forEach(button => {
+    button.addEventListener('click', () => applyMode(button.dataset.mode));
+  });
   filterInput.addEventListener('input', renderTree);
   refreshBtn.addEventListener('click', () => loadTree(true));
   fileRefreshBtn.addEventListener('click', async () => {
@@ -1439,8 +1664,12 @@
   });
 
   // ---------- 启动 ----------
+  document.querySelectorAll('#modeSwitch button').forEach(button => {
+    button.classList.toggle('active', button.dataset.mode === viewerMode);
+  });
   initSplitter();
   loadRootInfo();
+  initViewerMode();
   loadTree(false);
   loadArtifacts();
   loadTimeMachine();

@@ -982,3 +982,155 @@ body.resizing iframe, body.resizing .viewer { pointer-events: none; }
   background: #fef2f2;
   font-size: 11.5px;
 }
+
+/* ---------- 查看模式切换 ---------- */
+.mode-switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  background: #f5f5f5;
+  flex: 0 0 auto;
+}
+.mode-switch button {
+  border: 0;
+  background: transparent;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  transition: all .15s;
+}
+.mode-switch button:hover { color: #171717; }
+.mode-switch button.active {
+  background: #fff;
+  color: #171717;
+  font-weight: 650;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+/* ---------- 源码预览 ---------- */
+.code-viewer {
+  margin: 0;
+  overflow: auto;
+}
+.code-viewer pre {
+  margin: 0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.code-viewer code.hljs {
+  display: block;
+  padding: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow-x: auto;
+}
+
+/* ---------- 图片预览 ---------- */
+.image-viewer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 16px;
+}
+.image-viewer img {
+  max-width: 100%;
+  max-height: 70vh;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+/* ---------- 二进制降级 ---------- */
+.binary-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: #666;
+  text-align: center;
+}
+.binary-hint .icon { font-size: 40px; }
+.binary-hint .name { font-weight: 600; color: #171717; }
+.binary-hint .meta { font-size: 12px; color: #999; }
+
+/* ---------- 运行模式 facets ---------- */
+.facets {
+  padding: 8px 12px;
+  border-bottom: 1px solid #ececec;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.facets.hidden { display: none; }
+.facet-row { display: flex; align-items: flex-start; gap: 6px; }
+.facet-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #999;
+  padding-top: 3px;
+}
+.facet-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.facet-chip {
+  border: 1px solid #e2e2e2;
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 1px 9px;
+  font-size: 11.5px;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+}
+.facet-chip:hover { border-color: #c7c7c7; }
+.facet-chip.active {
+  background: #171717;
+  border-color: #171717;
+  color: #fff;
+}
+.facet-chip .count { opacity: .65; margin-left: 3px; }
+.artifact-truncate {
+  padding: 8px 12px;
+  color: #999;
+  font-size: 11.5px;
+  text-align: center;
+  border-top: 1px solid #f0f0f0;
+}
+.facet-chip { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- highlight.js token 配色 (github-dark 风格) ---------- */
+.code-viewer code.hljs { color: #e6edf3; background: #0d1117; }
+.code-viewer .hljs-comment,
+.code-viewer .hljs-quote { color: #8b949e; font-style: italic; }
+.code-viewer .hljs-keyword,
+.code-viewer .hljs-selector-tag,
+.code-viewer .hljs-doctag { color: #ff7b72; }
+.code-viewer .hljs-string,
+.code-viewer .hljs-regexp { color: #a5d6ff; }
+.code-viewer .hljs-number,
+.code-viewer .hljs-literal,
+.code-viewer .hljs-symbol,
+.code-viewer .hljs-bullet { color: #79c0ff; }
+.code-viewer .hljs-title,
+.code-viewer .hljs-title.function_,
+.code-viewer .hljs-section { color: #d2a8ff; }
+.code-viewer .hljs-built_in,
+.code-viewer .hljs-type,
+.code-viewer .hljs-class .hljs-title { color: #ffa657; }
+.code-viewer .hljs-attr,
+.code-viewer .hljs-attribute,
+.code-viewer .hljs-variable,
+.code-viewer .hljs-template-variable { color: #79c0ff; }
+.code-viewer .hljs-name,
+.code-viewer .hljs-selector-id,
+.code-viewer .hljs-selector-class { color: #d2a8ff; }
+.code-viewer .hljs-meta,
+.code-viewer .hljs-meta .hljs-keyword { color: #ff7b72; }
+.code-viewer .hljs-tag { color: #7ee787; }
+.code-viewer .hljs-addition { color: #aff5b4; }
+.code-viewer .hljs-deletion { color: #ffdcd7; }

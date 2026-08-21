@@ -70,7 +70,7 @@ function renderKimiOnlyActions() {
   const visible = activeTab === 'kimi' && activeEngine === 'kimi'
   restartKimiBtn.hidden = !visible
   quotaButton.hidden = !visible
-  settingsTab.hidden = activeEngine !== 'kimi'
+  settingsTab.hidden = false
   if (!visible) quotaButton.setAttribute('aria-expanded', 'false')
 }
 
