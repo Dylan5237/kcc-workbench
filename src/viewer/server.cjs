@@ -276,14 +276,24 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     if (!root) return
     const watchRoots = [root, ...extraRoots]
     const seen = new Set()
+    let scanComplete = true
     for (const watchRoot of watchRoots) {
       try {
         const scan = (dir, relDir = '') => {
-          if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) return
+          if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) {
+            scanComplete = false
+            return
+          }
           let entries = []
-          try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+          try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch {
+            scanComplete = false
+            return
+          }
           for (const entry of entries) {
-            if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) return
+            if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) {
+              scanComplete = false
+              return
+            }
             if (shouldIgnoreDirectoryEntry(entry)) continue
             const abs = path.join(dir, entry.name)
             const rel = relDir ? `${relDir}/${entry.name}` : entry.name
@@ -302,6 +312,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         }
         scan(watchRoot)
       } catch { /* polling root silent */ }
+    }
+    if (!scanComplete) return
+    for (const previousPath of artifactSnapshot.keys()) {
+      if (!seen.has(previousPath) && rootForPath(previousPath)) scheduleArtifact(previousPath)
     }
   }
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import fsSync from 'node:fs'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -219,6 +220,41 @@ test('tracks document changes inside the current artifact session', async t => {
   assert.equal(session.changes[0].type, 'modified')
   assert.ok(session.changes[0].stats.added > 0)
   assert.ok(session.changes[0].stats.removed > 0)
+})
+
+test('polling fallback records deleted documents', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-delete-poll-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  const documentPath = path.join(projectDir, 'draft.md')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(documentPath, '# Draft')
+
+  const originalWatch = fsSync.watch
+  fsSync.watch = () => { throw new Error('forced polling fallback') }
+  let server
+  try {
+    server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  } finally {
+    fsSync.watch = originalWatch
+  }
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+  await server.setConversationContext({
+    id: 'session:delete-poll',
+    label: '删除轮询',
+    root: projectDir
+  })
+
+  await fs.rm(documentPath)
+  // 轮询周期为 3s, 防抖落盘再加 350ms。
+  await new Promise(resolve => setTimeout(resolve, 3600))
+  const session = await viewerFetch(server, '/api/artifacts').then(response => response.json())
+  const deletion = session.changes.find(change => change.path === 'draft.md')
+  assert.ok(deletion, '轮询应记录已删除文档')
+  assert.equal(deletion.type, 'deleted')
 })
 
 test('rebuilds the current-round artifact list from persisted checkpoints', async t => {
