@@ -37,6 +37,17 @@ export function withMinimumOneEnabled(apps) {
   return ensureAtLeastOneEnabled(normalizeApps(apps))
 }
 
+/**
+ * 合并配置中的 managed 条目与一次性 UI 覆盖。
+ * managed 兼容两种形状：{ apps: { ... } } 和扁平引擎矩阵。
+ */
+export function mergeSkillApps(managedEntry, override = {}) {
+  const storedApps = managedEntry?.apps && typeof managedEntry.apps === 'object'
+    ? managedEntry.apps
+    : managedEntry
+  return withMinimumOneEnabled({ ...(storedApps || {}), ...(override || {}) })
+}
+
 function resolveHome(homePath) {
   return path.resolve(homePath || os.homedir())
 }
@@ -270,21 +281,30 @@ export async function syncToEngine({ libraryPath, skillName, engine, homePath, o
 }
 
 /**
- * 同步 skill 到所有启用引擎；返回每引擎结果。
+ * 按启用矩阵同步 skill；停用引擎也会清理 Workbench 自有投影。
  */
 export async function syncSkillToEngines({ libraryPath, skillName, apps, homePath, override, syncMethods }) {
   const results = {}
   for (const engine of ENGINES) {
-    if (!apps?.[engine]) continue
     try {
-      results[engine] = await syncToEngine({
-        libraryPath,
-        skillName,
-        engine,
-        homePath,
-        override,
-        method: syncMethods?.[engine]
-      })
+      if (apps?.[engine]) {
+        results[engine] = await syncToEngine({
+          libraryPath,
+          skillName,
+          engine,
+          homePath,
+          override,
+          method: syncMethods?.[engine]
+        })
+      } else {
+        results[engine] = await removeOwnedProjection({
+          libraryPath,
+          skillName,
+          engine,
+          homePath,
+          override
+        })
+      }
     } catch (error) {
       results[engine] = { ok: false, error: error.message }
     }
@@ -312,6 +332,33 @@ async function projectionMarkerMatches(dest, source, skillName) {
   } catch {
     return false
   }
+}
+
+/**
+ * 删除指定引擎中由 Workbench 创建的投影；用户自有路径一律冲突返回。
+ */
+async function removeOwnedProjection({ libraryPath, skillName, engine, homePath, override }) {
+  if (!sanitizeName(skillName)) throw new Error(`无效的 Skill 名称：${skillName}`)
+  const source = path.join(path.resolve(libraryPath), skillName)
+  const target = engineTargetDir(engine, homePath, override)
+  if (!target) return { ok: true, method: 'pointer', removed: false }
+  const dest = path.join(target, skillName)
+  if (!(await pathExists(dest))) return { ok: true, method: 'none', removed: false }
+  if (await isSymlink(dest)) {
+    if (!(await linkPointsTo(source, dest))) {
+      return { ok: false, conflict: true, error: `未删除非 Workbench 链接：${dest}` }
+    }
+    await fs.unlink(dest)
+    return { ok: true, method: 'symlink', removed: true }
+  }
+  if (await dirExists(dest)) {
+    if (!(await projectionMarkerMatches(dest, source, skillName))) {
+      return { ok: false, conflict: true, error: `未删除用户目录：${dest}` }
+    }
+    await fs.rm(dest, { recursive: true, force: false })
+    return { ok: true, method: 'copy', removed: true }
+  }
+  return { ok: false, conflict: true, error: `未删除用户路径：${dest}` }
 }
 
 export async function restoreSkill({ libraryPath, skillName, backupDir, backupPath }) {
@@ -345,39 +392,20 @@ export async function restoreSkill({ libraryPath, skillName, backupDir, backupPa
 }
 
 /**
- * 移除 skill：先备份，再从启用引擎投影目录移除自建项，最后删除 SSOT 项。
+ * 移除 skill：先备份，再从所有引擎投影目录移除自建项，最后删除 SSOT 项。
+ * apps 参数保留用于兼容旧调用；投影归属校验决定实际可删除范围。
  */
 export async function removeSkill({ libraryPath, skillName, homePath, override, backupDir, apps }) {
   if (!sanitizeName(skillName)) throw new Error(`无效的 Skill 名称：${skillName}`)
   const backupPath = await backupSkill({ libraryPath, skillName, backupDir })
   if (!backupPath) throw new Error(`Skill 不存在：${skillName}`)
-  const source = path.join(path.resolve(libraryPath), skillName)
   const removal = {}
   for (const engine of ENGINES) {
-    if (!apps?.[engine]) continue
-    const target = engineTargetDir(engine, homePath, override)
-    if (!target) continue
-    const dest = path.join(target, skillName)
     try {
-      if (await isSymlink(dest)) {
-        if (await linkPointsTo(source, dest)) {
-          await fs.unlink(dest)
-          removal[engine] = 'removed'
-        } else {
-          removal[engine] = { status: 'conflict', error: `未删除非 Workbench 链接：${dest}` }
-        }
-      } else if (await dirExists(dest)) {
-        if (await projectionMarkerMatches(dest, source, skillName)) {
-          await fs.rm(dest, { recursive: true, force: false })
-          removal[engine] = 'removed'
-        } else {
-          removal[engine] = { status: 'conflict', error: `未删除用户目录：${dest}` }
-        }
-      } else if (await pathExists(dest)) {
-        removal[engine] = { status: 'conflict', error: `未删除用户路径：${dest}` }
-      } else {
-        removal[engine] = 'removed'
-      }
+      const result = await removeOwnedProjection({ libraryPath, skillName, engine, homePath, override })
+      removal[engine] = result.ok
+        ? (result.removed ? 'removed' : 'skipped')
+        : { status: 'conflict', error: result.error }
     } catch (error) {
       removal[engine] = `移除失败：${error.message}`
     }

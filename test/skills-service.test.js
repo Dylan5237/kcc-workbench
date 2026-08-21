@@ -7,6 +7,7 @@ import {
   addSkillToLibrary,
   backupSkill,
   loadSkillsState,
+  mergeSkillApps,
   removeSkill,
   restoreSkill,
   syncSkillToEngines,
@@ -59,6 +60,19 @@ test('withMinimumOneEnabled always keeps at least one engine, defaulting to kimi
   assert.deepEqual(withMinimumOneEnabled({ kimi: false, claude: false, codex: false }), { kimi: true, claude: false, codex: false })
   assert.deepEqual(withMinimumOneEnabled({ kimi: true, claude: false, codex: true }), { kimi: true, claude: false, codex: true })
   assert.deepEqual(withMinimumOneEnabled({ claude: true }), { kimi: false, claude: true, codex: false })
+})
+
+test('mergeSkillApps reads nested managed entries and applies flat overrides', () => {
+  assert.deepEqual(mergeSkillApps({ apps: { kimi: false, claude: true, codex: false } }), {
+    kimi: false,
+    claude: true,
+    codex: false
+  })
+  assert.deepEqual(mergeSkillApps({ apps: { kimi: false, claude: true, codex: false } }, { claude: false, codex: true }), {
+    kimi: false,
+    claude: false,
+    codex: true
+  })
 })
 
 test('addSkillToLibrary copies only valid skills and rejects overwrite', async t => {
@@ -198,9 +212,34 @@ test('syncSkillToEngines respects apps matrix and reports per-engine', async t =
     homePath: home,
     override
   })
-  assert.deepEqual(Object.keys(results).sort(), ['claude', 'kimi'])
+  assert.deepEqual(Object.keys(results).sort(), ['claude', 'codex', 'kimi'])
   assert.equal(results.claude.ok, true)
   assert.equal(results.kimi.ok, true)
+  assert.equal(results.codex.ok, true)
+  assert.equal(results.codex.removed, false)
+  await assert.rejects(() => fs.access(path.join(override.codex, 'demo')))
+})
+
+test('syncSkillToEngines removes owned projections when an engine is disabled', async t => {
+  const home = await makeTempHome(t)
+  const lib = path.join(home, 'lib')
+  const override = {
+    claude: path.join(home, 'claude'),
+    codex: path.join(home, 'codex')
+  }
+  await writeSkillDir({ parent: lib, name: 'demo' })
+  await syncToEngine({ libraryPath: lib, skillName: 'demo', engine: 'claude', homePath: home, override })
+  await syncToEngine({ libraryPath: lib, skillName: 'demo', engine: 'codex', homePath: home, override, method: 'copy' })
+  const results = await syncSkillToEngines({
+    libraryPath: lib,
+    skillName: 'demo',
+    apps: { kimi: true, claude: false, codex: false },
+    homePath: home,
+    override
+  })
+  assert.equal(results.claude.removed, true)
+  assert.equal(results.codex.removed, true)
+  await assert.rejects(() => fs.access(path.join(override.claude, 'demo')))
   await assert.rejects(() => fs.access(path.join(override.codex, 'demo')))
 })
 
@@ -221,6 +260,30 @@ test('removeSkill: backs up then removes from enabled engines and ssot', async t
   assert.equal(await fs.stat(removed.backupPath).then(s => s.isDirectory()), true)
   await assert.rejects(() => fs.access(path.join(override.claude, 'demo')))
   await assert.rejects(() => fs.access(path.join(lib, 'demo')))
+})
+
+test('removeSkill cleans owned projections even when their apps are already disabled', async t => {
+  const home = await makeTempHome(t)
+  const lib = path.join(home, 'lib')
+  const override = {
+    claude: path.join(home, 'claude'),
+    codex: path.join(home, 'codex')
+  }
+  await writeSkillDir({ parent: lib, name: 'demo' })
+  await syncToEngine({ libraryPath: lib, skillName: 'demo', engine: 'claude', homePath: home, override })
+  await syncToEngine({ libraryPath: lib, skillName: 'demo', engine: 'codex', homePath: home, override, method: 'copy' })
+  const removed = await removeSkill({
+    libraryPath: lib,
+    skillName: 'demo',
+    homePath: home,
+    override,
+    backupDir: path.join(home, 'backups'),
+    apps: { kimi: true, claude: false, codex: false }
+  })
+  assert.equal(removed.removal.claude, 'removed')
+  assert.equal(removed.removal.codex, 'removed')
+  await assert.rejects(() => fs.access(path.join(override.claude, 'demo')))
+  await assert.rejects(() => fs.access(path.join(override.codex, 'demo')))
 })
 
 test('copy projections are marked and can be safely removed, then restored', async t => {

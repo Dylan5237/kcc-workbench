@@ -33,6 +33,7 @@ import { WorkbenchConfigService, resolveStartupEngine } from './workbench-config
 import {
   addSkillToLibrary,
   loadSkillsState,
+  mergeSkillApps,
   removeSkill,
   restoreSkill,
   syncSkillToEngines
@@ -1038,7 +1039,7 @@ function wireIpc() {
     const targetApps = payload?.apps || {}
     const results = {}
     for (const [name, apps] of Object.entries(managed)) {
-      const effectiveApps = { ...apps, ...(targetApps[name] || {}) }
+      const effectiveApps = mergeSkillApps(apps, targetApps[name])
       results[name] = await syncSkillToEngines({
         libraryPath,
         skillName: name,

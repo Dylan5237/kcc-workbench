@@ -508,9 +508,11 @@ document.addEventListener('change', event => {
   skill.apps[app] = input.checked
   // 至少保留一个引擎
   if (!skill.apps.kimi && !skill.apps.claude && !skill.apps.codex) {
-    skill.apps.kimi = true
-    if (input.dataset.app !== 'kimi') input.checked = false
-    else input.checked = true
+    // 回滚本次关闭动作，保持数据、复选框和已持久化状态一致。
+    skill.apps[app] = true
+    input.checked = true
+    renderGlobalSkills(state.skills)
+    renderSkillDiagnostics(state.skills)
     setStatus('至少保留一个引擎启用', true)
     return
   }
