@@ -22,6 +22,7 @@ import { runQuotaFixtureSelfTest } from './quota-worker.js'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
 import { loadQuotaPage } from './quota-navigation.js'
 import { LocalKimiService } from './local-kimi-service.js'
+import { parseKimiSessionId } from './local-kimi-runtime.js'
 import { CloudCliService } from './cloud-cli-service.js'
 import {
   detectCloudCliContext,
@@ -193,6 +194,7 @@ app.whenReady().then(async () => {
   localKimiService = new LocalKimiService({
     homePath: app.getPath('home'),
     logPath: path.join(app.getPath('userData'), 'kimi-web.log'),
+    portPath: path.join(app.getPath('userData'), 'kimi-web-port.json'),
     getPermissionMode: async () => (await settingsService.getState()).config.default_permission_mode
   })
   cloudCliService = new CloudCliService({
@@ -234,7 +236,7 @@ const handleBeforeQuit = createGracefulShutdownHandler({
   quit: () => app.quit(),
   async shutdown() {
     quotaService?.dispose()
-    localKimiService?.stop()
+    await localKimiService?.stop()
     await cloudCliService?.stop()
     const server = viewerServer
     viewerServer = null
@@ -754,7 +756,7 @@ function wireIpc() {
   })
   ipcMain.handle('kimi:restart-web', async event => {
     requireSender(event, shellView.webContents)
-    localKimiService.stop()
+    await localKimiService.stop()
     await connectLocalKimiView()
   })
   ipcMain.handle('engine:switch', async (event, nextEngine) => {
@@ -921,7 +923,7 @@ function wireIpc() {
     const previousConfig = (await settingsService.getState()).config
     const nextState = await settingsService.save(payload || {})
     if (hasEngineConfigChanged(previousConfig, nextState.config)) {
-      localKimiService.stop()
+      await localKimiService.stop()
       await connectLocalKimiView()
     }
     const workbenchInfo = await workbenchConfigService.save(payload?.workbench || {})
@@ -1097,14 +1099,14 @@ function navigationState() {
 }
 
 async function detectKimiProjectDirectory() {
-  return (await detectKimiWorkspaceContext())?.projectDirectory || null
+  return (await detectKimiWorkspaceContext()).context?.projectDirectory || null
 }
 
 async function syncViewerConversationContext() {
   if (!viewerServer) return false
   const detection = activeEngine === 'cloudcli'
     ? await detectCloudCliWorkspaceContext()
-    : { context: await detectKimiWorkspaceContext(), routeSessionId: null }
+    : await detectKimiWorkspaceContext()
   const context = detection.context
   if (!context?.projectDirectory) {
     await logViewerContext('context-miss', {
@@ -1217,18 +1219,30 @@ async function logViewerContext(event, details) {
 }
 
 async function detectKimiWorkspaceContext() {
-  if (!kimiView || kimiView.webContents.isDestroyed()) return null
+  const routeSessionId = kimiView && !kimiView.webContents.isDestroyed()
+    ? parseKimiSessionId(kimiView.webContents.getURL()) || null
+    : null
+  if (!kimiView || kimiView.webContents.isDestroyed()) {
+    return { context: null, routeSessionId, fallback: false }
+  }
   try {
     const context = await kimiView.webContents.executeJavaScript(`
       (() => {
         const results = []
         const sessionIds = []
         const pathPattern = /[A-Za-z]:[\\\\/][^<>"|?*\\r\\n]+/g
-        const sessionPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/ig
+        const legacySessionPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/ig
+        const kimiCodeSessionPattern = /ses_[A-Za-z0-9_-]+/g
+        const addSessionId = value => {
+          if (typeof value === 'string' && value && !sessionIds.includes(value)) sessionIds.push(value)
+        }
         const collectSessionIds = value => {
           if (typeof value !== 'string') return
-          for (const match of value.match(sessionPattern) || []) {
-            if (!sessionIds.includes(match)) sessionIds.push(match)
+          for (const match of value.match(kimiCodeSessionPattern) || []) addSessionId(match)
+          for (const match of value.match(legacySessionPattern) || []) {
+            const offset = value.indexOf(match)
+            if (offset >= 4 && value.slice(offset - 4, offset).toLowerCase() === 'ses_') continue
+            addSessionId(match)
           }
         }
         const collect = (value, score) => {
@@ -1241,6 +1255,7 @@ async function detectKimiWorkspaceContext() {
             })
           }
         }
+        collectSessionIds(location.pathname)
         for (const node of document.querySelectorAll(
           '[aria-current="true"], [aria-selected="true"], [data-state="active"], .active'
         )) {
@@ -1268,18 +1283,52 @@ async function detectKimiWorkspaceContext() {
       })()
     `, true)
 
-    for (const sessionId of context.sessionIds) {
-      const response = await net.fetch(
-        `${localKimiService.url}api/sessions/${encodeURIComponent(sessionId)}`
+    const sessionIds = [routeSessionId, ...context.sessionIds].filter(
+      (sessionId, index, all) => sessionId && all.indexOf(sessionId) === index
+    )
+    for (const sessionId of sessionIds) {
+      const sessionInfo = await fetchKimiSession(sessionId)
+      const workDirectory = await existingDirectory(
+        sessionInfo?.work_dir
+        || sessionInfo?.metadata?.cwd
+        || sessionInfo?.cwd
+        || sessionInfo?.workspace?.cwd
       )
-      if (!response.ok) continue
-      const sessionInfo = await response.json()
-      const workDirectory = await existingDirectory(sessionInfo?.work_dir)
-      if (workDirectory) return { projectDirectory: workDirectory, sessionId }
+      if (workDirectory) {
+        return {
+          context: { projectDirectory: workDirectory, sessionId },
+          routeSessionId,
+          fallback: false
+        }
+      }
     }
 
   } catch (error) {
     console.warn('Unable to detect the current Kimi project directory:', error)
+    return {
+      context: null,
+      routeSessionId,
+      apiError: error instanceof Error ? error.message : String(error),
+      fallback: false
+    }
+  }
+  return { context: null, routeSessionId, fallback: false }
+}
+
+async function fetchKimiSession(sessionId) {
+  const encodedId = encodeURIComponent(sessionId)
+  const candidates = sessionId.startsWith('ses_')
+    ? [`${localKimiService.url}api/v1/sessions/${encodedId}`, `${localKimiService.url}api/sessions/${encodedId}`]
+    : [`${localKimiService.url}api/sessions/${encodedId}`, `${localKimiService.url}api/v1/sessions/${encodedId}`]
+  for (const url of candidates) {
+    try {
+      const response = await net.fetch(url, { headers: localKimiService.apiHeaders })
+      if (!response.ok) continue
+      const payload = await response.json()
+      return payload?.data || payload
+    } catch {
+      // Try the compatible endpoint before reporting a context miss.
+    }
   }
   return null
 }
@@ -1342,16 +1391,27 @@ function broadcastQuotaState(state) {
 async function connectLocalKimiView() {
   if (!kimiView || kimiView.webContents.isDestroyed()) return
   await kimiView.webContents.loadURL('app://shell/service-loading.html')
-  try {
-    const url = await localKimiService.start()
-    if (!kimiView || kimiView.webContents.isDestroyed()) return
-    await kimiView.webContents.loadURL(url)
-    viewerContextSync?.request(0)
-  } catch (error) {
-    console.error(error)
-    if (!kimiView || kimiView.webContents.isDestroyed()) return
-    await kimiView.webContents.loadURL('app://shell/service-error.html')
+  let lastError = null
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const url = await localKimiService.start()
+      if (!kimiView || kimiView.webContents.isDestroyed()) return
+      await kimiView.webContents.loadURL(localKimiService.webUrl || url)
+      viewerContextSync?.request(0)
+      return
+    } catch (error) {
+      lastError = error
+      console.error(`Unable to start Kimi Web (attempt ${attempt + 1}/2):`, error)
+      if (attempt === 0) {
+        await localKimiService.stop()
+        await new Promise(resolve => setTimeout(resolve, 250))
+        if (!kimiView || kimiView.webContents.isDestroyed()) return
+      }
+    }
   }
+  if (!kimiView || kimiView.webContents.isDestroyed()) return
+  console.error('Unable to start Kimi Web after retry:', lastError)
+  await kimiView.webContents.loadURL('app://shell/service-error.html')
 }
 
 async function connectCloudCliView() {
@@ -1567,7 +1627,7 @@ async function ensureKimiSkillPointer(libraryPath) {
   const next = [...current, normalizedLibrary]
   const after = await settingsService.save({ config: { extra_skill_dirs: next } })
   if (hasEngineConfigChanged(before.config, after.config)) {
-    localKimiService?.stop()
+    await localKimiService?.stop()
     if (kimiView && !kimiView.webContents.isDestroyed()) await connectLocalKimiView()
   }
   return true
