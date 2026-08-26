@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { QUOTA_EXTRACTION_SCRIPT } from './quota-extract.js'
 import { loadQuotaPage } from './quota-navigation.js'
+import { QUOTA_STATS_REQUEST_SCRIPT, mapQuotaStats } from './quota-api.js'
 
 export async function scrapeQuota(partition) {
   const worker = new BrowserWindow({
@@ -28,11 +29,25 @@ export async function scrapeQuota(partition) {
     await loadQuotaPage(worker)
     const deadline = Date.now() + 40_000
     let lastResult = null
+    let apiResult = null
+    let nextApiAttemptAt = 0
     while (Date.now() < deadline) {
       lastResult = await worker.webContents.executeJavaScript(
         QUOTA_EXTRACTION_SCRIPT,
         true
       )
+      const now = Date.now()
+      if (now >= nextApiAttemptAt) {
+        apiResult = await worker.webContents.executeJavaScript(
+          QUOTA_STATS_REQUEST_SCRIPT,
+          true
+        )
+        nextApiAttemptAt = now + 1_500
+      }
+      if (apiResult?.ok) {
+        const apiExtracted = mapQuotaStats(apiResult.payload, lastResult?.membershipPlan || '')
+        if (apiExtracted.ready) return apiExtracted
+      }
       if (lastResult?.ready) return lastResult
       if (lastResult?.likelyLoggedOut) {
         const error = new Error(lastResult.error)
@@ -79,11 +94,13 @@ export async function runQuotaFixtureSelfTest() {
     </head>
     <body>
       <div class="panel">
-        <div class="total-label">总使用量 <span>18.62%</span></div>
+        <div class="membership-plan" data-active="true">Allegretto</div>
+        <div class="total-label">总额度 <span>18.62%</span></div>
         <div class="track">
           <div class="kimi"></div><div class="code"></div><div class="remaining"></div>
         </div>
-        <div>Kimi　Code</div>
+        <div>Kimi　14.70%</div>
+        <div>Code　3.92%</div>
         <div>2026-08-25 后重置</div>
         <div class="section">
           <div>5 小时用量</div>

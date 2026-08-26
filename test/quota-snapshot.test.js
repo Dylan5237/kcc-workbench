@@ -7,6 +7,7 @@ function validExtracted(overrides = {}) {
     totalPercent: 20,
     kimiPercent: 15,
     codePercent: 5,
+    membershipPlan: 'Allegretto',
     totalReset: '2026-08-01',
     fiveHourPercent: 30,
     fiveHourReset: '08-01 10:00',
@@ -21,10 +22,16 @@ test('normalizeSnapshot maps extracted fields into a structured snapshot', () =>
   assert.equal(snap.total.usedPercent, 20)
   assert.equal(snap.total.kimiPercent, 15)
   assert.equal(snap.total.codePercent, 5)
+  assert.equal(snap.membershipPlan, 'Allegretto')
   assert.equal(snap.total.resetAt, '2026-08-01')
   assert.equal(snap.fiveHour.percent, 30)
   assert.equal(snap.sevenDay.percent, 25)
   assert.match(snap.updatedAt, /^\d{4}-\d{2}-\d{2}T/)
+})
+
+test('normalizeSnapshot keeps legacy snapshots compatible when plan is absent', () => {
+  const snap = normalizeSnapshot(validExtracted({ membershipPlan: undefined }))
+  assert.equal(snap.membershipPlan, '')
 })
 
 test('normalizeSnapshot rejects out-of-range percentages', () => {

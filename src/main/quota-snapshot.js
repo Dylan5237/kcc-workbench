@@ -1,6 +1,9 @@
 export function normalizeSnapshot(extracted) {
   const snapshot = {
     updatedAt: new Date().toISOString(),
+    membershipPlan: typeof extracted.membershipPlan === 'string'
+      ? extracted.membershipPlan
+      : '',
     total: {
       usedPercent: extracted.totalPercent,
       kimiPercent: extracted.kimiPercent,

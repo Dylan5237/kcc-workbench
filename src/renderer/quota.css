@@ -129,7 +129,7 @@ button {
   padding-bottom: 11px;
 }
 
-.allegro-brand {
+.membership-brand {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -137,7 +137,7 @@ button {
   color: #222;
 }
 
-.allegro-clef {
+.membership-clef {
   display: inline-flex;
   align-items: center;
   height: 30px;
@@ -146,7 +146,7 @@ button {
   line-height: 1;
 }
 
-.allegro-word {
+.membership-word {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 23px;
   line-height: 1;

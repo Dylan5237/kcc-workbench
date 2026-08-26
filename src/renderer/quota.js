@@ -3,6 +3,8 @@ const elements = {
   closeButton: document.querySelector('#closeButton'),
   headerStatus: document.querySelector('#headerStatus'),
   updatedAt: document.querySelector('#updatedAt'),
+  membershipBrand: document.querySelector('#membershipBrand'),
+  membershipPlan: document.querySelector('#membershipPlan'),
   totalPercent: document.querySelector('#totalPercent'),
   kimiPercent: document.querySelector('#kimiPercent'),
   codePercent: document.querySelector('#codePercent'),
@@ -40,6 +42,10 @@ function render(state) {
     : snapshot
       ? `上次同步：${formatUpdatedAt(snapshot.updatedAt)}`
       : '尚未同步'
+
+  const membershipPlan = snapshot?.membershipPlan || '会员'
+  elements.membershipPlan.textContent = membershipPlan
+  elements.membershipBrand.setAttribute('aria-label', membershipPlan)
 
   setText(elements.totalPercent, percent(snapshot?.total?.usedPercent))
   setText(elements.kimiPercent, `Kimi ${percent(snapshot?.total?.kimiPercent)}`)
