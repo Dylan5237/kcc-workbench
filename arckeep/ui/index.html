@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Arckeep</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <nav class="rail" id="brandRail">
+    <div class="brand">
+      <!-- Arckeep_Master_Horizontal_Reverse.svg（docs/brand/logo/） -->
+      <svg viewBox="0 0 562 188" role="img" aria-label="Arckeep"><g transform="translate(0,4) scale(0.367347)"><path d="M 280 2 L 2 487 L 176 487 L 281 420 L 121 419 L 278 148 L 321 221 L 189 341 L 307 414 L 414 487 L 556 487 L 430 266 L 394 296 L 393 334 L 461 457 L 289 334 L 411 231 Z" fill="#F5F2EA" fill-rule="evenodd"/></g><g transform="translate(239.35,62) scale(0.524590)"><path d="M 599 31 L 545 31 L 545 119 L 558 118 L 558 43 L 560 41 L 595 42 L 599 46 L 599 78 L 595 82 L 566 82 L 566 92 L 600 92 L 612 80 L 612 43 Z M 457 42 L 456 79 L 468 92 L 522 92 L 519 82 L 474 82 L 470 78 L 470 45 L 473 42 L 508 42 L 511 45 L 511 54 L 508 57 L 478 57 L 478 67 L 513 67 L 524 56 L 524 43 L 512 31 L 469 31 Z M 370 43 L 370 81 L 381 92 L 435 92 L 431 82 L 387 82 L 383 78 L 383 45 L 386 42 L 411 41 L 421 42 L 424 45 L 424 54 L 421 57 L 391 57 L 391 67 L 426 67 L 437 56 L 437 43 L 426 32 L 382 31 Z M 299 60 L 334 91 L 356 92 L 319 60 L 321 57 L 354 31 L 334 31 Z M 200 43 L 200 80 L 212 92 L 262 92 L 258 82 L 217 82 L 213 78 L 213 46 L 217 42 L 257 42 L 262 31 L 213 31 Z M 188 31 L 147 32 L 136 43 L 136 92 L 149 92 L 149 46 L 156 41 L 183 42 Z M 283 2 L 283 92 L 296 92 L 296 2 Z M 2 92 L 26 92 L 58 81 L 28 81 L 27 79 L 64 20 L 70 29 L 95 80 L 94 81 L 46 63 L 43 68 L 95 92 L 118 92 L 72 2 L 59 2 Z" fill="#F5F2EA" fill-rule="evenodd"/></g></svg>
+      <div class="sub">长期工作环境</div>
+    </div>
+    <div class="proj" id="railProj"><b>未打开项目</b><span>骨架 M1</span></div>
+    <div class="rfoot">ARCKEEP · M1<br>BRAND v1.0</div>
+  </nav>
+
+  <main class="main">
+
+    <!-- 空态 -->
+    <section class="view" id="view-empty">
+      <div class="empty">
+        <div class="hint">指向一个目录，项目即存在。<br>Arckeep 会在其中创建 <span style="font-family:var(--mono)">.arckeep/</span> 存放工作状态——你可以随时查看或删除它。</div>
+        <button class="go" id="btnPick">选择项目目录 →</button>
+      </div>
+    </section>
+
+    <!-- 项目空间 -->
+    <section class="view" id="view-space">
+      <div class="rhead">
+        <span class="idx">01</span><span class="ttl">项目空间 · PROJECT SPACE</span>
+        <span class="sp"></span><span class="folio" id="folioProj"></span>
+      </div>
+      <div class="rule"></div>
+
+      <div class="opening">
+        <div class="markchip">
+          <svg viewBox="0 0 559 490"><path d="M 280 2 L 2 487 L 176 487 L 281 420 L 121 419 L 278 148 L 321 221 L 189 341 L 307 414 L 414 487 L 556 487 L 430 266 L 394 296 L 393 334 L 461 457 L 289 334 L 411 231 Z" fill="#F5F2EA" fill-rule="evenodd"/></svg>
+        </div>
+        <div>
+          <div class="o-meta"><span class="c1" id="statusBy">你确认的</span><span id="statusAt"></span><span class="edit" id="btnEditStatus" title="改写当前状态">改写</span></div>
+          <div class="o-sentence" id="statusText"></div>
+        </div>
+      </div>
+
+      <div class="blk" id="backflowBlock" style="display:none;">
+        <div class="bhead"><span class="no">◂</span><span class="t">本轮变化</span><span class="fill"></span><span class="sub">观察 · 文件系统差异，无归因</span></div>
+        <div id="backflowList"></div>
+      </div>
+
+      <div class="cols">
+        <div>
+          <section class="blk">
+            <div class="bhead"><span class="no">01</span><span class="t">可能值得继续的事</span><span class="fill"></span><span class="sub">点选 = 本轮采用 · 推测 · 不是指令</span></div>
+            <div id="nextList"></div>
+            <div class="addrow"><input id="addNextInput" placeholder="+ 添加一件你自己的事" spellcheck="false"></div>
+          </section>
+          <section class="blk">
+            <div class="bhead"><span class="no">02</span><span class="t">关键判断</span><span class="fill"></span><span class="sub" id="decSub"></span></div>
+            <div id="decList"></div>
+          </section>
+        </div>
+        <div>
+          <section class="blk">
+            <div class="bhead"><span class="no">03</span><span class="t">最近产出</span><span class="fill"></span><span class="sub">观察 · 文件系统</span></div>
+            <div id="artList"></div>
+          </section>
+          <div class="launch">
+            <span class="llab">继续</span>
+            <button class="ag">Kimi Code</button>
+            <span class="lsp"></span>
+            <button class="go" id="btnStart">开始 →</button>
+          </div>
+          <div class="hintline">选中一条事再开始会带着它去；不选就直接开始。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 额度面板（复现 v1 版式，品牌皮肤） -->
+    <section class="view" id="view-quota">
+      <div class="rhead">
+        <span class="idx">05</span><span class="ttl">KIMI 额度 · QUOTA</span>
+        <span class="sp"></span>
+        <span class="q-updated" id="qUpdated">尚未同步</span>
+        <button class="btn2" id="qRefresh">更新信息 ↻</button>
+        <button class="btn2" id="qClose" title="返回项目空间">×</button>
+      </div>
+      <div class="rule"></div>
+      <div class="qwrap">
+        <div class="qcard">
+          <div class="q-plan" id="qPlan">未识别</div>
+          <div class="q-totalrow">
+            <span class="q-lab">总额度</span>
+            <span class="q-big" id="qTotal">--</span>
+          </div>
+          <div class="qbar"><span class="qbar-kimi" id="qKimiBar"></span><span class="qbar-code" id="qCodeBar"></span></div>
+          <div class="q-legend">
+            <span><i class="sq sq-kimi"></i>Kimi <b id="qKimi">--</b></span>
+            <span><i class="sq sq-code"></i>Code <b id="qCode">--</b></span>
+            <span class="q-reset" id="qTotalReset"></span>
+          </div>
+        </div>
+        <div class="qrow">
+          <div class="qcard">
+            <div class="q-lab">5 小时用量</div>
+            <div class="q-linerow"><span id="qFive">--</span><span class="q-reset" id="qFiveReset"></span></div>
+            <div class="qbar qbar-thin"><span class="qbar-code" id="qFiveBar"></span></div>
+          </div>
+          <div class="qcard">
+            <div class="q-lab">7 天用量</div>
+            <div class="q-linerow"><span id="qSeven">--</span><span class="q-reset" id="qSevenReset"></span></div>
+            <div class="qbar qbar-thin"><span class="qbar-code" id="qSevenBar"></span></div>
+          </div>
+        </div>
+        <div class="qcard">
+          <div class="q-linerow"><span class="q-lab">◆ 额度节奏 <em class="q-beta">BETA</em></span><span class="q-badge" id="qBadge">样本不足</span></div>
+          <div class="q-fmsg" id="qFmsg">再同步一次后生成燃尽预测。</div>
+          <div id="qFdetails"></div>
+        </div>
+        <div class="qerr" id="qErr" hidden></div>
+        <div class="q-foot">仅在点击更新时同步额度 · 预测全部在本地完成</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 接入态侧轨（与 agent 原生界面并排时，主区切换为此窄轨） -->
+<template id="tpl-rail">
+  <div class="rrail">
+    <div class="rblk">
+      <div class="rh"><span class="rno">R.1</span><span class="rt">本项目</span></div>
+      <div class="kv"><span class="k">目录</span><span class="v" id="rDir"></span></div>
+      <div class="kv"><span class="k">接续点</span><span class="v" id="rCont">无</span></div>
+      <div class="kv"><span class="k">简报</span><span class="v" id="rBrief">—</span></div>
+    </div>
+    <div class="rblk">
+      <div class="rh"><span class="rno">R.2</span><span class="rt">会话状态</span></div>
+      <div class="kv"><span class="k">状态</span><span class="v" id="rPhase">—</span></div>
+      <div class="kv"><span class="k">会话</span><span class="v" id="rSid" title="">—</span></div>
+      <div class="kv"><span class="k">事件</span><span class="v" id="rEvents">0</span></div>
+    </div>
+    <div class="rblk">
+      <div class="rh"><span class="rno">R.3</span><span class="rt">继续对话</span></div>
+      <input class="rinput" id="rPrompt" placeholder="继续说…（Enter 发送，左侧 Kimi 界面可见全文）" spellcheck="false">
+    </div>
+    <div class="rblk">
+      <div class="rh"><span class="rno">R.4</span><span class="rt">文件变化</span></div>
+      <div id="rChanges"><div class="rnote">回到项目后显示（观察 · 文件系统差异）</div></div>
+    </div>
+    <div class="rblk">
+      <div class="rh"><span class="rno">R.5</span><span class="rt">接回项目</span></div>
+      <button class="rgo" id="btnBack">回到项目 →</button>
+      <div class="rnote">产出和记录会自动回流，不需要手动复制</div>
+    </div>
+    <details class="rlog">
+      <summary>事件日志（调试用）</summary>
+      <div class="feed" id="feed"></div>
+    </details>
+  </div>
+</template>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
