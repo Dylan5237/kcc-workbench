@@ -7,3 +7,12 @@ dist-*/
 Thumbs.db
 # 本地对抗性审查报告, 不进公开仓库(含攻击路径细节)
 docs/kimi-code-workbench-对抗性审查报告.md
+# spike 构建与运行时产物（证据包只保留源码、截图与 results/*.json）
+spike/host-webview2/bin/
+spike/host-webview2/obj/
+spike/host-webview2/udfs/
+spike/host-webview2/publish*/
+spike/sandbox-project/
+# Arckeep 骨架构建产物
+arckeep/shell/bin/
+arckeep/shell/obj/

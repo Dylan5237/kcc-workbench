@@ -38,6 +38,7 @@ Use Node.js 22 for development and packaging. CloudCLI currently starts through 
 ## Current status
 
 - `main` contains the KCC dual-engine work and the zip packaging switch (3223ff1 onward). Real signed-in Kimi / Claude Code / Codex sessions, the CloudCLI Viewer-path acceptance, and the RC clean-environment acceptance are completed; `v1.0.0` is released.
+- 2.0（Arckeep/续境）设计基线：`docs/ARCKEEP_DESIGN_V0.3.md`（v0.3.1，经两轮对抗性评审；v0.2 已被取代）。视觉权威来源为 `docs/brand/`（品牌交付 v1.0；四屏参照实现 `docs/prototypes/arckeep-visual-v0.4.html`）。宿主栈已定：`docs/adr/ADR-001-host-stack.md`（C# 薄壳 + WebView2 + ACP 控制平面；spike 证据包在 `spike/`，Kimi Code 0.39 实测通过）。
 - Production audit still reports 4 moderate findings, all from CloudCLI's transitive frontend dependencies (prismjs DOM clobbering chain); upstream has no fixed release, so do not apply unverified overrides to CloudCLI's own frontend tree.
 - Preserve unrelated dirty files. Do not add `BLOCKED.md`, `PROGRESS.md`, `.exp1-results/`, or one-off acceptance scripts unless the user explicitly approves them.
 - Known release limitation: CloudCLI is bundled as an npm dependency, but the compatible Node runtime is not yet bundled; the system needs Node.js 22 (ABI 127) to run CloudCLI.
