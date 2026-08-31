@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<!--
+  Arckeep ·「继续一项工作」原型 v3（灰阶低保真 · 零依赖单文件 · 桌面端）
+  ─────────────────────────────────────────────────
+  依据 docs/PRODUCT_DESIGN_PHILOSOPHY.md 与 docs/HIGH_LEVEL_DESIGN_V0.1.md：
+    · 核心旅程是环（§5.1）：回到项目现场 → 状态与下一步 → 工作 → 留下产出 → 回到状态
+    · 默认只答两问：当前在哪、下一步是什么（§10.1）；六类恢复信息逐层展开（§5.2 / §10.2）
+    · 进度区分：真实完成 / agent 自报待验收 / 进行中（§15.2）
+    · 关键判断区分当前与历史，来源可查（哲学 §5 / §7）
+    · 上下文包 = 概念模型中的「工作现场 Work Context」（§6.1）
+    · Viewer 与 Project Session Map 是项目内的常驻模块（§8）
+    · 虚线 = 系统推测（依据可展开、可推翻）；实黑 = 你确认过的（§10.3）
+  演示路径：
+    现在 → 继续工作 → 工作现场（选 agent）→ 开始会话 →（演示）agent 报告完成
+    → 自动到「产出」核实 → 确认验收 / 提出异议（异议回流成下一会话开场，第二轮可干净验收）
+    → 回「现在」看进度与建议已更新（环闭合）；「会话地图」可随时进入选别的接续点。
+  操作：← → 切换视图；#now / #map / #out 可直链。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arckeep · lightmark</title>
+<style>
+  :root{
+    --ink:#111; --i2:#666; --i3:#999; --i4:#c8c8c8;
+    --hair:#e4e4e4; --soft:#f7f7f7; --page:#ececec;
+  }
+  *{margin:0; padding:0; box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font:14px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--page); color:var(--ink); overflow:hidden;
+  }
+  .serif{font-family:"Songti SC","STSong","Noto Serif SC","SimSun",serif;}
+  .mono{font-family:ui-monospace,Consolas,"Courier New",monospace;}
+  ::selection{background:#111; color:#fff;}
+
+  #app{display:flex; height:100vh; background:#fff;}
+
+  /* ── 侧栏 ─────────────────────────────── */
+  #side{width:214px; flex:none; border-right:1px solid var(--hair); display:flex; flex-direction:column;}
+  .proj{padding:20px 22px 16px; border-bottom:1px solid var(--hair);}
+  .proj .pn{font-weight:600; font-size:14px;}
+  .proj .pp{font-size:11px; color:var(--i3); margin-top:2px;}
+  .proj details{margin-top:8px;}
+  .proj summary{
+    list-style:none; cursor:pointer; font-size:11px; color:var(--i2);
+    text-decoration:underline; text-underline-offset:3px; text-decoration-color:#ccc; user-select:none;
+  }
+  .proj .alt-p{margin-top:8px; padding:7px 9px; border:1px solid var(--hair); cursor:pointer; font-size:12px; color:var(--i2);}
+  .proj .alt-p:hover{border-color:var(--i3); color:var(--ink);}
+
+  #nav{padding:14px 10px; display:flex; flex-direction:column; gap:2px;}
+  #nav button{
+    all:unset; font:inherit; font-size:13px; padding:8px 12px; color:var(--i2); cursor:pointer;
+    border-left:2px solid transparent; display:flex; align-items:center; justify-content:space-between;
+  }
+  #nav button:hover{color:var(--ink);}
+  #nav button.on{color:var(--ink); font-weight:600; border-left-color:var(--ink); background:var(--soft);}
+  .dot-warn{width:6px; height:6px; background:var(--ink); border-radius:50%; flex:none;}
+  .side-foot{margin-top:auto; padding:14px 22px 0; font-size:10.5px; color:var(--i4); line-height:1.6;}
+
+  /* ── 主区 ─────────────────────────────── */
+  main{flex:1; overflow-y:auto;}
+  .view{display:none;}
+  .view.on{display:block; animation:up .25s ease;}
+  @keyframes up{from{transform:translateY(6px);} to{transform:none;}}
+  .wrap{max-width:820px; margin:0 auto; padding:52px 40px 130px;}
+
+  .kick{font-size:12px; color:var(--i3);}
+  h1.pn{font-size:13px; font-weight:600; color:var(--i3); letter-spacing:.2em; margin-bottom:34px;}
+
+  /* ── 标签：确认 / 推测 / 状态 ─────────────── */
+  .t{display:inline-block; font-size:11px; padding:0 7px; line-height:19px; vertical-align:2px; white-space:nowrap;}
+  .t-c{background:var(--ink); color:#fff;}
+  .t-i{border:1px dashed #a5a5a5; color:var(--i2); background:#fff;}
+  .t-p{background:#e9e9e9; color:var(--i2);}
+
+  /* ── 按钮 ─────────────────────────────── */
+  .b{
+    font:inherit; font-size:13px; cursor:pointer; background:none; border:none;
+    color:var(--ink); padding:2px 1px; border-bottom:1px solid var(--i4);
+  }
+  .b:hover{border-bottom-color:var(--ink);}
+  .b-p{background:var(--ink); color:#fff; padding:9px 26px; border-radius:2px; border-bottom:none;}
+  .b-p:hover{background:#2c2c2c;}
+  .b-p:active{transform:translateY(1px);}
+  .acts{display:flex; gap:26px; align-items:center; margin-top:24px; flex-wrap:wrap;}
+
+  /* ── 当前状态 / 下一步 ───────────────────── */
+  .now-say{font-size:22px; line-height:1.6; margin:10px 0 30px; font-weight:600;}
+  .inf{border:1px dashed #b9b9b9; background:#fdfdfd; padding:16px 20px; margin-bottom:34px;}
+  .inf .say{font-size:15px; margin:8px 0 6px; font-weight:600;}
+  details.why{margin-top:4px;}
+  details.why summary{
+    list-style:none; cursor:pointer; font-size:12px; color:var(--i2);
+    text-decoration:underline; text-underline-offset:3px; text-decoration-color:#ccc; user-select:none;
+  }
+  details.why summary:hover{color:var(--ink);}
+  details.why ul{margin:8px 0 2px; font-size:12px; color:var(--i2); list-style:none;}
+  details.why li{padding:5px 0 5px 14px; border-left:1px solid var(--hair); margin-left:3px;}
+  .alts{margin-top:12px; padding-top:10px; border-top:1px dashed #d5d5d5; display:flex; gap:22px; flex-wrap:wrap;}
+
+  /* ── 逐层展开（六类恢复信息）───────────────── */
+  .ex{border-top:1px solid var(--hair);}
+  .ex:last-of-type{border-bottom:1px solid var(--hair);}
+  .ex summary{
+    list-style:none; cursor:pointer; display:flex; gap:12px; align-items:baseline;
+    padding:13px 2px; font-size:13px; color:var(--ink); user-select:none; font-weight:600;
+  }
+  .ex summary .n{margin-left:auto; font-size:11px; color:var(--i3); font-weight:400;}
+  .ex summary::before{content:"+"; color:var(--i3); width:12px; font-weight:400;}
+  .ex[open] summary::before{content:"–";}
+  .ex .ex-b{padding:4px 2px 20px 24px; font-size:13px;}
+  .ex-h{margin-top:38px; margin-bottom:2px; font-size:11px; color:var(--i3); letter-spacing:.2em;}
+
+  .pr{display:flex; gap:10px; padding:9px 0; border-bottom:1px dashed var(--hair); align-items:baseline; font-size:13px;}
+  .pr:last-child{border-bottom:none;}
+  .pr .r{margin-left:auto; display:flex; gap:8px; align-items:center; font-size:11px; color:var(--i3); white-space:nowrap;}
+  .kv{display:grid; grid-template-columns:56px 1fr; gap:14px; font-size:13px; margin-bottom:8px;}
+  .kv .k{color:var(--i3); font-size:12px; padding-top:1px;}
+  .src{font-size:11px; color:var(--i3); margin-top:8px;}
+  .hist{margin-top:12px; padding-top:10px; border-top:1px dashed var(--hair); color:var(--i2); font-size:12.5px;}
+  .quote{border-left:2px solid var(--i4); padding:4px 0 4px 14px; color:var(--i2); font-size:13px; margin:4px 0;}
+  .quote b{color:var(--ink); font-weight:600;}
+
+  /* ── 会话地图 ───────────────────────────── */
+  .map{position:relative; height:250px; margin:4px 0 40px;}
+  .nd{position:absolute; width:200px; cursor:pointer;}
+  .nd .dot{width:10px; height:10px; border:1.5px solid var(--ink); background:#fff; margin-bottom:9px;}
+  .nd:hover .nm{text-decoration:underline; text-underline-offset:3px;}
+  .nd.sel .dot{background:var(--ink);}
+  .nd.sel .nm::after{content:""; display:block; height:2px; background:var(--ink); margin-top:4px; width:26px;}
+  .nd.dash .dot{border-style:dashed; border-color:#a5a5a5;}
+  .nd.dash .nm, .nd.dash .tm{color:var(--i2);}
+  .nd.dead{opacity:.38;}
+  .nm{font-size:13px; font-weight:600; display:inline-block;}
+  .tm{font-size:11px; color:var(--i3); margin-top:1px;}
+  .ln{position:absolute; background:#cfcfcf; height:1px;}
+  .ln.d{background:none; border-top:1px dashed #b0b0b0; height:0;}
+  .ln.v{width:1px; height:auto;}
+  .ln.v.d{background:none; border-top:none; border-left:1px dashed #b0b0b0; width:0;}
+  .legend{position:absolute; right:0; bottom:0; font-size:11px; color:var(--i3);}
+  .dt{border-top:2px solid var(--ink); padding-top:18px;}
+  .dt h3{font-size:16px; margin-bottom:12px;}
+
+  /* ── 产出（Viewer）───────────────────────── */
+  .claim{border:1px dashed #a5a5a5; background:#fdfdfd; padding:16px 20px; margin-bottom:30px;}
+  .claim .say{font-size:15px; font-style:italic; margin:10px 0 8px; line-height:1.8;}
+  .ev{display:flex; gap:8px; align-items:baseline; font-size:13px; padding:10px 0; border-bottom:1px solid var(--hair);}
+  .ev .f{font-size:12.5px;}
+  .ev .st{margin-left:auto; font-size:11px; color:var(--i3); white-space:nowrap;}
+  .ev.warn{background:var(--soft); border-left:3px solid var(--ink); padding-left:10px; font-weight:600; border-bottom:1px solid var(--hair);}
+  details.diff{margin:0;}
+  details.diff summary{
+    list-style:none; cursor:pointer; font-size:11px; color:var(--i2); margin:2px 0 0 18px;
+    text-decoration:underline; text-underline-offset:3px; text-decoration-color:#ccc; user-select:none;
+  }
+  details.diff pre{
+    margin:8px 0 6px; padding:12px 14px; background:var(--soft); font-size:11.5px; line-height:1.8;
+    overflow-x:auto; border-left:2px solid var(--i4);
+  }
+  .da{font-weight:700; display:block;}
+  .dd{color:var(--i3); display:block;}
+
+  /* ── 工作现场（弹层）──────────────────────── */
+  #sheet{position:fixed; inset:0; background:rgba(236,236,236,.72); display:none; align-items:center; justify-content:center; z-index:20;}
+  #sheet.on{display:flex;}
+  .sheet{background:#fff; border:1px solid #b5b5b5; width:640px; max-height:86vh; overflow-y:auto; padding:28px 34px 30px; box-shadow:0 14px 44px rgba(0,0,0,.14);}
+  .sheet h2{font-size:16px; margin-bottom:2px;}
+  .cx-r{display:flex; gap:14px; align-items:baseline; padding:11px 2px; border-top:1px solid var(--hair);}
+  .cx-r input{
+    appearance:none; width:13px; height:13px; border:1.5px solid #888; flex:none;
+    cursor:pointer; transform:translateY(1.5px); margin:0;
+  }
+  .cx-r input:checked{background:var(--ink); border-color:var(--ink); box-shadow:inset 0 0 0 2.5px #fff;}
+  .cx-r .l{flex:1; font-size:13px;}
+  .cx-r .s{font-size:11px; color:var(--i3); white-space:nowrap;}
+  .cx-r.off .l{color:var(--i3); text-decoration:line-through; text-decoration-color:#ccc;}
+  .agts{display:flex; font-size:13px;}
+  .agts button{font:inherit; background:none; border:none; cursor:pointer; color:var(--i3); padding:2px 0;}
+  .agts button + button::before{content:"·"; color:var(--i4); margin:0 14px;}
+  .agts button.on{color:var(--ink); font-weight:600; border-bottom:1.5px solid var(--ink);}
+  .obj{border-left:3px solid var(--ink); background:var(--soft); padding:12px 16px; margin-bottom:20px; font-size:13px;}
+  .run{padding:56px 0; text-align:center; color:var(--i2);}
+  .run .bar{width:120px; height:1.5px; background:var(--hair); margin:24px auto; overflow:hidden;}
+  .run .bar i{display:block; width:40%; height:100%; background:var(--ink); animation:mv 1.1s ease-in-out infinite;}
+  @keyframes mv{0%{transform:translateX(-100%);} 100%{transform:translateX(300%);}}
+
+  #toast{
+    position:fixed; left:50%; bottom:34px; transform:translateX(-50%) translateY(16px);
+    background:var(--ink); color:#fff; font-size:12.5px; padding:10px 22px; border-radius:2px;
+    opacity:0; pointer-events:none; transition:all .25s; z-index:30;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── 侧栏：项目是稳定中心，模块常驻 ── -->
+  <aside id="side">
+    <div class="proj">
+      <div class="pn">lightmark</div>
+      <div class="pp">D:\projects\lightmark · 本地项目</div>
+      <details>
+        <summary>切换项目（2）</summary>
+        <div class="alt-p" onclick="toast('演示原型只打通了 lightmark 这条线')">notemove · 笔记迁移脚本<span style="color:var(--i4);">　昨天</span></div>
+        <div class="alt-p" onclick="toast('wiki-dump · 上周后无活动')">wiki-dump · 整理脚本<span style="color:var(--i4);">　上周</span></div>
+      </details>
+    </div>
+    <nav id="nav">
+      <button data-v="now" class="on" onclick="go('now')">现在</button>
+      <button data-v="map" onclick="go('map')">会话地图</button>
+      <button data-v="out" onclick="go('out')">产出<span id="nav-badge" class="dot-warn hidden"></span></button>
+    </nav>
+    <div class="side-foot">Arckeep 原型 v3<br>本地优先 · 灰阶低保真</div>
+  </aside>
+
+  <main id="main">
+
+    <!-- ════ 视图 · 现在（项目恢复视图：默认只答两问，六类信息逐层展开） ════ -->
+    <div class="view on" id="v-now">
+      <div class="wrap">
+        <h1 class="pn">现在 · LIGHTMARK</h1>
+
+        <p class="kick">当前状态　<span id="now-meta"></span></p>
+        <p class="now-say serif" id="now-say"></p>
+
+        <div class="inf" id="inf"></div>
+
+        <div class="acts">
+          <button class="b b-p" onclick="openSheet()">继续工作 →</button>
+        </div>
+
+        <p class="ex-h">按需展开 —— 恢复信息</p>
+
+        <details class="ex">
+          <summary>目标与进度<span class="n" id="n-progress"></span></summary>
+          <div class="ex-b" id="x-progress"></div>
+        </details>
+
+        <details class="ex">
+          <summary>待办<span class="n">2</span></summary>
+          <div class="ex-b">
+            <div class="pr"><span>批量测试跑一遍（并发接入后）</span><span class="r"><span class="t t-p">未排期</span></span></div>
+            <div class="pr"><span>并发数 4 是否参数化</span><span class="r">来自 #148 的未决问题</span></div>
+          </div>
+        </details>
+
+        <details class="ex">
+          <summary>关键判断<span class="n">当前 1 · 历史 1</span></summary>
+          <div class="ex-b">
+            <div class="kv"><span class="k">当前</span><span><b>并发用 worker 线程池，不用进程池。</b></span></div>
+            <p class="src">来自 Codex #148 · 依据：进程启动开销实测约 3 倍 · 你当时认可</p>
+            <div class="hist">
+              历史（已被取代，保留可查）：最初方案是进程池 —— #148 中段因实测放弃。
+              <p class="src">谁改的：Codex 提议 · 你在 #148 确认 · 历史结论不支配现在，但可追溯</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="ex">
+          <summary>最近产出<span class="n" id="n-output"></span></summary>
+          <div class="ex-b" id="x-output"></div>
+        </details>
+
+        <details class="ex">
+          <summary>会话现场<span class="n">Codex #148 末尾</span></summary>
+          <div class="ex-b">
+            <p class="quote"><b>你</b>　明天把它接进主流程。</p>
+            <p class="quote"><b>Codex</b>　worker 池已跑通单张。pool.js 里调试日志还没清。</p>
+            <p class="src">3 天前 21:47 停止 · 摘要只是索引 ·
+              <button class="b" style="font-size:11px;" onclick="toast('原始会话由 agent 原生载体保留，工作站只存索引与快照（§11.1）')">打开原始会话</button>
+            </p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- ════ 视图 · 会话地图（Project Session Map） ════ -->
+    <div class="view" id="v-map">
+      <div class="wrap">
+        <h1 class="pn">会话地图 · 经历、分叉与接续</h1>
+
+        <div class="map" id="map">
+          <div class="ln"     style="left:12px;  top:5px; width:226px;"></div>
+          <div class="ln d"   style="left:252px; top:5px; width:216px;"></div>
+          <div class="ln v d" style="left:5px;   top:11px; height:106px;"></div>
+          <div class="ln d"   style="left:5px;   top:117px; width:53px;"></div>
+
+          <div class="nd" id="nd-n1" style="left:0; top:0;" onclick="pick('n1')">
+            <div class="dot"></div>
+            <div class="nm">Claude Code #31</div>
+            <div class="tm">5 天前 · 搭好压缩核心</div>
+          </div>
+          <div class="nd" id="nd-n2" style="left:240px; top:0;" onclick="pick('n2')">
+            <div class="dot"></div>
+            <div class="nm">Codex #148</div>
+            <div class="tm">3 天前 · 并发 worker 池</div>
+          </div>
+          <div class="nd dash" id="nd-n3" style="left:60px; top:112px;" onclick="pick('n3')">
+            <div class="dot"></div>
+            <div class="nm">Kimi Code #07</div>
+            <div class="tm">4 天前 · 试 sharp 替代库</div>
+          </div>
+          <div class="legend">—— 确认　·　- - - 推测　·　虚线尽头是建议的接续点</div>
+        </div>
+
+        <div class="dt" id="dt"></div>
+
+        <div class="acts">
+          <button class="b b-p" id="cont" onclick="openSheet()">从这里继续 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ 视图 · 产出（Viewer：核实发生在这里） ════ -->
+    <div class="view" id="v-out">
+      <div class="wrap">
+        <h1 class="pn">产出 · 核实 agent 的真实交付</h1>
+        <div class="claim hidden" id="claim"></div>
+        <div id="out-files"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── 工作现场（开始新会话弹层） ── -->
+<div id="sheet">
+  <div class="sheet">
+    <div id="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $  = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+const state = {
+  view: 'now',
+  phase: 'before',      // before → pending → verified
+  round: 1,             // 1 = 首次会话（有不实声称）；2 = 异议回炉后
+  node: 'n2', forkDead: false,
+  agent: 'codex',
+  ctx: {}, objection: null,
+};
+
+const AG = { codex: 'Codex', claude: 'Claude Code', kimi: 'Kimi Code' };
+const VIEWS = ['now', 'map', 'out'];
+const sessionNo = () => state.round === 2 ? '#150' : '#149';
+
+/* ── 数据 ─────────────────────────────── */
+const SUG = {
+  main: { say: '把并发接进主流程，并跑一遍批量测试',
+    why: ['Codex #148 结尾，你说：「明天把它接进主流程」',
+          'pool.js 有 42 行未提交改动，尚未被任何文件引用',
+          '你在 #148 记下的 TODO：「接主流程 + 批量测」'] },
+  alt1: { say: '先发 v0.2（不带并发）',
+    why: ['README 的 v0.2 checklist 只剩打包一项', '并发代码未接线，不影响发布'] },
+  alt2: { say: '先清掉 worker 池里的调试日志',
+    why: ['pool.js 里有 6 处 console.log', '你上次说「发布前再清」'] },
+  after1: { say: '补跑批量测试；顺带把并发数 4 做成参数',
+    why: ['你验收 #149 时标记的遗留：测试未跑', '从 #148 带入的未决问题：并发数参数化'] },
+  after2: { say: '把并发数 4 做成参数',
+    why: ['从 #148 带入、#150 仍未处理的未决问题'] },
+};
+
+const NODES = {
+  n1: { name: 'Claude Code #31 · 5 天前', ok: true,
+    sum: '压缩核心搭好，单张跑通，压缩率达标。', files: 'compress.js · 已提交 a3f9c2', q: null,
+    src: '摘要来源：你在 #31 结束时确认' },
+  n2: { name: 'Codex #148 · 3 天前 21:47', ok: true,
+    sum: 'worker 池跑通单张，还没接进主流程。', files: 'pool.js · 未提交改动 +42 行',
+    q: '并发数写死 4，要不要参数化？', src: '摘要来源：你在 #148 结束时确认' },
+  n3: { name: 'Kimi Code #07 · 4 天前', ok: false,
+    sum: '（推测）此分叉已废弃：会话之后 24h 无任何文件改动。', files: '无改动记录', q: null,
+    src: '推测依据：会话日志 + 文件系统监控' },
+  n4: { name: '', ok: true,  // 验收后动态生成
+    sum: '并发接入主流程，你已验收。', files: '已提交', q: '并发数参数化（带入，仍未定）',
+    src: '摘要来源：你今天验收时确认' },
+};
+
+const BUNDLES = {
+  n1: [
+    { id: 's',  l: '线程摘要：压缩核心已跑通', s: '你在 #31 确认' },
+    { id: 'f1', l: 'compress.js · 已提交版本', s: 'git a3f9c2' },
+  ],
+  n2: [
+    { id: 's',  l: '线程摘要：worker 池跑通单张，未接主流程', s: '你在 #148 确认' },
+    { id: 'f1', l: 'pool.js · 未提交改动 +42 行', s: '#148 工作区快照' },
+    { id: 'f2', l: 'compress.js · 当前干净版本', s: 'git a3f9c2' },
+    { id: 'q1', l: '未决问题：并发数写死 4，要不要参数化？', s: '你在 #148 记下' },
+  ],
+  n3: [
+    { id: 's',  l: '分叉原始记录：sharp 试装过程（未确认的推测已过滤）', s: '#07 会话日志' },
+    { id: 'f1', l: 'package.json · sharp 依赖改动', s: '#07 工作区快照' },
+  ],
+  n4: [
+    { id: 's',  l: '线程摘要：并发已接入主流程', s: '你验收时确认' },
+    { id: 'f1', l: 'compress.js / pool.js · 已提交版本', s: 'git' },
+    { id: 'q1', l: '未决问题：并发数参数化（仍未定）', s: '#148 带入' },
+  ],
+};
+
+/* ── 现在 ─────────────────────────────── */
+function renderNow() {
+  const p = state.phase;
+
+  if (p === 'before') {
+    $('#now-meta').innerHTML = '<span class="t t-c">你确认的</span>　3 天前 · Codex #148';
+    $('#now-say').textContent = 'worker 池已能跑通单张图，还没接进主流程。';
+  } else if (p === 'pending') {
+    $('#now-meta').innerHTML = `<span class="t t-i">agent 自报 · 未经核实</span>　Codex ${sessionNo()} · 今天`;
+    $('#now-say').textContent = 'Codex 报告「并发已接入主流程」。是否属实，去「产出」核实。';
+  } else {
+    $('#now-meta').innerHTML = `<span class="t t-c">你确认的</span>　今天 14:41 验收 · Codex ${sessionNo()}`;
+    $('#now-say').textContent = state.round === 2
+      ? '并发已接入主流程，批量测试 6/6 通过。'
+      : '并发已接入主流程。遗留：批量测试未跑。';
+  }
+
+  // 下一步：pending 时不给推测——先验收，再谈下一步
+  if (p === 'pending') {
+    $('#inf').innerHTML = `
+      <span class="t t-i">待验收</span>　<span class="kick">下一步未定</span>
+      <p class="say serif" style="font-style:italic;">Codex ${sessionNo()} 自报完成，未经核实——验收之前不谈「下一步」。</p>
+      <div class="acts" style="margin-top:10px;">
+        <button class="b" onclick="go('out')">去「产出」核实 →</button>
+      </div>`;
+  } else {
+    const key = p === 'verified' ? (state.round === 2 ? 'after2' : 'after1') : state.sug || 'main';
+    const s = SUG[key];
+    const alts = ['main', 'alt1', 'alt2'].filter(k => k !== key);
+    $('#inf').innerHTML = `
+      <span class="t t-i">推测</span>　<span class="kick">系统建议的下一步</span>
+      <p class="say">「${s.say}」</p>
+      <details class="why">
+        <summary>依据 ${s.why.length} 条 · 逐条注明来源</summary>
+        <ul>${s.why.map(w => `<li>${w}</li>`).join('')}</ul>
+      </details>
+      ${p === 'verified' ? '' : `
+      <div class="alts hidden" id="alts">
+        ${alts.map(k => `<button class="b" onclick="swapSug('${k}')">换成：${SUG[k].say}</button>`).join('')}
+      </div>
+      <div class="acts" style="margin-top:10px;">
+        <button class="b" onclick="toggleAlts()">这不是我要做的</button>
+      </div>`}`;
+  }
+
+  // 目标与进度
+  const rows = {
+    before: `
+      <div class="kv"><span class="k">目标</span><span><b>发布 v0.2 本地图片压缩 CLI</b>　<span class="src" style="display:inline;">你在 #28 定下</span></span></div>
+      <div class="pr"><span>压缩核心</span><span class="r"><span class="t t-c">真实完成</span>你验收于 #31</span></div>
+      <div class="pr"><span>并发接入主流程</span><span class="r"><span class="t t-p">进行中</span>#148 停在一半</span></div>`,
+    pending: `
+      <div class="kv"><span class="k">目标</span><span><b>发布 v0.2 本地图片压缩 CLI</b>　<span class="src" style="display:inline;">你在 #28 定下</span></span></div>
+      <div class="pr"><span>压缩核心</span><span class="r"><span class="t t-c">真实完成</span>你验收于 #31</span></div>
+      <div class="pr"><span>并发接入主流程</span><span class="r"><span class="t t-i">待验收</span>Codex ${sessionNo()} 自报完成 · 未经核实</span></div>`,
+    verified: `
+      <div class="kv"><span class="k">目标</span><span><b>发布 v0.2 本地图片压缩 CLI</b>　<span class="src" style="display:inline;">你在 #28 定下</span></span></div>
+      <div class="pr"><span>压缩核心</span><span class="r"><span class="t t-c">真实完成</span>你验收于 #31</span></div>
+      <div class="pr"><span>并发接入主流程</span><span class="r"><span class="t t-c">真实完成</span>你今天验收${state.round === 2 ? '' : ' · 遗留：测试未跑'}</span></div>`,
+  };
+  $('#x-progress').innerHTML = rows[p];
+  $('#n-progress').textContent = p === 'before' ? '1 完成 · 1 进行中' : p === 'pending' ? '1 完成 · 1 待验收' : '2 完成';
+
+  // 最近产出
+  const outs = {
+    before: `
+      <div class="pr"><span class="mono" style="font-size:12px;">pool.js · +42 行</span><span class="r">未提交 · #148 工作区快照 · 3 天前</span></div>
+      <p class="src"><button class="b" style="font-size:11px;" onclick="go('out')">在「产出」中查看 →</button></p>`,
+    pending: `
+      <div class="pr"><span class="mono" style="font-size:12px;">compress.js · +38 −12</span><span class="r">Codex ${sessionNo()} · 14:02</span></div>
+      <div class="pr"><span class="mono" style="font-size:12px;">pool.js · +55 −3</span><span class="r">Codex ${sessionNo()} · 14:11</span></div>
+      <p class="src"><span class="t t-i">待验收</span>　<button class="b" style="font-size:11px;" onclick="go('out')">去核实 →</button></p>`,
+    verified: `
+      <div class="pr"><span class="mono" style="font-size:12px;">compress.js / pool.js${state.round === 2 ? ' / batch-test.js' : ''}</span><span class="r">已提交 · 你验收于今天 14:41</span></div>
+      <p class="src"><button class="b" style="font-size:11px;" onclick="go('out')">在「产出」中追溯历史版本 →</button></p>`,
+  };
+  $('#x-output').innerHTML = outs[p];
+  $('#n-output').textContent = p === 'before' ? '#148 · 未提交快照' : p === 'pending' ? `${sessionNo()} · 待验收` : `${sessionNo()} · 已验收`;
+}
+
+function toggleAlts() { const el = $('#alts'); if (el) el.classList.toggle('hidden'); }
+function swapSug(k) {
+  state.sug = k; renderNow();
+  toast('建议已替换 · 你的选择会被记录，影响以后的推测');
+}
+
+/* ── 会话地图 ─────────────────────────── */
+function mapSel() {
+  ['n1', 'n2', 'n3', 'n4'].forEach(id => {
+    const el = $('#nd-' + id);
+    if (el) el.classList.toggle('sel', state.node === id);
+  });
+  const n3 = $('#nd-n3');
+  if (n3) n3.classList.toggle('dead', state.forkDead);
+}
+
+function detail() {
+  const d = NODES[state.node], id = state.node;
+  const name = id === 'n4' ? `Codex ${sessionNo()} · 今天` : d.name;
+  const tag = d.ok ? '<span class="t t-c">你确认的</span>' : '<span class="t t-i">推测</span>';
+  let btns = '';
+  if (id === 'n3' && !state.forkDead) {
+    btns = `<button class="b" onclick="killFork()">确认废弃</button>
+            <button class="b" onclick="openSheet()">这条有用，从这继续 →</button>`;
+  } else if (id === 'n3' && state.forkDead) {
+    btns = `<span class="t t-p">已确认废弃 · 留痕</span>　<button class="b" onclick="reviveFork()">撤销</button>`;
+  } else {
+    btns = `<button class="b" onclick="openSheet()">从这点继续 →</button>`;
+  }
+  $('#dt').innerHTML = `
+    <h3>${name}　${tag}${id === 'n2' && state.phase === 'before' ? '　<span class="t t-i">建议接续点 · 推测</span>' : ''}</h3>
+    <div class="kv"><span class="k">摘要</span><span>${d.sum}</span></div>
+    <div class="kv"><span class="k">文件</span><span class="mono" style="font-size:12px;">${d.files}</span></div>
+    ${d.q ? `<div class="kv"><span class="k">未决</span><span>${d.q}</span></div>` : ''}
+    <p class="src">${d.src}</p>
+    <div class="acts">${btns}</div>`;
+  $('#cont').textContent = `从选中点（${name.split(' ·')[0]}）继续 →`;
+}
+
+function pick(id) { state.node = id; mapSel(); detail(); }
+function killFork() {
+  state.forkDead = true; mapSel(); detail();
+  toast('已确认废弃 · 分叉在地图上变灰留痕');
+}
+function reviveFork() { state.forkDead = false; mapSel(); detail(); }
+
+/* ── 产出（Viewer）────────────────────── */
+function renderOut() {
+  const p = state.phase;
+  const claim = $('#claim'), files = $('#out-files');
+
+  if (p === 'before') {
+    claim.classList.add('hidden');
+    files.innerHTML = `
+      <p class="kick" style="margin-bottom:8px;">历史产出 · 没有待验收的会话</p>
+      <div class="ev"><span>·</span><span class="f mono">pool.js</span><span class="st">+42 未提交 · #148 工作区快照 · 3 天前</span></div>
+      <div class="ev"><span>·</span><span class="f mono">compress.js</span><span class="st">已提交 a3f9c2 · Claude #31 · 5 天前</span></div>
+      <p class="src">产出以真实工作目录与 Git 为准（§11.1）· 工作站不做第二份事实</p>`;
+    return;
+  }
+
+  claim.classList.remove('hidden');
+  if (p === 'pending') {
+    const r2 = state.round === 2;
+    claim.innerHTML = `
+      <span class="t t-i">agent 自述 · 未经核实</span>
+      <p class="say serif">${r2
+        ? '「已补上 batch-test.js，批量测试 6/6 通过。本次共改动 3 个文件。」'
+        : '「并发已接入主流程，批量测试通过。本次共改动 3 个文件。」'}</p>
+      <p class="src">Codex ${sessionNo()} · 结束于今天 ${r2 ? '15:26' : '14:31'}${state.objection && r2 ? ' · 本次会话由你的异议开启' : ''}</p>
+      <div class="acts" style="margin-top:14px;">
+        <button class="b b-p" onclick="accept()">${r2 ? '确认验收 →' : '确认验收（遗留：测试未跑） →'}</button>
+        ${r2 ? '' : '<button class="b" onclick="object()">提出异议，回炉</button>'}
+        <button class="b" onclick="openSheet()">继续这个会话</button>
+      </div>`;
+    files.innerHTML = `
+      <p class="kick" style="margin-bottom:8px;">实际产出 · 逐文件可展开 diff · 与自述逐条对账</p>
+      <div class="ev"><span>✓</span><span class="f mono">compress.js</span><span class="st">+38 −12 · 14:02</span></div>
+      <details class="diff"><summary>diff</summary><pre class="mono"><span>  function run(queue) {</span><span class="dd">−   const file = queue[0]</span><span class="dd">−   return compress(file)</span><span class="da">+   const workers = spawnPool(4)</span><span class="da">+   return Promise.all(</span><span class="da">+     chunk(queue, 4).map(workers.exec)</span><span class="da">+   )</span><span>  }</span></pre></details>
+      <div class="ev"><span>✓</span><span class="f mono">pool.js</span><span class="st">+55 −3 · 14:11</span></div>
+      ${r2 ? `
+      <div class="ev"><span>✓</span><span class="f mono">batch-test.js</span><span class="st">+64 −0 · 15:19</span></div>
+      <div class="ev"><span>✓</span><span>批量测试</span><span class="st">6/6 通过 · 15:24 有运行记录</span></div>`
+      : `
+      <div class="ev warn"><span>⚠</span><span class="f mono">batch-test.js</span><span class="st">声称改动 · 实际不存在</span></div>
+      <div class="ev warn"><span>⚠</span><span>批量测试</span><span class="st">声称「通过」· 无运行记录</span></div>`}`;
+    return;
+  }
+
+  // verified
+  claim.innerHTML = `
+    <span class="t t-c">你已验收 · 今天 14:41</span>
+    <p class="say serif" style="font-style:normal;">Codex ${sessionNo()} 的产出已记入项目历史${state.round === 2 ? '' : '，遗留：批量测试未跑'}。</p>
+    <p class="src">验收前的自述与对账记录保留可查，不覆盖、不伪造「始终正确」的历史（§7）</p>`;
+  files.innerHTML = `
+    <div class="ev"><span>✓</span><span class="f mono">compress.js</span><span class="st">+38 −12 · 已提交</span></div>
+    <div class="ev"><span>✓</span><span class="f mono">pool.js</span><span class="st">+55 −3 · 已提交</span></div>
+    ${state.round === 2 ? '<div class="ev"><span>✓</span><span class="f mono">batch-test.js</span><span class="st">+64 −0 · 已提交</span></div>' : ''}
+    <p class="src"><button class="b" style="font-size:11px;" onclick="toast('原型未含：历史版本 / 时间机器')">追溯历史版本 →</button></p>`;
+}
+
+/* ── 验收 / 异议（回流，环闭合）───────────── */
+function accept() {
+  state.phase = 'verified';
+  $('#nav-badge').classList.add('hidden');
+  if (!$('#nd-n4')) {
+    const nd = document.createElement('div');
+    nd.className = 'nd'; nd.id = 'nd-n4';
+    nd.style.cssText = 'left:470px; top:0;';
+    nd.setAttribute('onclick', "pick('n4')");
+    nd.innerHTML = `<div class="dot"></div><div class="nm">Codex ${sessionNo()}</div><div class="tm">今天 · 并发接主流程 · 已验收</div>`;
+    $('#map').appendChild(nd);
+  }
+  const d = $$('#map .ln.d');
+  if (d[0]) d[0].classList.remove('d');   // 虚线建议箭头 → 实线确认
+  state.node = 'n4';
+  state.objection = null;
+  renderNow(); renderOut();
+  toast('已验收并回流：进度已更新 · 自述与对账留痕 · 下一步建议已更新');
+  go('now');
+}
+
+function object() {
+  state.objection = 'batch-test.js 不存在；批量测试未运行——先补这两样，再谈完成。';
+  toast('异议已记录，将作为新会话的开场');
+  openSheet();
+}
+
+/* ── 工作现场（弹层）───────────────────── */
+function openSheet() {
+  const node = state.node, items = BUNDLES[node];
+  items.forEach(it => { const k = node + ':' + it.id; if (!(k in state.ctx)) state.ctx[k] = true; });
+  const nodeName = node === 'n4' ? `Codex ${sessionNo()}` : NODES[node].name.split(' ·')[0];
+  $('#sheet-body').innerHTML = `
+    <h2>开始新会话</h2>
+    <p class="src" style="margin-top:2px;">接续点：${nodeName}
+      ${node === 'n2' && state.phase === 'before' ? '　<span class="t t-i">建议 · 推测</span>' : ''}
+      ・<button class="b" style="font-size:11px;" onclick="closeSheet(); go('map');">在地图上换 →</button>
+    </p>
+    ${state.objection ? `
+    <div class="obj" style="margin-top:16px;">
+      <span class="t t-c">你提出的异议</span>　${state.objection}
+      <p class="src">将作为新会话的开场消息，agent 需要先回应它。</p>
+    </div>` : ''}
+    <p class="kick" style="margin:18px 0 4px;">工作现场 · 继续所需的最小相关上下文（§6.1）· 未经你确认的推测已过滤</p>
+    <div id="cx-list"></div>
+    <p class="kick" style="margin:20px 0 8px;">用哪个 agent</p>
+    <div class="agts">
+      ${Object.keys(AG).map(a => `<button class="${state.agent === a ? 'on' : ''}" onclick="agent('${a}')">${AG[a]}</button>`).join('')}
+    </div>
+    <p class="src">默认沿用上次 · agent 可替换，项目与上下文不变</p>
+    <div class="acts">
+      <button class="b" onclick="closeSheet()">取消</button>
+      <button class="b b-p" id="start" onclick="start()">开始会话 →</button>
+    </div>`;
+  renderCx();
+  $('#sheet').classList.add('on');
+}
+
+function renderCx() {
+  const node = state.node, items = BUNDLES[node];
+  $('#cx-list').innerHTML = items.map(it => {
+    const key = node + ':' + it.id, on = state.ctx[key];
+    return `<div class="cx-r${on ? '' : ' off'}">
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="cxT('${key}', this)">
+      <span class="l">${it.l}</span><span class="s">来源：${it.s}</span>
+    </div>`;
+  }).join('');
+  const n = items.filter(it => state.ctx[node + ':' + it.id]).length;
+  const btn = $('#start');
+  if (btn) btn.textContent = `开始会话 →（携带 ${n} 项）`;
+}
+
+function cxT(key, cb) {
+  state.ctx[key] = cb.checked;
+  cb.closest('.cx-r').classList.toggle('off', !cb.checked);
+  renderCx();
+}
+function agent(a) { state.agent = a; openSheet(); }
+
+function start() {
+  const node = state.node;
+  const n = BUNDLES[node].filter(it => state.ctx[node + ':' + it.id]).length;
+  $('#sheet-body').innerHTML = `
+    <div class="run">
+      <p class="serif" style="font-size:16px;">${AG[state.agent]} 会话进行中 · 已携带 ${n} 项工作现场</p>
+      <div class="bar"><i></i></div>
+      <p style="font-size:12px; color:var(--i3);">真实产品中，这里嵌入 agent 的终端 / 原生视图（接入 ≠ 改造，§12.1）</p>
+      <div class="acts" style="justify-content:center;">
+        <button class="b" onclick="done()">（演示）agent 报告「完成了」 →</button>
+      </div>
+    </div>`;
+}
+
+function done() {
+  state.phase = 'pending';
+  state.round = state.objection ? 2 : 1;
+  closeSheet();
+  $('#nav-badge').classList.remove('hidden');
+  renderNow(); renderOut();
+  toast(`${AG[state.agent]} ${sessionNo()} 已结束 · 产出待验收`);
+  go('out');
+}
+
+function closeSheet() { $('#sheet').classList.remove('on'); }
+$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+
+/* ── 视图切换 ─────────────────────────── */
+function go(v) {
+  state.view = v;
+  $$('.view').forEach(el => el.classList.toggle('on', el.id === 'v-' + v));
+  $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  if (v === 'now') renderNow();
+  if (v === 'map') { mapSel(); detail(); }
+  if (v === 'out') renderOut();
+  $('#main').scrollTop = 0;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  if ($('#sheet').classList.contains('on')) return;
+  const i = VIEWS.indexOf(state.view);
+  const d = e.key === 'ArrowRight' ? 1 : -1;
+  const n = i + d;
+  if (n >= 0 && n < VIEWS.length) go(VIEWS[n]);
+});
+
+let tt = null;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(tt);
+  tt = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ── 初始化 ───────────────────────────── */
+renderNow(); renderOut(); detail(); mapSel();
+const h = (location.hash || '').slice(1);
+if (VIEWS.includes(h)) go(h);
+
+/* 演示快捷态：?t=pending（待验收）/ ?t=round2（异议回炉后）/ ?t=verified（已验收） */
+const t = new URLSearchParams(location.search).get('t');
+if (t === 'pending') done();
+if (t === 'round2') { done(); object(); closeSheet(); done(); }
+if (t === 'verified') { done(); accept(); }
+</script>
+</body>
+</html>

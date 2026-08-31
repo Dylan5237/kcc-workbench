@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arckeep · 项目恢复体验 · 低保真原型 v0.1</title>
+  <style>
+    :root {
+      --ink: #24303a;
+      --ink-2: #556573;
+      --ink-3: #8794a0;
+      --line: #dbe2e8;
+      --paper: #f4f6f8;
+      --white: #fff;
+      --selected: #275e70;
+      --selected-soft: #e5eff2;
+      --candidate: #6a6450;
+      --candidate-soft: #f3efe5;
+      --warning: #8a4b00;
+      --warning-soft: #fff2df;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    .frame {
+      width: 1240px;
+      margin: 24px auto;
+      background: var(--white);
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; }
+
+    .brand span,
+    .nav button,
+    .badge,
+    .mini-btn {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .logo {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--selected);
+      border-radius: 7px;
+    }
+
+    .nav { display: flex; gap: 6px; }
+
+    .nav button {
+      border: 0;
+      background: transparent;
+      color: var(--ink-2);
+      padding: 9px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .nav button:hover { background: #eef1f4; }
+    .nav button.active { background: var(--selected-soft); color: var(--selected); font-weight: 650; }
+
+    .prototype-note {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 20px;
+      color: var(--ink-3);
+      background: #fafbfc;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    main { display: grid; grid-template-columns: 218px minmax(0, 1fr); min-height: 690px; }
+
+    aside {
+      padding: 18px 12px;
+      border-right: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .side-label {
+      margin: 0 8px 10px;
+      color: var(--ink-3);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .project-item,
+    .side-item {
+      display: block;
+      width: 100%;
+      margin-bottom: 4px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-2);
+      text-align: left;
+      padding: 9px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .project-item:hover,
+    .side-item:hover { background: #edf0f3; }
+    .project-item.active { background: var(--selected-soft); color: var(--selected); font-weight: 650; }
+    .project-item small { display: block; margin-top: 3px; color: var(--ink-3); font-weight: 400; font-size: 11px; }
+
+    .workspace { padding: 20px; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 18px; }
+    h1 { margin: 0 0 8px; font-size: 21px; }
+    h2 { margin: 0 0 8px; font-size: 15px; }
+    p { margin: 0; }
+    .sub { color: var(--ink-2); font-size: 13px; }
+    .micro { color: var(--ink-3); font-size: 11px; }
+
+    .focus-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 310px;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card { background: var(--white); border: 1px solid var(--line); border-radius: 8px; }
+    .pad { padding: 14px; }
+    .card + .card { margin-top: 14px; }
+
+    .status-line { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #7d997a; }
+    .dot.user-check { background: var(--selected); }
+    .dot.system-guess { background: #c7a243; }
+
+    .next-step {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: #f8f9fa;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 14px;
+    }
+
+    .primary {
+      border: 0;
+      background: var(--selected);
+      color: var(--white);
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .ghost {
+      border: 1px solid var(--line);
+      background: var(--white);
+      color: var(--ink-2);
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .mini-btn { border: 0; background: transparent; color: var(--ink-3); cursor: pointer; }
+    .mini-btn:hover { color: var(--selected); }
+
+    .badges { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: var(--ink-2); background: #fafbfc; }
+    .badge.strong { color: var(--selected); background: var(--selected-soft); border-color: #c8dbe1; }
+    .badge.system-guess { color: var(--warning); background: var(--warning-soft); border-color: #f0d6ad; }
+    .badge.candidate { color: var(--candidate); background: var(--candidate-soft); border-color: #ded4bd; }
+
+    .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; }
+    .entry { border: 1px solid var(--line); border-radius: 7px; padding: 12px; background: #fbfcfd; min-height: 76px; }
+    .entry strong { display: block; margin-bottom: 6px; font-size: 13px; }
+    .entry span { color: var(--ink-3); font-size: 12px; }
+
+    .map-stage {
+      position: relative;
+      height: 390px;
+      background: repeating-linear-gradient(0deg, transparent, transparent 23px, #f0f2f4 23px, #f0f2f4 24px),
+                  repeating-linear-gradient(90deg, transparent, transparent 23px, #f0f2f4 23px, #f0f2f4 24px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .node {
+      position: absolute;
+      width: 205px;
+      padding: 10px 11px;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      box-shadow: 0 2px 5px #e6e9ec;
+      cursor: pointer;
+    }
+
+    .node.selected { border-color: var(--selected); border-width: 2px; }
+    .node strong { display: block; margin-bottom: 5px; font-size: 13px; }
+    .node small { color: var(--ink-3); font-size: 11px; display: block; }
+    .node .agent { margin-top: 7px; font-size: 11px; color: var(--selected); }
+
+    .connect {
+      position: absolute;
+      height: 2px;
+      background: #b8c2ca;
+      transform-origin: 0 50%;
+    }
+
+    .panel-grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; }
+    .map-panel { min-height: 390px; }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 11px;
+      border-bottom: 1px solid #edf0f2;
+    }
+
+    .list-item:last-child { border-bottom: 0; }
+    .list-item strong { display: block; font-size: 13px; font-weight: 650; }
+    .list-item span { color: var(--ink-3); font-size: 12px; }
+    .changed { color: var(--selected); font-size: 12px; }
+
+    .review-grid { display: grid; grid-template-columns: 205px minmax(0, 1fr); gap: 14px; }
+    .preview {
+      height: 365px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      background: #fbfcfd;
+      color: var(--ink-2);
+    }
+    .preview .title { width: 42%; height: 15px; background: #d9e0e5; margin-bottom: 14px; }
+    .preview .line { height: 10px; background: #e8ecef; margin-bottom: 9px; }
+    .preview .line.short { width: 58%; }
+    .preview .diff-added { background: #d9ead7; }
+    .preview .diff-removed { background: #f4d6d2; }
+
+    .agents { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .agent-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .agent-card.pad { padding: 0; }
+    .agent-head { padding: 13px; border-bottom: 1px solid var(--line); background: #fafbfc; font-weight: 650; }
+    .agent-body { padding: 13px; }
+    .capability { display: flex; gap: 7px; font-size: 12px; color: var(--ink-2); margin-bottom: 7px; }
+    .capability.yes { color: #567053; }
+    .capability.no { color: #975f56; }
+    .capability.part { color: #876c2a; }
+
+    .footer-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+    .wire-note {
+      position: fixed;
+      right: 20px;
+      bottom: 18px;
+      width: 280px;
+      background: #fffdf7;
+      border: 1px solid #e5d8b7;
+      color: #6a5a35;
+      padding: 12px;
+      font-size: 12px;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px #d8d2c3;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <header>
+      <div class="brand">
+        <div class="logo"></div>
+        <span>Arckeep</span>
+      </div>
+      <nav class="nav">
+        <button class="active" data-screen="recover">项目恢复</button>
+        <button data-screen="map">Session Map</button>
+        <button data-screen="viewer">Viewer</button>
+        <button data-screen="agents">Agent 接入</button>
+      </nav>
+      <div class="badges">
+        <span class="badge">本地优先</span>
+        <span class="badge strong">KCC Workbench</span>
+      </div>
+    </header>
+
+    <div class="prototype-note">
+      <span>低保真原型 v0.1 · 用于验证信息架构，不代表视觉风格或实施范围</span>
+      <span>灰字 = 待验证 · 深色 = 可确认方向</span>
+    </div>
+
+    <main>
+      <aside>
+        <p class="side-label">最近项目</p>
+        <button class="project-item active">Arckeep 设计<small>设计哲学 / 概要设计 / 原型</small></button>
+        <button class="project-item">KCC Workbench<small>双引擎 / Viewer / 发布</small></button>
+        <button class="project-item">req-to-page<small>26 项数据要素评审</small></button>
+        <p class="side-label" style="margin-top: 20px;">工作入口</p>
+        <button class="side-item">继续上次工作</button>
+        <button class="side-item">新建工作现场</button>
+        <button class="side-item">查看全部项目</button>
+        <p class="side-label" style="margin-top: 20px;">候选能力</p>
+        <button class="side-item">个人认知索引</button>
+        <button class="side-item">能力与资源</button>
+        <button class="side-item">额度总览</button>
+      </aside>
+
+      <section class="workspace">
+        <section id="recover" class="screen active">
+          <div class="page-head">
+            <div>
+              <h1>回到 Arckeep 设计</h1>
+              <p class="sub">当前状态和下一步优先呈现；目标、产出、判断与会话现场按需展开。</p>
+            </div>
+            <div class="badges">
+              <span class="badge">D:\_projects\tools\KCCWorkbench</span>
+              <span class="badge">上次工作：昨天 22:41</span>
+            </div>
+          </div>
+
+          <div class="focus-row">
+            <div class="card pad">
+              <div class="status-line">
+                <span class="dot user-check"></span>
+                <strong>当前状态</strong>
+                <span class="micro">用户确认</span>
+              </div>
+              <p class="sub">Arckeep 已完成产品名、设计哲学和概要设计 v0.1。两个已确认模块是 Viewer 和 Project Session Map。</p>
+
+              <div style="height: 14px;"></div>
+              <div class="status-line">
+                <span class="dot system-guess"></span>
+                <strong>系统建议下一步</strong>
+                <span class="micro">来自最近 3 个会话和未决问题</span>
+              </div>
+              <div class="next-step">
+                <div>
+                  <strong>用低保真原型验证项目恢复体验</strong>
+                  <p class="micro" style="margin-top: 5px;">判断首页是否应以“继续工作”为中心，以及 Session Map 是否承担会话接续入口。</p>
+                </div>
+                <button class="primary">继续</button>
+              </div>
+
+              <div style="height: 12px;"></div>
+              <div class="badges">
+                <span class="badge system-guess">系统理解 · 待确认</span>
+                <span class="mini-btn">改写</span>
+                <span class="mini-btn">不采纳</span>
+                <span class="mini-btn">查看依据</span>
+              </div>
+            </div>
+
+            <div class="card pad">
+              <h2>这次继续，需要带上什么？</h2>
+              <p class="sub">建议只进入当前任务相关现场，不默认加载全量历史。</p>
+              <div style="height: 12px;"></div>
+              <div class="badges">
+                <span class="badge strong">概要设计 v0.1</span>
+                <span class="badge strong">Session Map 未决问题</span>
+                <span class="badge system-guess">D-14 命名已确认</span>
+                <span class="badge candidate">D-11 记忆视图待验证</span>
+              </div>
+              <div style="height: 13px;"></div>
+              <p class="micro">用户可以在进入会话前移除任意一项。工作站不把“重要”自动等同于“相关”。</p>
+              <div style="height: 15px;"></div>
+              <button class="ghost">编辑工作现场</button>
+            </div>
+          </div>
+
+          <div class="strip">
+            <div class="entry">
+              <strong>目标 / 待办</strong>
+              <span>3 项未决 · 2 项待用户确认</span>
+            </div>
+            <div class="entry">
+              <strong>最近产出</strong>
+              <span>概念稿 3 · 设计文档 2 · 原型 0</span>
+            </div>
+            <div class="entry">
+              <strong>关键判断</strong>
+              <span>D-01 到 D-14 · 可追溯</span>
+            </div>
+            <div class="entry">
+              <strong>会话脉络</strong>
+              <span>8 段经历 · 2 个接续点</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="map" class="screen">
+          <div class="page-head">
+            <div>
+              <h1>Project Session Map</h1>
+              <p class="sub">这里保存项目的会话经历与接续关系，不代替项目计划或记忆库。</p>
+            </div>
+            <div class="badges">
+              <span class="badge">按项目过滤</span>
+              <span class="badge">含外部 Agent</span>
+              <span class="badge candidate">摘要可重新生成</span>
+            </div>
+          </div>
+
+          <div class="panel-grid">
+            <div class="card map-panel">
+              <div class="pad">
+                <h2>选中会话</h2>
+                <p><strong style="font-size: 13px;">Session Map 探索</strong></p>
+                <p class="micro">Claude Code · 昨天 21:12–22:38 · 原始载体未修改</p>
+                <div style="height: 12px;"></div>
+                <p class="sub">探索结果：定位为项目经历结构，不把会话总结误当成记忆库。</p>
+                <div style="height: 13px;"></div>
+                <div class="badges">
+                  <span class="badge strong">系统理解</span>
+                  <span class="mini-btn">展开原始现场</span>
+                </div>
+                <div style="height: 16px;"></div>
+                <button class="primary">从这里继续</button>
+                <button class="ghost" style="margin-top: 8px;">新建接续会话</button>
+                <div style="height: 16px;"></div>
+                <p class="micro">点击节点看经历；点击“继续”才决定把哪些信息带去新会话。</p>
+              </div>
+            </div>
+
+            <div class="map-stage">
+              <div class="connect" style="left: 185px; top: 70px; width: 205px; transform: rotate(19deg);"></div>
+              <div class="connect" style="left: 385px; top: 131px; width: 220px; transform: rotate(0deg);"></div>
+              <div class="connect" style="left: 600px; top: 131px; width: 185px; transform: rotate(-27deg);"></div>
+
+              <div class="node" style="left: 22px; top: 26px;">
+                <strong>产品困惑</strong>
+                <small>Codex · 08-25</small>
+                <small>讨论 KCC 后续价值</small>
+                <div class="agent">产生 3 个候选方向</div>
+              </div>
+
+              <div class="node" style="left: 260px; top: 58px;">
+                <strong>不变与变</strong>
+                <small>Claude Code · 08-25</small>
+                <small>确定稳定核心假设</small>
+                <div class="agent">接续上一段经历</div>
+              </div>
+
+              <div class="node selected" style="left: 508px; top: 78px;">
+                <strong>Session Map 探索</strong>
+                <small>Claude Code · 08-26</small>
+                <small>确定项目经历结构</small>
+                <div class="agent">2 个可继续点</div>
+              </div>
+
+              <div class="node" style="left: 742px; top: 26px;">
+                <strong>记忆分界</strong>
+                <small>Codex · 08-26</small>
+                <small>澄清经验 / 知识 / 规则</small>
+                <div class="agent">分支 · 未合并</div>
+              </div>
+
+              <div class="node" style="left: 240px; top: 250px;">
+                <strong>概要设计 v0.1</strong>
+                <small>Codex · 08-27</small>
+                <small>写入 D-01 到 D-14</small>
+                <div class="agent">已接续 Session Map 探索</div>
+              </div>
+
+              <div class="node" style="left: 520px; top: 275px;">
+                <strong>项目恢复原型</strong>
+                <small>本原型 · 08-27</small>
+                <small>尚未成为真实会话</small>
+                <div class="agent">候选接续点</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="viewer" class="screen">
+          <div class="page-head">
+            <div>
+              <h1>产出核查</h1>
+              <p class="sub">Agent 说“完成”之后，这里用真实文件变化回答“完成在哪里”。</p>
+            </div>
+            <div class="badges">
+              <span class="badge">本轮产物</span>
+              <span class="badge">时间机器</span>
+              <span class="badge strong">源码 / 预览 / Diff</span>
+            </div>
+          </div>
+
+          <div class="review-grid">
+            <div class="card">
+              <div class="pad" style="border-bottom: 1px solid var(--line);"><h2>本轮变化</h2><p class="micro">来自当前工作目录 · 不复制为第二份事实</p></div>
+              <div class="list-item">
+                <div><strong>概要设计 v0.1.md</strong><span>新增 · 今天 10:16</span></div>
+                <span class="changed">+412</span>
+              </div>
+              <div class="list-item">
+                <div><strong>产品设计哲学.md</strong><span>修改 · 今天 10:16</span></div>
+                <span class="changed">+58 / -6</span>
+              </div>
+              <div class="list-item">
+                <div><strong>session-map-notes.json</strong><span>新增 · 昨天 22:38</span></div>
+                <span class="changed">+91</span>
+              </div>
+              <div class="list-item">
+                <div><strong>旧导航截图.png</strong><span>删除 · 昨天 20:44</span></div>
+                <span class="micro">证据保留</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="pad" style="display:flex; justify-content: space-between; border-bottom: 1px solid var(--line);">
+                <div><h2>概要设计 v0.1.md</h2><p class="micro">来源：Claude Code 会话 · 项目根目录</p></div>
+                <div class="badges"><span class="badge">预览</span><span class="badge strong">Diff</span><span class="badge">历史</span></div>
+              </div>
+              <div class="preview">
+                <div class="title"></div>
+                <div class="line"></div>
+                <div class="line short"></div>
+                <div class="line diff-removed"></div>
+                <div class="line"></div>
+                <div class="line diff-added"></div>
+                <div class="line diff-added short"></div>
+                <div class="line"></div>
+                <div class="line short"></div>
+                <div class="line diff-added"></div>
+                <div class="line"></div>
+                <div class="line diff-removed short"></div>
+              </div>
+              <div class="pad" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line);">
+                <span class="micro">不要把产物概览当成新的项目真相；文件以真实目录为准。</span>
+                <div class="badges"><button class="ghost">打开目录</button><button class="ghost">做检查点</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="agents" class="screen">
+          <div class="page-head">
+            <div>
+              <h1>Agent 接入边界</h1>
+              <p class="sub">工作站不承诺每个 Agent 的能力一致；能获得什么，就诚实显示什么。</p>
+            </div>
+            <div class="badges"><span class="badge candidate">接入深度待定义</span></div>
+          </div>
+
+          <div class="agents">
+            <div class="agent-card pad">
+              <div class="agent-head">Claude Code</div>
+              <div class="agent-body">
+                <div class="capability yes">· 可启动 CLI</div>
+                <div class="capability yes">· 可传项目目录</div>
+                <div class="capability part">· 会话索引待验证</div>
+                <div class="capability no">· 不承诺完整接续</div>
+              </div>
+            </div>
+            <div class="agent-card pad">
+              <div class="agent-head">Codex</div>
+              <div class="agent-body">
+                <div class="capability yes">· 可启动 CLI</div>
+                <div class="capability yes">· 可读会话历史</div>
+                <div class="capability yes">· 可传工作现场</div>
+                <div class="capability no">· 不改造原生载体</div>
+              </div>
+            </div>
+            <div class="agent-card pad">
+              <div class="agent-head">Kimi Code</div>
+              <div class="agent-body">
+                <div class="capability yes">· 可嵌入现有 WebUI</div>
+                <div class="capability yes">· 可识别工作目录</div>
+                <div class="capability part">· 跨项目记忆待探索</div>
+                <div class="capability no">· 不替代官方功能</div>
+              </div>
+            </div>
+            <div class="agent-card pad">
+              <div class="agent-head">Cursor / DSH</div>
+              <div class="agent-body">
+                <div class="capability yes">· 可登记项目入口</div>
+                <div class="capability part">· 只读产出线索</div>
+                <div class="capability no">· 会话不可靠</div>
+                <div class="capability no">· 不宣称无缝协作</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card pad" style="margin-top: 14px;">
+            <h2>接入不等于统一改写</h2>
+            <p class="sub">同一个项目可以被不同 Agent 使用。工作站优先记录项目、会话、产物和判断之间的关系，而不是要求所有 Agent 都使用同一套聊天界面或配置副本。</p>
+            <div style="height: 12px;"></div>
+            <div class="badges">
+              <span class="badge strong">项目仍是稳定中心</span>
+              <span class="badge">Agent 能力降级可见</span>
+              <span class="badge candidate">统一记忆按需调用</span>
+            </div>
+            <div class="footer-actions">
+              <span class="micro">候选能力只做低打扰提示，不因存在就变成首页功能。</span>
+              <div class="badges"><button class="ghost">查看接入诊断</button><button class="primary">在当前项目中启动</button></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="wire-note">
+    <strong>这张原型只验证三件事：</strong><br />
+    1. 首页是否帮助用户“继续工作”；<br />
+    2. Session Map 是否足够导航接续；<br />
+    3. Viewer 是否能把 Agent 结论落到真实产物。
+  </div>
+
+  <script>
+    const navButtons = [...document.querySelectorAll(".nav button")];
+    const screens = [...document.querySelectorAll(".screen")];
+    navButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        navButtons.forEach((item) => item.classList.remove("active"));
+        screens.forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById(button.dataset.screen).classList.add("active");
+      });
+    });
+
+    [...document.querySelectorAll(".node")].forEach((node) => {
+      node.addEventListener("click", () => {
+        document.querySelectorAll(".node").forEach((item) => item.classList.remove("selected"));
+        node.classList.add("selected");
+      });
+    });
+
+    [...document.querySelectorAll(".project-item")].forEach((item) => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".project-item").forEach((entry) => entry.classList.remove("active"));
+        item.classList.add("active");
+      });
+    });
+  </script>
+</body>
+</html>

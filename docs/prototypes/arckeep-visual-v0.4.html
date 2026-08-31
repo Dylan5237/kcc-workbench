@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Arckeep · 视觉稿 v0.4 · 品牌对齐</title>
+<!--
+
+  Arckeep v0.4 视觉：按 Arckeep Brand Handoff v1.0 执行（设计师交付物）
+
+  来源：docs/brand/（手册 PDF、tokens、Visual Language Principles、Identity Rules）
+
+  从 v0.3「田野手册」改动：
+  - 色板换为品牌七色：Deep Charcoal / Warm Ivory / Olive / Warm Sand / Soft Stone / Muted Graphite / White
+    功能红 #8E3C32 取自品牌手册自身的 Don't 用色
+  - 字体：产品 UI 全面无衬线（Segoe UI / Noto Sans CJK SC 系），等宽只承载事实（文件名/时间/编号）
+    不再用衬线做正文或标题 —— 设计师："Quiet hierarchy; avoid decorative display fonts in product UI"
+  - 母题替换：测量刻度尺 / 对位十字 / 朱砂印章 → 品牌的 Open Cut（开放切口）：
+    页眉细线不到边，末端接一个 45° 切面；主操作按钮右下角 7px 切角；侧栏底部连续性折线
+  - 确认标记：朱砂印章 → 炭黑方章内嵌象牙白品牌符号（印章感来自符号本身，不再造一个印）
+  - 侧栏改为 Deep Charcoal 聚焦面（品牌定义的品牌面），主区 Warm Ivory 工作面
+  - 无颗粒纹理（品牌：哑光平面，禁纹理/金属/渐变/投影）；圆角 ≤2px
+  - 动效按手册：micro 120-220ms，状态接续 220-360ms；切屏 = 延续（淡入+微位移），不是重启
+  - 状态色不单独表意（WCAG）：推测 = Sand 圆点 + 「推测」文字；实时 = Olive 圆点 + 文字
+
+  信息架构不变，遵循 ARCKEEP_DESIGN_V0.2.md。支持 #space / #map / #out / #live 直达。
+
+-->
+<style>
+:root{
+  --charcoal:#232323; --ivory:#F5F2EA; --olive:#5B5E3B; --sand:#C1A477;
+  --stone:#D8D4CB;  --graphite:#66635D;
+  --sheet:#FBF8F2;   --line:#D7D1C6;  --line2:#E6E1D4; --rule:#CFC8BC;
+  --mut2:#66635D;   /* 语义级次级文字（AA ≥4.5:1）；品牌 #7A756D 只用于装饰性署名 */
+  --mut3:#8B847A;  --note:#514F49;  --red:#8E3C32;
+  --rail:#232323;   --rail-card:#2B2B2B; --rail-line:#4A4844;
+  --rail-tx:#F5F2EA; --rail-mut:#AAA69C;  --rail-mut2:#807D75;
+  --sans:"Segoe UI","Noto Sans CJK SC","Source Han Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Courier New",monospace;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html, body{ height:100%; overflow:hidden; }
+body{ font-family:var(--sans); background:var(--ivory); color:var(--charcoal);
+      font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+::selection{ background:rgba(193,164,119,.4); }
+button{ font:inherit; }
+
+.app{ display:grid; grid-template-columns:212px minmax(0,1fr) 56px; height:100vh; }
+
+/* ============ 左 · Charcoal 品牌面 ============ */
+.toc{ background:var(--rail); color:var(--rail-tx); display:flex; flex-direction:column; padding:24px 0 0; }
+.brand{ padding:0 20px 18px; border-bottom:1px solid var(--rail-line); }
+.brand svg{ display:block; width:124px; height:auto; }
+.brand .sub{ font-family:var(--mono); font-size:9px; color:var(--rail-mut2); letter-spacing:.22em; margin-top:10px; }
+.tsec{ padding:18px 0 0; }
+.tsec .lab{ font-family:var(--mono); font-size:9px; color:var(--rail-mut2); letter-spacing:.26em; padding:0 20px; margin-bottom:6px; }
+.ti{ display:grid; grid-template-columns:22px minmax(0,1fr) auto; gap:8px; align-items:baseline;
+     padding:7px 20px 7px 16px; cursor:pointer; color:var(--rail-mut); font-size:13px;
+     border-left:2px solid transparent; transition:background .14s ease, color .14s ease; }
+.ti .no{ font-family:var(--mono); font-size:9.5px; color:var(--rail-mut2); }
+.ti .wh{ font-family:var(--mono); font-size:9.5px; color:var(--rail-mut2); }
+.ti:hover{ color:var(--rail-tx); background:rgba(245,242,234,.05); }
+.ti.on{ color:var(--rail-tx); background:var(--rail-card); border-left-color:var(--sand); }
+.ti.on .no{ color:var(--sand); }
+.ti.cand{ color:var(--rail-mut2); cursor:default; }
+.ti.cand:hover{ background:none; color:var(--rail-mut2); }
+.tfoot{ margin-top:auto; border-top:1px solid var(--rail-line); }
+.tfoot svg{ display:block; width:100%; height:34px; opacity:.5; }
+.tfoot .ft{ padding:10px 20px 14px; font-family:var(--mono); font-size:9px; color:var(--rail-mut2); letter-spacing:.12em; line-height:2; }
+
+/* ============ 右 · 安静边距 ============ */
+.spine{ border-left:1px solid var(--line2); display:flex; flex-direction:column; align-items:center;
+        padding:20px 0 16px; gap:16px; background:var(--ivory); }
+.spine .vt{ writing-mode:vertical-rl; font-family:var(--mono); font-size:9px; letter-spacing:.4em; color:var(--mut3); flex:none; }
+.spine .rl{ flex:1; width:1px; background:var(--line); }
+
+/* ============ 主区骨架 ============ */
+.main{ position:relative; padding:24px 40px 22px; min-width:0; background:var(--ivory); }
+.screen{ display:none; height:100%; }
+.screen.on{ display:flex; flex-direction:column; animation:cont .24s cubic-bezier(.2,.6,.2,1); }
+@keyframes cont{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+.page{ flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; }
+
+/* 页眉 + Open Cut 细线（不到边，末端 45° 切面） */
+.rhead{ display:flex; align-items:baseline; gap:14px; }
+.rhead .idx{ font-family:var(--mono); font-size:10px; color:var(--olive); letter-spacing:.12em; }
+.rhead .ttl{ font-size:11px; letter-spacing:.3em; color:var(--charcoal); font-weight:600; }
+.rhead .sp{ flex:1; }
+.rhead .folio{ font-family:var(--mono); font-size:10px; color:var(--mut2); letter-spacing:.12em; }
+.rule{ position:relative; height:1px; background:var(--rule); margin:10px 34px 26px 0; }
+.rule::after{ content:""; position:absolute; right:-18px; top:-3px; width:11px; height:7px;
+              background:var(--charcoal); clip-path:polygon(38% 0, 100% 0, 62% 100%, 0 100%); }
+</style>
+<style>
+/* ============ 分节标题 ============ */
+.bhead{ display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.bhead .no{ font-family:var(--mono); font-size:9.5px; color:var(--olive); letter-spacing:.08em; }
+.bhead .t{ font-size:12px; letter-spacing:.22em; font-weight:600; color:var(--charcoal); }
+.bhead .fill{ flex:1; height:1px; background:var(--line); margin-bottom:2px; }
+.bhead .sub{ font-family:var(--mono); font-size:9px; color:var(--mut3); letter-spacing:.06em; }
+
+/* ============ 屏 1 · 项目空间 ============ */
+.opening{ display:flex; gap:16px; align-items:flex-start; margin-bottom:30px; }
+.markchip{ flex:none; margin-top:4px; width:34px; height:34px; background:var(--charcoal); border-radius:2px;
+           display:flex; align-items:center; justify-content:center; }
+.markchip svg{ width:19px; height:auto; display:block; }
+.o-meta{ display:flex; align-items:baseline; gap:12px; margin-bottom:9px;
+         font-family:var(--mono); font-size:10px; color:var(--mut2); letter-spacing:.08em; }
+.o-meta .c1{ color:var(--olive); font-weight:600; }
+.o-meta .edit{ color:var(--mut3); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.o-sentence{ font-size:24px; font-weight:500; line-height:1.5; letter-spacing:.01em; }
+
+.cols{ display:grid; grid-template-columns:1.12fr 1fr; gap:48px; align-content:start; }
+.blk{ margin-bottom:26px; }
+
+/* 可能值得继续的事：Sand = 系统推测（带文字），Graphite = 你写的 */
+.next{ display:grid; grid-template-columns:12px 22px minmax(0,1fr) auto; gap:10px; align-items:baseline;
+       padding:8px 6px 8px 4px; cursor:pointer; border-bottom:1px solid var(--line2);
+       transition:background .14s ease; }
+.next:last-child{ border-bottom:none; }
+.next:hover{ background:rgba(35,35,35,.035); }
+.next.sel{ background:var(--sheet); box-shadow:inset 2px 0 0 var(--charcoal); }
+.dot{ width:6px; height:6px; border-radius:50%; background:var(--graphite); justify-self:center; margin-bottom:1px; }
+.next.sys .dot{ background:var(--sand); }
+.nno{ font-family:var(--mono); font-size:10px; color:var(--mut3); }
+.ntx{ font-size:13.5px; line-height:1.5; }
+.nsrc{ font-family:var(--mono); font-size:9.5px; color:var(--mut2); white-space:nowrap; }
+
+/* 关键判断 */
+.dec{ display:grid; grid-template-columns:46px minmax(0,1fr); gap:14px; padding:11px 4px; border-bottom:1px solid var(--line2); }
+.dec:last-child{ border-bottom:none; }
+.dtag{ font-size:10px; letter-spacing:.08em; padding:3px 0; text-align:center; height:fit-content; margin-top:2px; border-radius:2px; }
+.dec.cur .dtag{ background:var(--charcoal); color:var(--ivory); }
+.dec.old .dtag{ border:1px solid var(--stone); color:var(--mut2); }
+.dtx{ font-size:14px; line-height:1.6; font-weight:500; }
+.dec.old .dtx{ color:var(--mut2); font-weight:400; }
+.dsr{ font-family:var(--mono); font-size:9.5px; color:var(--mut2); margin-top:4px; letter-spacing:.04em; }
+
+/* 最近产出 / 会话现场 */
+.row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:baseline;
+      padding:6px 4px; border-bottom:1px solid var(--line2); cursor:pointer; transition:background .14s ease; }
+.row:last-child{ border-bottom:none; }
+.row:hover{ background:rgba(35,35,35,.035); }
+.rn{ font-family:var(--mono); font-size:11.5px; letter-spacing:.02em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rm{ font-family:var(--mono); font-size:9.5px; color:var(--mut2); white-space:nowrap; }
+.quote{ display:grid; grid-template-columns:46px minmax(0,1fr); gap:10px; padding:6px 4px; }
+.qw{ font-family:var(--mono); font-size:10px; color:var(--mut2); padding-top:2px; }
+.qt{ font-size:13px; line-height:1.65; color:var(--note); }
+.qt::before{ content:"「 "; color:var(--mut3); }
+.qt::after{ content:" 」"; color:var(--mut3); }
+
+/* 启动区 */
+.launch{ margin-top:16px; padding-top:16px; border-top:1px solid var(--line);
+         display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.llab{ font-size:11px; letter-spacing:.22em; color:var(--charcoal); font-weight:600; margin-right:8px; }
+.ag{ all:unset; display:inline-flex; align-items:center; gap:7px; font-size:12px; padding:5px 12px;
+     cursor:pointer; color:var(--graphite); border:1px solid var(--stone); border-radius:2px;
+     transition:border-color .14s ease, color .14s ease, background .14s ease; }
+.ag::before{ content:""; width:6px; height:6px; border:1px solid var(--mut3); }
+.ag:hover{ border-color:var(--graphite); color:var(--charcoal); }
+.ag.on{ border-color:var(--charcoal); color:var(--charcoal); background:var(--sheet); }
+.ag.on::before{ background:var(--charcoal); border-color:var(--charcoal); }
+.lsp{ flex:1; }
+/* 主操作：炭黑 + 右下 7px 切角（Open Cut） */
+.go{ all:unset; font-size:12.5px; font-weight:500; padding:8px 22px; background:var(--charcoal); color:var(--ivory);
+     cursor:pointer; letter-spacing:.08em; transition:background .16s ease;
+     clip-path:polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%); }
+.go:hover{ background:#3a3a3a; }
+.go .ar{ font-family:var(--mono); }
+
+/* ============ 屏 2 · Session Map ============ */
+.map-canvas{ position:relative; height:318px; margin:2px 0 16px; }
+.axis{ position:absolute; left:0; right:0; top:118px; height:1px; background:var(--rule); }
+.axis-tick{ position:absolute; top:118px; width:1px; height:7px; background:var(--rule); }
+.m-node{ position:absolute; width:190px; height:66px; cursor:pointer; }
+.m-node .nd{ width:11px; height:11px; border:1.5px solid var(--charcoal); background:var(--ivory);
+             transition:background .16s ease, border-color .16s ease; }
+.m-node .nm{ font-size:13.5px; font-weight:500; margin-top:7px; }
+.m-node .mm{ font-family:var(--mono); font-size:9.5px; color:var(--mut2); margin-top:2px; letter-spacing:.04em; }
+.m-node.up{ display:flex; flex-direction:column; }
+.m-node.up .nd{ order:3; margin-top:7px; }
+.m-node.up .nm{ margin-top:0; }
+.m-node.fork{ opacity:.45; }
+.m-node.fork .nd{ border-style:dashed; border-color:var(--mut3); }
+.m-node.sel .nd{ background:var(--olive); border-color:var(--olive); }
+.m-node.sel .nm{ color:var(--olive); }
+.m-link{ position:absolute; background:var(--rule); height:1px; }
+.m-link.dash{ background:none; border-top:1px dashed var(--rule); }
+.m-link.v{ width:1px; height:auto; }
+.m-legend{ position:absolute; right:0; bottom:0; font-family:var(--mono); font-size:9px;
+           color:var(--mut3); letter-spacing:.08em; }
+.m-detail{ border-top:2px solid var(--charcoal); padding-top:14px; min-height:104px;
+           display:grid; grid-template-columns:120px minmax(0,1fr); gap:8px 20px; }
+.m-detail .rec{ font-family:var(--mono); font-size:9.5px; color:var(--mut2); letter-spacing:.1em; line-height:2; }
+.m-detail .rec b{ color:var(--olive); font-weight:400; }
+.m-detail h3{ font-size:18px; font-weight:600; margin-bottom:5px; }
+.m-detail h3 .guesstag{ font-family:var(--mono); font-size:9px; color:var(--charcoal); letter-spacing:.1em;
+                        background:var(--sand); padding:2px 7px; margin-left:8px; vertical-align:3px; font-weight:400; }
+.m-detail .msum{ font-size:12.5px; color:var(--note); line-height:1.75; }
+.m-detail .msrc{ font-family:var(--mono); font-size:9.5px; color:var(--mut2); margin-top:6px; letter-spacing:.05em; }
+</style>
+<style>
+/* ============ 屏 3 · 产出（Viewer） ============ */
+.vtools{ display:flex; align-items:center; gap:18px; margin-bottom:14px; }
+.vmode{ display:flex; border:1px solid var(--stone); border-radius:2px; overflow:hidden; }
+.vmode button{ all:unset; font-family:var(--mono); font-size:10.5px; letter-spacing:.1em;
+               padding:5px 14px; cursor:pointer; color:var(--graphite); border-right:1px solid var(--stone);
+               transition:background .14s ease, color .14s ease; }
+.vmode button:last-child{ border-right:none; }
+.vmode button:hover{ color:var(--charcoal); }
+.vmode button.on{ background:var(--charcoal); color:var(--ivory); }
+.vlive{ margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--graphite); letter-spacing:.08em; }
+.vlive i{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--olive);
+          margin-right:7px; animation:pulse 2.4s infinite; }
+@keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
+
+.vtabs{ display:flex; gap:28px; border-bottom:1px solid var(--line); }
+.vtabs button{ all:unset; font-size:12.5px; letter-spacing:.14em; padding:8px 2px; cursor:pointer;
+               color:var(--mut2); border-bottom:2px solid transparent; margin-bottom:-1px;
+               transition:color .14s ease, border-color .14s ease; }
+.vtabs button .ct{ font-family:var(--mono); font-size:9px; color:var(--mut3); margin-left:6px; letter-spacing:0; }
+.vtabs button:hover{ color:var(--charcoal); }
+.vtabs button.on{ color:var(--charcoal); border-bottom-color:var(--charcoal); }
+
+.vbody{ flex:1; min-height:0; display:grid; grid-template-columns:266px minmax(0,1fr);
+        border:1px solid var(--line); border-top:none; background:var(--sheet); }
+.vlist{ border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+.vfilter{ padding:8px 10px; border-bottom:1px solid var(--line2); }
+.vfilter input{ all:unset; font-family:var(--mono); font-size:11px; width:100%; padding:5px 9px;
+                border:1px solid var(--stone); border-radius:2px; background:var(--ivory); color:var(--charcoal); }
+.vfilter input:focus{ border-color:var(--graphite); }
+.vfilter input::placeholder{ color:var(--mut3); }
+.vitems{ overflow-y:auto; flex:1; }
+.vi{ padding:8px 12px 8px 14px; border-bottom:1px solid var(--line2); cursor:pointer; transition:background .14s ease; }
+.vi:hover{ background:rgba(35,35,35,.035); }
+.vi.on{ background:var(--ivory); box-shadow:inset 2px 0 0 var(--charcoal); }
+.vi .n{ font-family:var(--mono); font-size:11.5px; letter-spacing:.02em;
+        display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+.vi .n span:first-child{ word-break:break-all; }
+.vi .m{ font-family:var(--mono); font-size:9px; color:var(--mut2); margin-top:3px; letter-spacing:.04em; }
+.tag{ font-family:var(--mono); font-size:9px; color:var(--graphite); flex:none; }
+.tag.add{ color:var(--olive); } .tag.del{ color:var(--red); }
+
+.vpane{ display:flex; flex-direction:column; min-height:0; }
+.vfhead{ padding:10px 16px; border-bottom:1px solid var(--line2); display:flex;
+         justify-content:space-between; align-items:baseline; gap:12px; }
+.vfn{ font-family:var(--mono); font-size:12px; letter-spacing:.02em; }
+.vfm{ font-family:var(--mono); font-size:9.5px; color:var(--mut2); margin-top:3px; }
+.vacts{ display:flex; gap:6px; flex:none; }
+.vacts button{ all:unset; font-family:var(--mono); font-size:10px; letter-spacing:.06em; padding:4px 11px;
+               border:1px solid var(--stone); border-radius:2px; cursor:pointer; color:var(--graphite);
+               background:var(--ivory); transition:border-color .14s ease, color .14s ease; }
+.vacts button:hover{ border-color:var(--graphite); color:var(--charcoal); }
+.vacts button.on{ border-color:var(--charcoal); color:var(--charcoal); }
+.vacts button.gold{ background:var(--charcoal); border-color:var(--charcoal); color:var(--ivory); }
+.vcontent{ flex:1; overflow-y:auto; padding:16px 20px; min-height:0; }
+.vempty{ flex:1; display:flex; align-items:center; justify-content:center;
+         font-family:var(--mono); font-size:10.5px; color:var(--mut3); letter-spacing:.14em; }
+
+.vcode{ font:11.5px/2 var(--mono); }
+.vcode .ln{ color:var(--mut3); margin-right:14px; user-select:none; display:inline-block; min-width:22px; text-align:right; }
+.vcode .mk{ color:var(--mut3); margin-right:10px; user-select:none; display:inline-block; width:10px; }
+.vcode .add{ color:var(--olive); background:rgba(91,94,59,.08); }
+.vcode .del{ color:var(--red); background:rgba(142,60,50,.05); }
+.vcode .ctx{ color:var(--mut2); }
+
+.vmd h2{ font-size:17px; font-weight:600; margin:0 0 10px; }
+.vmd p{ font-size:12.5px; color:var(--note); line-height:1.9; margin:6px 0; }
+.vmd blockquote{ border-left:2px solid var(--charcoal); padding-left:14px; margin:10px 0;
+                 font-size:13.5px; color:var(--charcoal); font-weight:500; }
+.vmd ul{ margin:6px 0 6px 18px; font-size:12.5px; color:var(--note); line-height:2.1; }
+
+.vfoot{ padding:8px 16px; border-top:1px solid var(--line2); display:flex; align-items:center; gap:14px; }
+.vfoot .fl{ flex:1; height:1px; background:var(--line2); }
+.vfoot .c{ font-family:var(--mono); font-size:9px; color:var(--mut2); letter-spacing:.18em; white-space:nowrap; }
+.vfoot .n{ font-family:var(--mono); font-size:9px; color:var(--mut3); letter-spacing:.08em; white-space:nowrap; }
+
+/* 时间机器 */
+.tm{ position:relative; padding-left:22px; }
+.tm::before{ content:""; position:absolute; left:7px; top:6px; bottom:6px; width:1px; background:var(--line); }
+.tmi{ position:relative; padding:7px 0; cursor:pointer; }
+.tmi::before{ content:""; position:absolute; left:-19px; top:13px; width:8px; height:8px;
+              border:1.5px solid var(--graphite); background:var(--sheet); transition:border-color .14s ease; }
+.tmi:hover::before{ border-color:var(--charcoal); }
+.tmi:first-child::before{ background:var(--olive); border-color:var(--olive); }
+.tmi .t{ font-size:12px; font-weight:500; }
+.tmi .m{ font-family:var(--mono); font-size:9px; color:var(--mut2); margin-top:2px; letter-spacing:.04em; }
+
+/* ============ 屏 4 · 接入态 ============ */
+.lgrid{ display:grid; grid-template-columns:minmax(0,1fr) 254px; gap:28px; flex:1; min-height:0; }
+.fig{ display:flex; flex-direction:column; min-height:0; }
+.figcap{ display:flex; align-items:baseline; gap:12px; margin-bottom:8px;
+         font-family:var(--mono); font-size:9.5px; color:var(--mut2); letter-spacing:.12em; }
+.figcap .fno{ color:var(--olive); }
+.figcap .fsp{ flex:1; }
+.figframe{ flex:1; border:1px solid var(--stone); background:var(--sheet); position:relative;
+           display:flex; align-items:center; justify-content:center; min-height:0; }
+.figframe .cut{ position:absolute; top:26px; left:28px; opacity:.55; }
+.figph{ position:relative; text-align:center; color:var(--mut3); font-size:12.5px; line-height:2.2; }
+.figph .b{ font-size:15px; font-weight:600; color:var(--graphite); }
+
+.lrail{ border-left:1px solid var(--line); padding-left:18px; overflow-y:auto; min-height:0; }
+.rblk{ border-top:1px solid var(--line); padding:13px 0 15px; }
+.rblk:first-child{ border-top:none; padding-top:2px; }
+.rh{ display:flex; align-items:baseline; gap:8px; margin-bottom:9px; }
+.rh .no{ font-family:var(--mono); font-size:9px; color:var(--olive); letter-spacing:.06em; }
+.rh .t{ font-size:11px; letter-spacing:.22em; font-weight:600; color:var(--graphite); }
+.kv{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; font-size:12px; }
+.kv .k{ color:var(--mut2); flex:none; }
+.kv .v{ font-family:var(--mono); font-size:10.5px; color:var(--charcoal); text-align:right; word-break:break-all; }
+.kv .v.dim{ color:var(--mut2); }
+.cf{ display:flex; justify-content:space-between; gap:8px; padding:5px 0; border-bottom:1px solid var(--line2); }
+.cf:last-of-type{ border-bottom:none; }
+.cf a{ font-family:var(--mono); font-size:10.5px; color:var(--charcoal); text-decoration:none; cursor:pointer; }
+.cf a:hover{ text-decoration:underline; text-underline-offset:3px; }
+.cf .st{ font-family:var(--mono); font-size:9px; color:var(--mut2); flex:none; }
+.cf .st.g{ color:var(--olive); }
+.rnote{ font-family:var(--mono); font-size:9px; color:var(--mut3); margin-top:7px; line-height:1.9; letter-spacing:.03em; }
+.rgo{ all:unset; display:block; width:100%; text-align:center; font-size:12px; letter-spacing:.08em;
+      padding:9px 0; background:var(--charcoal); color:var(--ivory); cursor:pointer; transition:background .16s ease;
+      clip-path:polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%); }
+.rgo:hover{ background:#3a3a3a; }
+
+/* Toast */
+#toast{ position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:99;
+        background:var(--charcoal); color:var(--ivory); font-family:var(--mono); font-size:11px;
+        letter-spacing:.06em; padding:9px 20px; border-radius:2px;
+        animation:cont .18s ease-out; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 左 · Charcoal 品牌面 -->
+  <nav class="toc">
+    <div class="brand">
+      <!-- Arckeep_Master_Horizontal_Reverse.svg（官方反白资产，内联） -->
+      <svg viewBox="0 0 562 188" role="img" aria-label="Arckeep"><g transform="translate(0,4) scale(0.367347)"><path d="M 280 2 L 2 487 L 176 487 L 281 420 L 121 419 L 278 148 L 321 221 L 189 341 L 307 414 L 414 487 L 556 487 L 430 266 L 394 296 L 393 334 L 461 457 L 289 334 L 411 231 Z" fill="#F5F2EA" fill-rule="evenodd"/></g><g transform="translate(239.35,62) scale(0.524590)"><path d="M 599 31 L 545 31 L 545 119 L 558 118 L 558 43 L 560 41 L 595 42 L 599 46 L 599 78 L 595 82 L 566 82 L 566 92 L 600 92 L 612 80 L 612 43 Z M 457 42 L 456 79 L 468 92 L 522 92 L 519 82 L 474 82 L 470 78 L 470 45 L 473 42 L 508 42 L 511 45 L 511 54 L 508 57 L 478 57 L 478 67 L 513 67 L 524 56 L 524 43 L 512 31 L 469 31 Z M 370 43 L 370 81 L 381 92 L 435 92 L 431 82 L 387 82 L 383 78 L 383 45 L 386 42 L 411 41 L 421 42 L 424 45 L 424 54 L 421 57 L 391 57 L 391 67 L 426 67 L 437 56 L 437 43 L 426 32 L 382 31 Z M 299 60 L 334 91 L 356 92 L 319 60 L 321 57 L 354 31 L 334 31 Z M 200 43 L 200 80 L 212 92 L 262 92 L 258 82 L 217 82 L 213 78 L 213 46 L 217 42 L 257 42 L 262 31 L 213 31 Z M 188 31 L 147 32 L 136 43 L 136 92 L 149 92 L 149 46 L 156 41 L 183 42 Z M 283 2 L 283 92 L 296 92 L 296 2 Z M 2 92 L 26 92 L 58 81 L 28 81 L 27 79 L 64 20 L 70 29 L 95 80 L 94 81 L 46 63 L 43 68 L 95 92 L 118 92 L 72 2 L 59 2 Z" fill="#F5F2EA" fill-rule="evenodd"/></g></svg>
+      <div class="sub">长期工作环境 · WORKSTATION</div>
+    </div>
+    <div class="tsec">
+      <div class="lab">项目</div>
+      <div class="ti on"><span class="no">—</span>Arckeep 设计<span class="wh">今天</span></div>
+      <div class="ti"><span class="no">—</span>req-to-page<span class="wh">昨天</span></div>
+      <div class="ti"><span class="no">—</span>efficiency-utils<span class="wh">上周</span></div>
+    </div>
+    <div class="tsec">
+      <div class="lab">模块</div>
+      <div class="ti scr-btn on" data-scr="space"><span class="no">01</span>项目空间</div>
+      <div class="ti scr-btn" data-scr="map"><span class="no">02</span>Session Map</div>
+      <div class="ti scr-btn" data-scr="out"><span class="no">03</span>产出</div>
+      <div class="ti scr-btn" data-scr="live"><span class="no">04</span>Kimi 接入中</div>
+    </div>
+    <div class="tsec">
+      <div class="lab">候选 · 未确认</div>
+      <div class="ti cand"><span class="no">§</span>个人认知索引</div>
+      <div class="ti cand"><span class="no">§</span>能力与资源</div>
+      <div class="ti cand"><span class="no">§</span>额度总览</div>
+    </div>
+    <div class="tfoot">
+      <!-- 连续性折线（品牌辅助图形的界面化） -->
+      <svg viewBox="0 0 212 34" preserveAspectRatio="none"><path d="M-6 28 L40 8 L72 24 L116 4 L148 22" fill="none" stroke="rgba(245,242,234,.16)" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+      <div class="ft">续境 · 留住当下，延续未来<br>VISUAL v0.4 · BRAND v1.0</div>
+    </div>
+  </nav>
+
+  <!-- 中 · 主区 -->
+  <main class="main">
+
+    <!-- 01 项目空间 -->
+    <div class="screen on" data-screen="space">
+      <div class="rhead">
+        <span class="idx">01</span><span class="ttl">项目空间 · PROJECT SPACE</span>
+        <span class="sp"></span><span class="folio">ARCKEEP 设计 — P.01 / 04</span>
+      </div>
+      <div class="rule"></div>
+
+      <div class="page">
+      <div class="opening">
+        <div class="markchip" title="你确认的">
+          <!-- Arckeep_Symbol_White.svg -->
+          <svg viewBox="0 0 559 490"><path d="M 280 2 L 2 487 L 176 487 L 281 420 L 121 419 L 278 148 L 321 221 L 189 341 L 307 414 L 414 487 L 556 487 L 430 266 L 394 296 L 393 334 L 461 457 L 289 334 L 411 231 Z" fill="#F5F2EA" fill-rule="evenodd"/></svg>
+        </div>
+        <div class="o-body">
+          <div class="o-meta">
+            <span class="c1">你确认的</span><span>2026-08-27 16:02</span>
+            <span class="edit" onclick="toast('原型未实现：改写当前状态')">改写</span>
+          </div>
+          <div class="o-sentence">设计哲学与概要设计已定稿，原型迭代正在进行。</div>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div>
+          <section class="blk">
+            <div class="bhead"><span class="no">01</span><span class="t">可能值得继续的事</span><span class="fill"></span><span class="sub">推测 · 不是指令</span></div>
+            <div class="next sys" data-k="n1"><span class="dot"></span><span class="nno">01</span><span class="ntx">让 Kimi 重新设计项目恢复体验的原型</span><span class="nsrc">推测 · 来自最近的对话</span></div>
+            <div class="next sys" data-k="n2"><span class="dot"></span><span class="nno">02</span><span class="ntx">明确 Session Map 分叉语义（未决）</span><span class="nsrc">推测 · 来自概要设计 §15.3</span></div>
+            <div class="next" data-k="n3"><span class="dot"></span><span class="nno">03</span><span class="ntx">整理概要设计 v0.2（原型验证完成后）</span><span class="nsrc">你自己写的</span></div>
+            <div class="next sys" data-k="n4"><span class="dot"></span><span class="nno">04</span><span class="ntx">Session Map 节点接续动作（点击后的行为）</span><span class="nsrc">推测 · 来自原型探索</span></div>
+          </section>
+
+          <section class="blk">
+            <div class="bhead"><span class="no">02</span><span class="t">关键判断</span><span class="fill"></span><span class="sub">当前 2 · 历史 1</span></div>
+            <div class="dec cur"><span class="dtag">当前</span><div><div class="dtx">项目是稳定中心，Agent 是可替换工具。</div><div class="dsr">CODEX · 不变与变会话 · 08-26 · 你确认</div></div></div>
+            <div class="dec cur"><span class="dtag">当前</span><div><div class="dtx">Viewer 和 Session Map 是已确认模块。</div><div class="dsr">概要设计 D-07 / D-08</div></div></div>
+            <div class="dec old"><span class="dtag">已取代</span><div><div class="dtx">做第二个 Vibe Kanban。</div><div class="dsr">你后来主动否定 · 保留可查，不支配现在</div></div></div>
+          </section>
+        </div>
+
+        <div>
+          <section class="blk">
+            <div class="bhead"><span class="no">03</span><span class="t">最近产出</span><span class="fill"></span><span class="sub">6 个文件</span></div>
+            <div class="row"><span class="rn">PRODUCT_DESIGN_PHILOSOPHY.md</span><span class="rm">08-26 · 你确认</span></div>
+            <div class="row"><span class="rn">HIGH_LEVEL_DESIGN_V0.1.md</span><span class="rm">08-27 · 你确认</span></div>
+            <div class="row"><span class="rn">arckeep-open-space-v0.2.html</span><span class="rm">08-27 · 原型</span></div>
+            <div class="row"><span class="rn">arckeep-resume-flow.html</span><span class="rm">08-27 · Kimi 交付</span></div>
+            <div class="row"><span class="rn">arckeep-resume-flow-fused.html</span><span class="rm">08-27 · 融合版</span></div>
+            <div class="row"><span class="rn">arckeep-visual-v0.1.html</span><span class="rm">08-27 · 视觉稿</span></div>
+          </section>
+
+          <section class="blk">
+            <div class="bhead"><span class="no">04</span><span class="t">会话现场</span><span class="fill"></span><span class="sub">CODEX · 昨天 22:41 停止</span></div>
+            <div class="quote"><span class="qw">你</span><span class="qt">让 Kimi 帮忙重新设计原型。</span></div>
+            <div class="quote"><span class="qw">Codex</span><span class="qt">上一版被否定为看板，已写好求助提示词交给 Kimi。</span></div>
+          </section>
+
+          <div class="launch">
+            <span class="llab">继续</span>
+            <button class="ag on">Codex</button>
+            <button class="ag">Claude Code</button>
+            <button class="ag">Kimi Code</button>
+            <span class="lsp"></span>
+            <button class="go" onclick="toast('原型未实现：上下文勾选面板（默认最小相关）')">开始 <span class="ar">→</span></button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- 02 Session Map -->
+    <div class="screen" data-screen="map">
+      <div class="rhead">
+        <span class="idx">02</span><span class="ttl">SESSION MAP · 经历与接续</span>
+        <span class="sp"></span><span class="folio">ARCKEEP 设计 — P.02 / 04</span>
+      </div>
+      <div class="rule"></div>
+
+      <div class="page">
+      <div class="map-canvas">
+        <div class="axis"></div>
+        <div class="axis-tick" style="left:4%;"></div>
+        <div class="axis-tick" style="left:26%;"></div>
+        <div class="axis-tick" style="left:48%;"></div>
+        <div class="axis-tick" style="left:70%;"></div>
+        <div class="axis-tick" style="left:90%;"></div>
+
+        <div class="m-link v dash" style="left:calc(15% + 5px); top:124px; height:52px;"></div>
+
+        <div class="m-node" id="mn1" style="left:4%; top:113px; margin-left:-5px;">
+          <div class="nd"></div><div class="nm">产品困惑</div><div class="mm">CODEX · 08-25</div>
+        </div>
+        <div class="m-node up" id="mn2" style="left:26%; top:57px; margin-left:-5px;">
+          <div class="nd"></div><div class="nm">不变与变</div><div class="mm">CODEX · 08-26</div>
+        </div>
+        <div class="m-node fork" id="mn3" style="left:15%; top:180px; margin-left:-5px;">
+          <div class="nd"></div><div class="nm">Session Map 探索</div><div class="mm">CLAUDE CODE · 分叉 · 08-26</div>
+        </div>
+        <div class="m-node" id="mn4" style="left:48%; top:113px; margin-left:-5px;">
+          <div class="nd"></div><div class="nm">概要设计 v0.1</div><div class="mm">CODEX · 08-27</div>
+        </div>
+        <div class="m-node up" id="mn5" style="left:70%; top:57px; margin-left:-5px;">
+          <div class="nd"></div><div class="nm">原型迭代</div><div class="mm">CODEX + KIMI · 今天</div>
+        </div>
+
+        <div class="m-legend">■ 确认 · □ 推测 / 分叉（点击仅查看）</div>
+      </div>
+
+      <div class="m-detail" id="mDetail"></div>
+
+      <div class="launch" style="margin-top:14px;">
+        <span class="llab">从选中的经历继续</span>
+        <button class="ag on">Codex</button>
+        <button class="ag">Claude Code</button>
+        <button class="ag">Kimi Code</button>
+        <span class="lsp"></span>
+        <button class="go" onclick="toast('原型未实现：从该节点接续')">开始 <span class="ar">→</span></button>
+      </div>
+      </div>
+    </div>
+
+    <!-- 03 产出 -->
+    <div class="screen" data-screen="out">
+      <div class="rhead">
+        <span class="idx">03</span><span class="ttl">产出 · ARTIFACTS</span>
+        <span class="sp"></span><span class="folio">ARCKEEP 设计 — P.03 / 04</span>
+      </div>
+      <div class="rule" style="margin-bottom:16px;"></div>
+
+      <div class="vtools">
+        <div class="vmode">
+          <button class="on" data-vm="auto">自动</button><button data-vm="dev">开发</button><button data-vm="run">运行</button>
+        </div>
+        <span class="vlive"><i></i>实时监听 · 工作目录</span>
+      </div>
+      <div class="vtabs">
+        <button class="on" data-vt="files">文件</button>
+        <button data-vt="changes">本轮产物<span class="ct">3</span></button>
+        <button data-vt="tm">时间机器<span class="ct">3</span></button>
+      </div>
+      <div class="vbody">
+        <div class="vlist">
+          <div class="vfilter"><input id="vFilter" placeholder="过滤文件名 …" spellcheck="false"></div>
+          <div class="vitems" id="vItems"></div>
+        </div>
+        <div class="vpane">
+          <div class="vfhead" id="vFhead" style="display:none;">
+            <div><div class="vfn" id="vFn"></div><div class="vfm" id="vFm"></div></div>
+            <div class="vacts" id="vActs"></div>
+          </div>
+          <div class="vcontent" id="vContent"></div>
+          <div class="vfoot">
+            <span class="fl"></span><span class="c">以真实工作目录为准 · 不做第二份事实</span><span class="n" id="vCount"></span><span class="fl"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 Kimi 接入态 -->
+    <div class="screen" data-screen="live">
+      <div class="rhead">
+        <span class="idx">04</span><span class="ttl">接入态 · ATTACHED — KIMI CODE</span>
+        <span class="sp"></span><span class="folio">ARCKEEP 设计 — P.04 / 04</span>
+      </div>
+      <div class="rule" style="margin-bottom:18px;"></div>
+
+      <div class="lgrid">
+        <figure class="fig" style="margin:0;">
+          <div class="figcap"><span class="fno">FIG. 04</span><span>KIMI CODE WEB · 原生界面 · 接入 ≠ 改造</span><span class="fsp"></span><span>WEBCONTENTS 嵌入</span></div>
+          <div class="figframe">
+            <!-- Arckeep_OpenCut_Motif.svg -->
+            <svg class="cut" width="120" viewBox="0 0 600 160"><path d="M20 120 L180 40 L300 100 L430 30" fill="none" stroke="#D8D4CB" stroke-width="28" stroke-linecap="square" stroke-linejoin="miter"/><path d="M455 24 L520 0 L580 45" fill="none" stroke="#D8D4CB" stroke-width="28" stroke-linecap="square" stroke-linejoin="miter"/></svg>
+            <div class="figph"><span class="b">这里是 Kimi 的原生界面</span><br>它的按钮、会话列表、输入框都保持原样<br>Arckeep 不重绘、不搬运、不统一聊天界面</div>
+          </div>
+        </figure>
+
+        <aside class="lrail">
+          <div class="rblk">
+            <div class="rh"><span class="no">R.1</span><span class="t">本项目</span></div>
+            <div class="kv"><span class="k">目录</span><span class="v">D:\_projects\tools\KCCWorkbench</span></div>
+            <div class="kv"><span class="k">接续点</span><span class="v">原型迭代</span></div>
+            <div class="kv"><span class="k">携带上下文</span><span class="v">2 项</span></div>
+          </div>
+          <div class="rblk">
+            <div class="rh"><span class="no">R.2</span><span class="t">会话状态</span></div>
+            <div class="kv"><span class="k">会话</span><span class="v" style="color:var(--olive);">进行中</span></div>
+            <div class="kv"><span class="k">来自</span><span class="v">Kimi Code Web</span></div>
+            <div class="kv"><span class="k">开始</span><span class="v">14:32</span></div>
+          </div>
+          <div class="rblk">
+            <div class="rh"><span class="no">R.3</span><span class="t">文件变化</span></div>
+            <div class="cf"><a onclick="toast('原型未实现跳转')">docs/assets/notes.md</a><span class="st g">新增</span></div>
+            <div class="cf"><a onclick="toast('原型未实现跳转')">src/main/session.ts</a><span class="st">+18</span></div>
+            <div class="rnote">以真实工作目录为准<br>agent 说完成 ≠ 完成</div>
+          </div>
+          <div class="rblk">
+            <div class="rh"><span class="no">R.4</span><span class="t">接回项目</span></div>
+            <button class="rgo" onclick="toast('原型未实现：摘要回流 + 产出刷新')">会话结束 · 回到项目 →</button>
+            <div class="rnote">你不需要手动复制产出或摘要</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <!-- 右 · 安静边距 -->
+  <aside class="spine">
+    <span class="vt">ARCKEEP</span>
+    <div class="rl"></div>
+    <span class="vt">2026 · 08 · 28</span>
+    <span class="vt" id="spineFolio" style="color:var(--charcoal);">P.01</span>
+  </aside>
+</div>
+<script>
+function toast(msg){
+  let el = document.getElementById('toast');
+  if(!el){ el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.remove(), 2400);
+}
+
+/* 屏切换 + 书脊页码 + 哈希直达 */
+const FOLIO = { space:'P.01', map:'P.02', out:'P.03', live:'P.04' };
+function goScreen(scr){
+  document.querySelectorAll('.scr-btn').forEach(x => x.classList.toggle('on', x.dataset.scr === scr));
+  document.querySelectorAll('.screen').forEach(x => x.classList.toggle('on', x.dataset.screen === scr));
+  document.getElementById('spineFolio').textContent = FOLIO[scr] || 'P.01';
+}
+document.querySelectorAll('.scr-btn').forEach(btn => {
+  btn.addEventListener('click', () => { goScreen(btn.dataset.scr); location.hash = btn.dataset.scr; });
+});
+if(location.hash){ const s = location.hash.slice(1); if(FOLIO[s]) goScreen(s); }
+
+/* agent 单选 */
+document.querySelectorAll('.ag').forEach(el => {
+  el.addEventListener('click', () => {
+    el.closest('.launch').querySelectorAll('.ag').forEach(x => x.classList.remove('on'));
+    el.classList.add('on');
+  });
+});
+
+/* 点击「值得继续的事」→ 设为接续点 */
+document.querySelectorAll('.next').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.next').forEach(x => x.classList.remove('sel'));
+    el.classList.add('sel');
+    toast('已设为接续点 · 点「开始」携带此上下文');
+  });
+});
+
+/* Session Map 详情 */
+const MAP = {
+  mn1:{ rec:'REC.01', ag:'CODEX', dt:'2026-08-25', name:'产品困惑',
+        sum:'讨论 KCC 后续价值，产生 3 个候选方向。', src:'摘要由你确认' },
+  mn2:{ rec:'REC.02', ag:'CODEX', dt:'2026-08-26', name:'不变与变',
+        sum:'确定稳定核心假设：项目是中心，Agent 可替换。产生未决问题：管理者-执行者是否是最佳多 Agent 模式？', src:'摘要由你确认' },
+  mn3:{ rec:'REC.03', ag:'CLAUDE CODE', dt:'2026-08-26', name:'Session Map 探索', guess:true,
+        sum:'（推测）此分叉探讨了 Session Map 定位，但你后来说“不想往这个方向深入”。分叉保留可查，不支配现在。', src:'系统推测 · 未经确认' },
+  mn4:{ rec:'REC.04', ag:'CODEX', dt:'2026-08-27', name:'概要设计 v0.1',
+        sum:'写入 D-01 到 D-14。确认 Viewer 和 Session Map 两个模块。', src:'摘要由你确认' },
+  mn5:{ rec:'REC.05', ag:'CODEX + KIMI', dt:'进行中', name:'原型迭代',
+        sum:'第一版被否定为看板，Kimi 交付了流程版，融合版产出。当前探索中。', src:'进行中' },
+};
+function renderMapDetail(id){
+  const d = MAP[id];
+  document.getElementById('mDetail').innerHTML =
+    '<div class="rec"><b>' + d.rec + '</b><br>' + d.ag + '<br>' + d.dt + '</div>' +
+    '<div><h3>' + d.name + (d.guess ? '<span class="guesstag">推测</span>' : '') + '</h3>' +
+    '<div class="msum">' + d.sum + '</div>' +
+    '<div class="msrc">' + d.src + '</div></div>';
+}
+document.querySelectorAll('.m-node').forEach(n => {
+  n.addEventListener('click', () => {
+    document.querySelectorAll('.m-node').forEach(x => x.classList.remove('sel'));
+    n.classList.add('sel');
+    renderMapDetail(n.id);
+  });
+});
+renderMapDetail('mn2');
+document.getElementById('mn2').classList.add('sel');
+
+/* ============ 产出 Viewer ============ */
+const V_FILES = [
+  { name:'PRODUCT_DESIGN_PHILOSOPHY.md', ext:'md',   meta:'08-26 16:42 · 9.4 KB', body:'md' },
+  { name:'HIGH_LEVEL_DESIGN_V0.1.md',    ext:'md',   meta:'08-27 10:16 · 24 KB',  body:'md' },
+  { name:'arckeep-open-space-v0.2.html', ext:'html', meta:'08-27 14:52 · 31 KB',  body:'html' },
+  { name:'arckeep-resume-flow.html',     ext:'html', meta:'08-27 11:19 · 40 KB',  body:'html' },
+  { name:'arckeep-resume-flow-fused.html', ext:'html', meta:'08-27 13:08 · 43 KB', body:'html' },
+];
+const V_CHANGES = [
+  { name:'arckeep-open-space-v0.2.html', ty:'mod', st:'+72 −18', meta:'14:52', diff:[
+    ['ctx','/* 完整 Viewer */'],
+    ['del','.file-grid { display:grid; grid-template-columns:220px minmax(0,1fr); }'],
+    ['add','.viewer-shell { display:grid; grid-template-rows:auto auto minmax(0,1fr); }'],
+    ['add','.viewer-body { display:grid; grid-template-columns:250px minmax(0,1fr); }'],
+    ['ctx',''],
+    ['del','// 旧版：硬编码 5 个文件，无模式切换，无时间机器'],
+    ['add','const V_FILES = [...]'],
+    ['add','const V_CHANGES = [...]'],
+    ['add','const V_TM = [...]'],
+  ]},
+  { name:'PRODUCT_DESIGN_PHILOSOPHY.md', ty:'mod', st:'+3 −1', meta:'14:38', diff:[
+    ['ctx','## 13. 一句话总结'],
+    ['del','> 以用户的长期工作为中心，让项目、认知与合作经验跨越 Agent 持续演进。'],
+    ['add','> 以用户的长期工作为中心，让项目、认知与合作经验跨越 Agent 持续演进；'],
+    ['add','> 保留完整历史，只在正确场景唤起正确经验，以克制、透明和可替换的方式帮助用户持续进步。'],
+  ]},
+  { name:'arckeep-resume-flow-fused.html', ty:'del', st:'−1082', meta:'13:08', diff:[
+    ['del','<!DOCTYPE html>'],
+    ['del','<!-- Arckeep 继续一项工作 原型 v4 -->'],
+    ['del','... (整个文件被删除)'],
+  ]},
+];
+const V_TM = [
+  { t:'概要设计 v0.1 定稿', m:'08-27 10:16 · main · a3f9c2 · 2 个文件' },
+  { t:'第一版原型（看板）', m:'08-27 09:41 · main · b7e2d1 · 1 个文件' },
+  { t:'Session Map 探索',   m:'08-26 22:38 · 非 Git 快照 · 1 个文件' },
+];
+
+let vmode = 'auto', vtab = 'files', vsel = null, vsrc = false;
+const vItems = document.getElementById('vItems'), vContent = document.getElementById('vContent'),
+      vFhead = document.getElementById('vFhead'), vFn = document.getElementById('vFn'),
+      vFm = document.getElementById('vFm'), vActs = document.getElementById('vActs'),
+      vFilter = document.getElementById('vFilter'), vCount = document.getElementById('vCount');
+
+function tyLabel(t){ return { add:'新增', del:'删除', mod:'修改' }[t] || t; }
+
+function vItemsRender(){
+  const q = (vFilter.value || '').toLowerCase();
+  vItems.innerHTML = '';
+  if(vtab === 'files'){
+    V_FILES.filter(f => f.name.toLowerCase().includes(q)).forEach(f => {
+      const d = document.createElement('div');
+      d.className = 'vi' + (vsel === f.name ? ' on' : '');
+      d.innerHTML = '<div class="n"><span>' + f.name + '</span><span class="tag">[' + f.ext + ']</span></div><div class="m">' + f.meta + '</div>';
+      d.onclick = () => { vsel = f.name; vsrc = false; vItemsRender(); vFileRender(f); };
+      vItems.appendChild(d);
+    });
+    vCount.textContent = V_FILES.length + ' 个文件';
+  } else if(vtab === 'changes'){
+    V_CHANGES.filter(c => c.name.toLowerCase().includes(q)).forEach(c => {
+      const d = document.createElement('div');
+      d.className = 'vi' + (vsel === 'c:' + c.name ? ' on' : '');
+      d.innerHTML = '<div class="n"><span>' + c.name + '</span><span class="tag ' + c.ty + '">[' + tyLabel(c.ty) + ']</span></div><div class="m">' + c.st + ' · ' + c.meta + '</div>';
+      d.onclick = () => { vsel = 'c:' + c.name; vItemsRender(); vChangeRender(c); };
+      vItems.appendChild(d);
+    });
+    vCount.textContent = V_CHANGES.length + ' 个本轮变化';
+  } else {
+    vItems.innerHTML = '<div class="tm" style="padding:10px 12px 10px 34px;"></div>';
+    const rail = vItems.firstChild;
+    V_TM.forEach((t, i) => {
+      const d = document.createElement('div');
+      d.className = 'tmi' + (vsel === 'tm:' + i ? ' on' : '');
+      d.innerHTML = '<div class="t">' + t.t + '</div><div class="m">' + t.m + '</div>';
+      d.onclick = () => { vsel = 'tm:' + i; vItemsRender(); vCpRender(t); };
+      rail.appendChild(d);
+    });
+    vCount.textContent = V_TM.length + ' 个检查点';
+  }
+}
+function vFileRender(f){
+  vFhead.style.display = 'flex'; vFn.textContent = f.name; vFm.textContent = f.meta;
+  if(f.body === 'html'){
+    const find = 'V_FILES.find(x=>x.name==="' + f.name + '")';
+    vActs.innerHTML = '<button class="' + (vsrc ? '' : 'on') + '" onclick="vsrc=false;vFileRender(' + find + ')">预览</button>' +
+                      '<button class="' + (vsrc ? 'on' : '') + '" onclick="vsrc=true;vFileRender(' + find + ')">源文件</button>';
+    vContent.innerHTML = vsrc
+      ? '<div class="vcode"><span class="ln">1</span><span class="ctx">&lt;!DOCTYPE html&gt;</span><br><span class="ln">2</span><span class="ctx">&lt;html lang="zh-CN"&gt;</span><br><span class="ln">3</span><span class="ctx">... (原型省略源码)</span></div>'
+      : '<div style="border:1px dashed var(--stone);border-radius:2px;padding:38px;text-align:center;color:var(--mut3);font-size:12px;line-height:2.1;font-family:var(--mono);">安全预览（iframe sandbox）<br>HTML 文件以只读方式渲染，脚本不执行</div>';
+  } else {
+    vActs.innerHTML = '';
+    vContent.innerHTML = '<div class="vmd"><h2>Arckeep 产品设计哲学</h2><p><strong>让工作连续，让进步复利。</strong></p><p>用户每次回来，都能准确地继续工作；每一次工作，也都能成为下一次更好的起点。</p><blockquote>项目是稳定中心，Agent 是可替换工具。</blockquote><ul><li>信息完整，注意力极简</li><li>可以学习，但不能擅自立法</li><li>对可能影响结果的理解保持透明</li></ul><p>... (原型省略完整内容)</p></div>';
+  }
+}
+function vChangeRender(c){
+  vFhead.style.display = 'flex'; vFn.textContent = c.name; vFm.textContent = tyLabel(c.ty) + ' · ' + c.st + ' · ' + c.meta;
+  vActs.innerHTML = '<button onclick="toast(\'原型未实现打开目录\')">打开目录</button>';
+  vContent.innerHTML = '<div class="vcode">' + c.diff.map((l, i) =>
+    '<div><span class="ln">' + (i + 1) + '</span><span class="mk">' + (l[0] === 'add' ? '+' : l[0] === 'del' ? '−' : ' ') + '</span><span class="' + l[0] + '">' + (l[1] || '&nbsp;') + '</span></div>').join('') + '</div>';
+}
+function vCpRender(t){
+  vFhead.style.display = 'flex'; vFn.textContent = t.t; vFm.textContent = t.m;
+  vActs.innerHTML = '<button class="gold" onclick="toast(\'原型未实现 Git 操作 · 仅确认后执行\')">从这里继续（Git 分叉）</button>';
+  vContent.innerHTML = '<div class="vcode"><span class="ctx">此检查点记录了在 ' + t.m.split(' · ')[0] + ' 的项目状态。</span><br><span class="ctx">真实产品中可选择单个文件查看变更对比或此时内容。</span><br>&nbsp;<br><span class="ctx">从这里继续会创建隔离 Git worktree，当前分支不受影响。</span></div>';
+}
+document.querySelectorAll('[data-vm]').forEach(b => {
+  b.addEventListener('click', () => {
+    vmode = b.dataset.vm;
+    document.querySelectorAll('[data-vm]').forEach(x => x.classList.toggle('on', x === b));
+    toast('模式：' + { auto:'自动', dev:'开发', run:'运行' }[vmode]);
+  });
+});
+document.querySelectorAll('[data-vt]').forEach(b => {
+  b.addEventListener('click', () => {
+    vtab = b.dataset.vt; vsel = null;
+    document.querySelectorAll('[data-vt]').forEach(x => x.classList.toggle('on', x === b));
+    vFhead.style.display = 'none';
+    vContent.innerHTML = '<div class="vempty">← 从左侧选择一项</div>';
+    vItemsRender();
+  });
+});
+if(vFilter) vFilter.addEventListener('input', () => vItemsRender());
+if(V_FILES.length && vItems){ vsel = V_FILES[0].name; vItemsRender(); vFileRender(V_FILES[0]); }
+</script>
+</body>
+</html>

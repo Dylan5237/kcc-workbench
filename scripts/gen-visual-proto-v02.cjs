@@ -1,0 +1,655 @@
+const fs = require('fs');
+const path = require('path');
+
+const OUT = path.join(__dirname, '..', 'docs', 'prototypes', 'arckeep-visual-v0.2.html');
+
+// ── 不对称三栏骨架：左侧轨 · 弹性主区 · 右缘栏 ──
+const sidebarItems = (activeScreen) => `
+<div class="side">
+  <div class="brand">
+    <div class="name">Arckeep</div>
+    <div class="tag">长期工作环境</div>
+  </div>
+  <div class="sec">
+    <div class="label">项目</div>
+    <div class="item on">Arckeep 设计<span class="when">今天</span></div>
+    <div class="item">req-to-page<span class="when">昨天</span></div>
+    <div class="item">efficiency-utils<span class="when">上周</span></div>
+  </div>
+  <div class="sec">
+    <div class="label">模块</div>
+    <div class="item scr-btn ${activeScreen === 'space' ? 'on' : ''}" data-scr="space">项目空间</div>
+    <div class="item scr-btn ${activeScreen === 'map' ? 'on' : ''}" data-scr="map">Session Map</div>
+    <div class="item scr-btn ${activeScreen === 'out' ? 'on' : ''}" data-scr="out">产出</div>
+    <div class="item scr-btn ${activeScreen === 'live' ? 'on' : ''}" data-scr="live">Kimi 接入中</div>
+  </div>
+  <div class="sec">
+    <div class="label">候选</div>
+    <div class="item cand">个人认知索引</div>
+    <div class="item cand">能力与资源</div>
+    <div class="item cand">额度总览</div>
+  </div>
+  <div class="foot">Arckeep · 视觉稿 v0.2</div>
+</div>`;
+
+const screensHTML = (active) => `
+  <div class="screen ${active === 'space' ? 'on' : ''}" data-screen="space">${mainSpace}</div>
+  <div class="screen ${active === 'map' ? 'on' : ''}" data-screen="map">${mainMap}</div>
+  <div class="screen ${active === 'out' ? 'on' : ''}" data-screen="out">${mainOut}</div>
+  <div class="screen ${active === 'live' ? 'on' : ''}" data-screen="live">${mainLive}</div>
+`;
+
+function pageFor(screen) {
+  const isFull = screen === 'out' || screen === 'live';
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Arckeep · 视觉稿 v0.2 · ${screen}</title>
+<style>
+${css}
+</style>
+</head>
+<body>
+<div class="app ${isFull ? 'app-full' : ''}" id="app">
+${sidebarItems(screen)}
+${screensHTML(screen)}
+${isFull ? '' : marginRail(screen)}
+</div>
+<script>
+function toast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.remove(), 2400);
+}
+
+document.querySelectorAll('.scr-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.scr-btn').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('.screen').forEach(x => x.classList.remove('on'));
+    btn.classList.add('on');
+    document.querySelector('.screen[data-screen="' + btn.dataset.scr + '"]').classList.add('on');
+  });
+});
+
+document.querySelectorAll('.ag').forEach(el => {
+  el.addEventListener('click', () => {
+    el.closest('.launch').querySelectorAll('.ag').forEach(x => x.classList.remove('on'));
+    el.classList.add('on');
+  });
+});
+
+const MAP_DETAIL = {
+  mn1: { name:'产品困惑', sum:'讨论 KCC 后续价值，产生 3 个候选方向。', src:'Codex · 08-25 · 摘要由你确认' },
+  mn2: { name:'不变与变', sum:'确定稳定核心假设：项目是中心，Agent 可替换。产生未决问题：管理者-执行者是否是最佳多 Agent 模式？', src:'Codex · 08-26 · 摘要由你确认' },
+  mn3: { name:'Session Map 探索', sum:'（推测）此分叉探讨了 Session Map 定位，但你后来说\u201c不想往这个方向深入\u201d。分叉保留可查，不支配现在。', src:'Claude Code · 08-26 · 推测' },
+  mn4: { name:'概要设计 v0.1', sum:'写入 D-01 到 D-14。确认 Viewer 和 Session Map 两个模块。', src:'Codex · 08-27 · 摘要由你确认' },
+  mn5: { name:'原型迭代', sum:'第一版被否定为看板，Kimi 交付了流程版，融合版产出。当前探索中。', src:'Codex + Kimi · 今天 · 进行中' },
+};
+document.querySelectorAll('.m-node').forEach(n => {
+  n.addEventListener('click', () => {
+    document.querySelectorAll('.m-node').forEach(x => x.classList.remove('sel'));
+    n.classList.add('sel');
+    const d = MAP_DETAIL[n.id];
+    document.getElementById('mDetail').innerHTML = '<h3>' + d.name + '</h3><div class="msum">' + d.sum + '</div><div class="msrc">' + d.src + '</div>';
+  });
+});
+if (document.getElementById('mn2')) document.getElementById('mn2').classList.add('sel');
+
+const V_FILES = [
+  { name:'PRODUCT_DESIGN_PHILOSOPHY.md', ext:'md', meta:'08-26 16:42 · 9.4 KB', body:'md' },
+  { name:'HIGH_LEVEL_DESIGN_V0.1.md', ext:'md', meta:'08-27 10:16 · 24 KB', body:'md' },
+  { name:'arckeep-open-space-v0.2.html', ext:'html', meta:'08-27 14:52 · 31 KB', body:'html' },
+  { name:'arckeep-resume-flow.html', ext:'html', meta:'08-27 11:19 · 40 KB', body:'html' },
+  { name:'arckeep-resume-flow-fused.html', ext:'html', meta:'08-27 13:08 · 43 KB', body:'html' },
+];
+const V_CHANGES = [
+  { name:'arckeep-open-space-v0.2.html', ty:'mod', st:'+72 −18', meta:'14:52', diff:[
+    ['ctx','/* 完整 Viewer */'],
+    ['del','.file-grid { display:grid; grid-template-columns:220px minmax(0,1fr); }'],
+    ['add','.viewer-shell { display:grid; grid-template-rows:auto auto minmax(0,1fr); }'],
+    ['add','.viewer-body { display:grid; grid-template-columns:250px minmax(0,1fr); }'],
+    ['ctx',''],
+    ['del','// 旧版：硬编码 5 个文件，无模式切换，无时间机器'],
+    ['add','const V_FILES = [...]'],
+    ['add','const V_CHANGES = [...]'],
+    ['add','const V_TM = [...]'],
+  ]},
+  { name:'PRODUCT_DESIGN_PHILOSOPHY.md', ty:'mod', st:'+3 −1', meta:'14:38', diff:[
+    ['ctx','## 13. 一句话总结'],
+    ['del','> 以用户的长期工作为中心，让项目、认知与合作经验跨越 Agent 持续演进。'],
+    ['add','> 以用户的长期工作为中心，让项目、认知与合作经验跨越 Agent 持续演进；'],
+    ['add','> 保留完整历史，只在正确场景唤起正确经验，以克制、透明和可替换的方式帮助用户持续进步。'],
+  ]},
+  { name:'arckeep-resume-flow-fused.html', ty:'del', st:'−1082', meta:'13:08', diff:[
+    ['del','<!DOCTYPE html>'],
+    ['del','<!-- Arckeep 继续一项工作 原型 v4 -->'],
+    ['del','... (整个文件被删除)'],
+  ]},
+];
+const V_TM = [
+  { t:'概要设计 v0.1 定稿', m:'08-27 10:16 · main · a3f9c2 · 2 个文件' },
+  { t:'第一版原型（看板）', m:'08-27 09:41 · main · b7e2d1 · 1 个文件' },
+  { t:'Session Map 探索', m:'08-26 22:38 · 非 Git 快照 · 1 个文件' },
+];
+
+let vmode='auto', vtab='files', vsel=null, vsrc=false;
+const vItems=document.getElementById('vItems'), vContent=document.getElementById('vContent'),
+      vFhead=document.getElementById('vFhead'), vFn=document.getElementById('vFn'),
+      vFm=document.getElementById('vFm'), vActs=document.getElementById('vActs'),
+      vFilter=document.getElementById('vFilter'), vCount=document.getElementById('vCount');
+
+function tyLabel(t){ return {add:'新增',del:'删除',mod:'修改'}[t]||t; }
+function vItemsRender(){
+  const q=(vFilter.value||'').toLowerCase();
+  vItems.innerHTML='';
+  if(vtab==='files'){
+    V_FILES.filter(f=>f.name.toLowerCase().includes(q)).forEach(f=>{
+      const d=document.createElement('div');
+      d.className='vi'+(vsel===f.name?' on':'');
+      d.innerHTML='<div class="n"><span>'+f.name+'</span><span class="ty ext">'+f.ext+'</span></div><div class="m">'+f.meta+'</div>';
+      d.onclick=()=>{vsel=f.name;vsrc=false;vItemsRender();vFileRender(f);};
+      vItems.appendChild(d);
+    });
+    vCount.textContent=V_FILES.length+' 个文件';
+  } else if(vtab==='changes'){
+    V_CHANGES.filter(f=>f.name.toLowerCase().includes(q)).forEach(c=>{
+      const d=document.createElement('div');
+      d.className='vi'+(vsel==='c:'+c.name?' on':'');
+      d.innerHTML='<div class="n"><span>'+c.name+'</span><span class="ty '+c.ty+'">'+tyLabel(c.ty)+'</span></div><div class="m">'+c.st+' · '+c.meta+'</div>';
+      d.onclick=()=>{vsel='c:'+c.name;vItemsRender();vChangeRender(c);};
+      vItems.appendChild(d);
+    });
+    vCount.textContent=V_CHANGES.length+' 个本轮变化';
+  } else {
+    V_TM.forEach((t,i)=>{
+      const d=document.createElement('div');
+      d.className='tm-i'+(vsel==='tm:'+i?' on':'');
+      d.innerHTML='<div class="t">'+t.t+'</div><div class="m">'+t.m+'</div>';
+      d.onclick=()=>{vsel='tm:'+i;vItemsRender();vCpRender(t);};
+      vItems.appendChild(d);
+    });
+    vCount.textContent=V_TM.length+' 个检查点';
+  }
+}
+function vFileRender(f){
+  vFhead.style.display='flex'; vFn.textContent=f.name; vFm.textContent=f.meta;
+  if(f.body==='html'){
+    const find = 'V_FILES.find(x=>x.name===\"'+f.name+'\")';
+    vActs.innerHTML='<button class="'+(vsrc?'':'on')+'" onclick="vsrc=false;vFileRender('+find+')">预览</button>'+
+      '<button class="'+(vsrc?'on':'')+'" onclick="vsrc=true;vFileRender('+find+')">源文件</button>';
+    vContent.innerHTML = vsrc
+      ? '<div class="v-code"><span class="ln">1</span><span class="ctx">&lt;!DOCTYPE html&gt;</span><br><span class="ln">2</span><span class="ctx">&lt;html lang="zh-CN"&gt;</span><br><span class="ln">3</span><span class="ctx">... (原型省略源码)</span></div>'
+      : '<div style="border:1.5px dashed #d8c6b8;border-radius:2px;padding:36px;text-align:center;color:#c4b9a6;font-size:12.5px;line-height:2;">安全预览（iframe sandbox）<br>HTML 文件以只读方式渲染，脚本不执行</div>';
+  } else {
+    vActs.innerHTML='';
+    vContent.innerHTML='<div class="v-md"><h2>Arckeep 产品设计哲学</h2><p><strong>让工作连续，让进步复利。</strong></p><p>用户每次回来，都能准确地继续工作；每一次工作，也都能成为下一次更好的起点。</p><blockquote>项目是稳定中心，Agent 是可替换工具。</blockquote><ul><li>信息完整，注意力极简</li><li>可以学习，但不能擅自立法</li><li>对可能影响结果的理解保持透明</li></ul><p>... (原型省略完整内容)</p></div>';
+  }
+}
+function vChangeRender(c){
+  vFhead.style.display='flex'; vFn.textContent=c.name; vFm.textContent=tyLabel(c.ty)+' · '+c.st+' · '+c.meta;
+  vActs.innerHTML='<button onclick="toast(&quot;原型未实现打开目录&quot;)">打开目录</button>';
+  vContent.innerHTML='<div class="v-code">'+c.diff.map((l,i)=>'<div><span class="ln">'+(i+1)+'</span><span class="mk">'+(l[0]==='add'?'+':l[0]==='del'?'−':' ')+'</span><span class="'+l[0]+'">'+(l[1]||'&nbsp;')+'</span></div>').join('')+'</div>';
+}
+function vCpRender(t){
+  vFhead.style.display='flex'; vFn.textContent=t.t; vFm.textContent=t.m;
+  vActs.innerHTML='<button class="gold" onclick="toast(&quot;原型未实现 Git 操作 · 仅确认后执行&quot;)">从这里继续（Git 分叉）</button>';
+  vContent.innerHTML='<div class="v-code"><span class="ctx">此检查点记录了在 '+t.m.split(' · ')[0]+' 的项目状态。</span><br><span class="ctx">真实产品中可选择单个文件查看变更对比或此时内容。</span><br>&nbsp;<br><span class="ctx">从这里继续会创建隔离 Git worktree，当前分支不受影响。</span></div>';
+}
+document.querySelectorAll('[data-vm]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    vmode=b.dataset.vm;
+    document.querySelectorAll('[data-vm]').forEach(x=>x.classList.toggle('on',x===b));
+    toast('模式：'+{auto:'自动',dev:'开发',run:'运行'}[vmode]);
+  });
+});
+document.querySelectorAll('[data-vt]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    vtab=b.dataset.vt; vsel=null;
+    document.querySelectorAll('[data-vt]').forEach(x=>x.classList.toggle('on',x===b));
+    vFhead.style.display='none';
+    vContent.innerHTML='<div class="v-empty">← 从左侧选择一项</div>';
+    vItemsRender();
+  });
+});
+if (vFilter) vFilter.addEventListener('input',()=>vItemsRender());
+if (V_FILES.length && vItems){vsel=V_FILES[0].name;vItemsRender();vFileRender(V_FILES[0]);}
+</script>
+</body>
+</html>`;
+}
+
+// ═══ 视觉语言 · v0.2 · 反 AI 定式修正 ═══
+const css = `
+/* 骨架：不对称三栏 · 无阴影 · 无胶囊 */
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; overflow:hidden; }
+body { font-family:"Segoe UI","Microsoft YaHei",sans-serif; background:#f7f3ec; color:#2b2620; font-size:14px; line-height:1.55; }
+.app { display:grid; grid-template-columns:192px minmax(0,1fr) 236px; height:100vh; }
+.app.app-full { grid-template-columns:192px minmax(0,1fr); }
+
+/* 左侧轨：不做卡片，用留白和分隔线分层 */
+.side { background:#f0eae0; border-right:1px solid #e2d9c8; padding:28px 0 0; display:flex; flex-direction:column; }
+.brand { padding:0 18px 22px; border-bottom:1px solid #e2d9c8; }
+.brand .name { font-family:"Songti SC","Noto Serif SC",serif; font-size:19px; font-weight:500; letter-spacing:.05em; }
+.brand .tag { font-size:10.5px; color:#a39478; margin-top:3px; letter-spacing:.1em; }
+.sec { padding:20px 0 0; }
+.sec .label { font-size:8.5px; color:#bfae8f; letter-spacing:.28em; padding:0 18px; margin-bottom:8px; font-weight:600; }
+.item { padding:7px 18px; font-size:13px; color:#6b6053; display:flex; justify-content:space-between; align-items:baseline; gap:8px; cursor:pointer; line-height:1.45; }
+.item:hover { color:#2b2620; background:rgba(43,38,32,.03); }
+.item.on { color:#2b2620; background:rgba(43,38,32,.055); }
+.item .when { font-size:10.5px; color:#b8ab8f; flex:none; }
+.item.cand { color:#c4b9a6; font-style:italic; cursor:default; }
+.foot { margin-top:auto; padding:14px 18px; font-size:10px; color:#c4b9a6; border-top:1px solid #e2d9c8; }
+
+/* 右缘栏：书页边注 */
+.mrail { border-left:1px solid #e2d9c8; padding:28px 20px; display:flex; flex-direction:column; background:#faf7f2; }
+.mrail-head { font-size:8.5px; color:#bfae8f; letter-spacing:.28em; margin-bottom:20px; font-weight:600; }
+.mnote { padding:10px 0; border-top:1px solid #e2d9c8; }
+.mnote .mk { display:block; font-size:10px; color:#a39478; letter-spacing:.1em; margin-bottom:2px; }
+.mnote .mv { font-size:12px; color:#6b6053; line-height:1.55; }
+.mnote-foot { margin-top:auto; border-top:1px solid #e2d9c8; }
+.mnote-foot .mv { font-family:ui-monospace,Consolas,monospace; font-size:11px; color:#a39478; letter-spacing:.04em; }
+
+.go:hover { background:#96684f; }
+
+/* 主区：标题非粗体 · 衬线 · 靠字号和留白撑场 */
+.main { padding:32px 40px 24px; min-width:0; display:flex; flex-direction:column; }
+.main-full { padding:0; }
+.main-live { padding:0; }
+h1 { font-family:"Songti SC","Noto Serif SC",serif; font-size:15px; font-weight:500; letter-spacing:.12em; margin-bottom:24px; color:#2b2620; }
+
+/* 开场白：衬线 · 非粗体 */
+.opening { margin-bottom:26px; }
+.o-meta { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.o-conf { font-size:10px; color:#a8755d; letter-spacing:.1em; border:1px solid #d8c6b8; padding:2px 8px; border-radius:2px; }
+.o-time { font-size:10.5px; color:#b8ab8f; letter-spacing:.06em; }
+.o-sentence { font-family:"Songti SC","Noto Serif SC",serif; font-size:19px; font-weight:400; line-height:1.6; letter-spacing:.01em; }
+
+/* 双栏：主列 1.2fr · 副列 1fr · 有呼吸 */
+.grid { display:grid; grid-template-columns:1.2fr 1fr; gap:36px; align-items:start; flex:1; min-height:0; }
+.g-main, .g-side { min-width:0; }
+.blk { margin-bottom:24px; }
+.bhead { font-size:10px; color:#a39478; letter-spacing:.24em; font-weight:600; margin-bottom:12px; display:flex; align-items:baseline; gap:10px; }
+.bsub { font-size:9.5px; color:#c4b9a6; letter-spacing:.06em; font-weight:400; }
+
+/* 可能值得继续的事：短横线替代圆点 · 保留偏移 */
+.next { display:flex; align-items:baseline; gap:12px; padding:7px 0 7px 0; cursor:pointer; }
+.next:hover { background:rgba(43,38,32,.03); }
+.tick { width:12px; height:1px; background:#a8755d; flex:none; margin-top:9px; margin-left:2px; }
+.tick-gray { background:#c4b9a6; }
+.ntxt { flex:1; font-size:13.5px; line-height:1.5; }
+.nsrc { font-size:10.5px; color:#b8ab8f; white-space:nowrap; }
+
+/* 关键判断：左侧 2px 陶土竖线 · 无底色标签 */
+.dec { display:flex; gap:14px; padding:10px 0; border-bottom:1px solid #eae2d4; }
+.dec:last-child { border-bottom:none; }
+.dline { width:2px; background:#a8755d; flex:none; align-self:stretch; margin-top:3px; }
+.dline-old { background:#d8c6b8; }
+.dtxt { font-size:13.5px; line-height:1.5; }
+.dec-old .dtxt { color:#9a8f7e; }
+.dsrc { font-size:10.5px; color:#b8ab8f; margin-top:3px; line-height:1.5; }
+
+/* 产出 / 会话现场：分隔线组织 */
+.row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:5px 0; border-bottom:1px solid #eae2d4; cursor:pointer; }
+.row:last-child { border-bottom:none; }
+.row:hover { background:rgba(43,38,32,.03); }
+.rn { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; letter-spacing:.02em; }
+.rmeta { font-size:10.5px; color:#b8ab8f; white-space:nowrap; }
+.quote { display:flex; gap:10px; padding:5px 0; font-size:12.5px; line-height:1.6; color:#6b6053; }
+.qwho { font-family:ui-monospace,Consolas,monospace; font-size:11px; color:#a39478; flex:none; min-width:44px; }
+
+/* 启动区：按钮直角 · 不是胶囊 */
+.launch { margin-top:20px; padding-top:18px; border-top:1px solid #e2d9c8; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.llabel { font-size:12px; color:#a39478; letter-spacing:.06em; }
+.lspacer { flex:1; }
+.ag { all:unset; font:inherit; font-size:12.5px; padding:5px 14px; border:1px solid #d8c6b8; border-radius:2px; cursor:pointer; color:#6b6053; }
+.ag:hover { border-color:#a39478; color:#2b2620; }
+.ag.on { background:#2b2620; color:#faf7f2; border-color:#2b2620; }
+.go { all:unset; font:inherit; font-size:12.5px; padding:6px 20px; background:#a8755d; color:#faf7f2; border-radius:2px; cursor:pointer; }
+
+/* Session Map */
+.map-canvas { position:relative; height:340px; margin:4px 0 20px; }
+.m-link { position:absolute; background:#d8c6b8; height:1px; }
+.m-link-dash { background:none; border-top:1px dashed #d8c6b8; height:0; }
+.m-link-v { width:1px; height:auto; }
+.m-node { position:absolute; width:200px; cursor:pointer; }
+.m-node .nd { width:10px; height:10px; border:1.5px solid #2b2620; background:#faf7f2; margin-bottom:8px; }
+.m-node-dash .nd { border-style:dashed; border-color:#b8ab8f; }
+.m-node-dash { opacity:.45; }
+.m-node.sel .nm::after { content:""; display:block; height:2px; background:#a8755d; margin-top:4px; width:24px; }
+.m-node .nm { font-size:13px; font-weight:500; }
+.m-node .mtm { font-size:10.5px; color:#b8ab8f; margin-top:2px; }
+.m-legend { position:absolute; right:0; bottom:0; font-size:10.5px; color:#c4b9a6; }
+.m-detail { border-top:1px solid #2b2620; padding-top:16px; min-height:100px; }
+.m-detail h3 { font-family:"Songti SC","Noto Serif SC",serif; font-size:16px; font-weight:500; margin-bottom:6px; }
+.m-detail .msum { font-size:13px; color:#6b6053; line-height:1.7; }
+.m-detail .msrc { font-size:10.5px; color:#a39478; margin-top:6px; }
+
+/* 产出 · Viewer */
+.vwrap { padding:24px 32px 20px; height:100%; display:flex; flex-direction:column; }
+.v-toolbar { display:flex; gap:14px; align-items:center; margin-bottom:12px; }
+.v-title { font-family:"Songti SC","Noto Serif SC",serif; font-size:12px; letter-spacing:.28em; color:#a39478; font-weight:500; }
+.v-modes { display:flex; border:1px solid #d8c6b8; border-radius:2px; overflow:hidden; }
+.v-modes button { all:unset; font:inherit; font-size:11.5px; padding:4px 12px; cursor:pointer; color:#6b6053; border-right:1px solid #d8c6b8; }
+.v-modes button:last-child { border-right:none; }
+.v-modes button.on { background:#2b2620; color:#faf7f2; }
+.v-live { margin-left:auto; font-size:10.5px; color:#8a7a5a; }
+.v-live::before { content:"— "; color:#a8755d; }
+.v-tabs { display:flex; border-bottom:1px solid #e2d9c8; }
+.v-tabs button { all:unset; font:inherit; font-size:12.5px; padding:7px 16px; cursor:pointer; color:#6b6053; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.v-tabs button.on { color:#2b2620; border-bottom-color:#a8755d; }
+.v-tabs .ct { font-size:10px; color:#b8ab8f; margin-left:4px; }
+.v-body { flex:1; display:grid; grid-template-columns:250px minmax(0,1fr); border:1px solid #e2d9c8; border-radius:2px; overflow:hidden; min-height:0; background:#fffdf9; }
+.v-list { border-right:1px solid #e2d9c8; display:flex; flex-direction:column; min-height:0; }
+.v-filter { padding:7px 10px; border-bottom:1px solid #eae2d4; }
+.v-filter input { all:unset; font:inherit; font-size:11.5px; width:100%; padding:4px 8px; border:1px solid #d8c6b8; border-radius:2px; background:#faf7f2; }
+.v-items { overflow-y:auto; flex:1; }
+.vi { padding:8px 12px; border-bottom:1px solid #eae2d4; cursor:pointer; }
+.vi:hover { background:rgba(43,38,32,.03); }
+.vi.on { background:rgba(43,38,32,.055); box-shadow:inset 2px 0 0 #a8755d; }
+.vi .n { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; display:flex; justify-content:space-between; gap:8px; align-items:baseline; letter-spacing:.02em; }
+.vi .m { font-size:10px; color:#b8ab8f; margin-top:2px; }
+.vi .ty { font-size:9px; padding:1px 5px; border-radius:2px; flex:none; letter-spacing:.04em; }
+.vi .ty.add { background:#e4e0d0; color:#6b6053; }
+.vi .ty.del { background:#e8d8d2; color:#a05a45; }
+.vi .ty.mod { background:#efe6d6; color:#8a7a5a; }
+.vi .ty.ext { background:#eae2d4; color:#a39478; }
+.v-mainpane { display:flex; flex-direction:column; min-height:0; }
+.v-fhead { padding:10px 16px; border-bottom:1px solid #eae2d4; display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+.v-fhead .vfn { font-family:ui-monospace,Consolas,monospace; font-size:12px; letter-spacing:.02em; }
+.v-fhead .vfm { font-size:10.5px; color:#b8ab8f; margin-top:2px; }
+.v-fhead .vacts { display:flex; gap:6px; }
+.v-fhead .vacts button { all:unset; font:inherit; font-size:10.5px; padding:3px 10px; border:1px solid #d8c6b8; border-radius:2px; cursor:pointer; color:#6b6053; background:#faf7f2; }
+.v-fhead .vacts button.on { border-color:#2b2620; color:#2b2620; }
+.v-fhead .vacts button.gold { background:#a8755d; color:#faf7f2; border-color:#a8755d; }
+.v-content { flex:1; overflow-y:auto; padding:14px 18px; min-height:0; }
+.v-code { font:11.5px/1.9 ui-monospace,Consolas,monospace; }
+.v-code .add { color:#6b6053; background:rgba(168,117,93,.08); }
+.v-code .del { color:#a05a45; background:rgba(160,90,69,.06); }
+.v-code .ctx { color:#9a8f7e; }
+.v-code .mk { color:#c4b9a6; margin-right:10px; user-select:none; display:inline-block; width:12px; }
+.v-code .ln { color:#c4b9a6; margin-right:12px; user-select:none; display:inline-block; min-width:24px; text-align:right; }
+.v-md h2 { font-family:"Songti SC","Noto Serif SC",serif; font-size:16px; font-weight:500; margin:0 0 8px; }
+.v-md p { font-size:12.5px; color:#6b6053; line-height:1.85; margin:5px 0; }
+.v-md blockquote { border-left:2px solid #a8755d; padding-left:12px; margin:8px 0; font-family:"Songti SC","Noto Serif SC",serif; font-size:13.5px; color:#2b2620; }
+.v-md ul { margin:5px 0 5px 16px; font-size:12.5px; color:#6b6053; line-height:2; }
+.v-empty { flex:1; display:flex; align-items:center; justify-content:center; color:#c4b9a6; font-size:12.5px; }
+.v-foot { padding:7px 16px; border-top:1px solid #eae2d4; font-size:10px; color:#b8ab8f; display:flex; justify-content:space-between; }
+.tm-rail { position:relative; padding-left:22px; }
+.tm-rail::before { content:""; position:absolute; left:7px; top:5px; bottom:5px; width:1px; background:#e2d9c8; }
+.tm-i { position:relative; padding:7px 0; cursor:pointer; }
+.tm-i::before { content:""; position:absolute; left:-19px; top:13px; width:8px; height:8px; border:1.5px solid #2b2620; background:#faf7f2; }
+.tm-i:first-child::before { background:#a8755d; border-color:#a8755d; }
+.tm-i .t { font-size:12px; font-weight:500; }
+.tm-i .m { font-size:10px; color:#b8ab8f; margin-top:2px; }
+
+/* Kimi 接入态 */
+.l-grid { display:grid; grid-template-columns:minmax(0,1fr) 240px; gap:18px; padding:24px 32px; height:100%; }
+.l-frame { border:1.5px dashed #d8c6b8; border-radius:2px; background:#fffdf9; position:relative; display:flex; align-items:center; justify-content:center; }
+.l-badge { position:absolute; top:10px; left:14px; font-size:10px; color:#a39478; letter-spacing:.06em; }
+.l-ph { text-align:center; color:#c4b9a6; font-size:12.5px; line-height:2.1; }
+.l-rail { border-left:1px solid #e2d9c8; padding-left:16px; font-size:12px; overflow-y:auto; }
+.l-blk { margin-bottom:20px; }
+.l-h { font-size:9px; color:#bfae8f; letter-spacing:.24em; margin-bottom:8px; font-weight:600; }
+.l-r { display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+.l-r .lk { color:#a39478; flex:none; }
+.l-r .lv { text-align:right; color:#6b6053; }
+.l-r .lv-ok { color:#2b2620; }
+.l-cf { display:flex; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #eae2d4; }
+.l-cf:last-of-type { border-bottom:none; }
+.l-cf a { color:#6b6053; text-decoration:none; cursor:pointer; font-family:ui-monospace,Consolas,monospace; font-size:11px; }
+.l-cf a:hover { color:#2b2620; text-decoration:underline; text-underline-offset:3px; }
+.l-cf .lst { font-size:10px; color:#a39478; }
+.l-note { font-size:10px; color:#c4b9a6; margin-top:6px; line-height:1.7; }
+.l-go { all:unset; font:inherit; font-size:12px; padding:6px 0; width:100%; text-align:center; background:#a8755d; color:#faf7f2; border-radius:2px; cursor:pointer; }
+.l-go:hover { background:#96684f; }
+
+.screen { display:none; }
+.screen.on { display:block; }
+#toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%); background:#2b2620; color:#faf7f2; font-size:12px; padding:8px 18px; border-radius:2px; z-index:99; }
+`;
+
+// ── 屏 2 · Session Map ──
+const mainMap = `
+<div class="main">
+  <h1>Session Map · 经历与接续</h1>
+  <div class="map-canvas" id="mapCanvas">
+    <div class="m-link" style="left:20px; top:14px; width:210px;"></div>
+    <div class="m-link m-link-dash" style="left:254px; top:14px; width:212px;"></div>
+    <div class="m-link m-link-v m-link-dash" style="left:18px; top:18px; height:100px;"></div>
+    <div class="m-link m-link-dash" style="left:18px; top:122px; width:56px;"></div>
+    <div class="m-link" style="left:490px; top:14px; width:212px;"></div>
+
+    <div class="m-node" id="mn1" style="left:4px; top:0;">
+      <div class="nd"></div><div class="nm">产品困惑</div><div class="mtm">Codex · 08-25</div>
+    </div>
+    <div class="m-node" id="mn2" style="left:238px; top:0;">
+      <div class="nd"></div><div class="nm">不变与变</div><div class="mtm">Codex · 08-26</div>
+    </div>
+    <div class="m-node m-node-dash" id="mn3" style="left:74px; top:118px;">
+      <div class="nd"></div><div class="nm">Session Map 探索</div><div class="mtm">Claude Code · 分叉 · 08-26</div>
+    </div>
+    <div class="m-node" id="mn4" style="left:474px; top:0;">
+      <div class="nd"></div><div class="nm">概要设计 v0.1</div><div class="mtm">Codex · 08-27</div>
+    </div>
+    <div class="m-node" id="mn5" style="left:700px; top:0;">
+      <div class="nd"></div><div class="nm">原型迭代</div><div class="mtm">Codex + Kimi · 今天</div>
+    </div>
+    <div class="m-legend">—— 确认 · - - - 推测 / 分叉</div>
+  </div>
+  <div class="m-detail" id="mDetail">
+    <h3>不变与变</h3>
+    <div class="msum">确定稳定核心假设：项目是中心，Agent 可替换。产生未决问题：管理者-执行者是否是最佳多 Agent 模式？</div>
+    <div class="msrc">Codex · 08-26 · 摘要由你确认</div>
+  </div>
+  <div class="launch">
+    <span class="llabel">从选中的经历继续</span>
+    <button class="ag on">Codex</button>
+    <button class="ag">Claude Code</button>
+    <span class="lspacer"></span>
+    <button class="go">开始 →</button>
+  </div>
+</div>`;
+
+// ── 屏 3 · 产出（完整 Viewer）──
+const mainOut = `
+<div class="main main-full">
+  <div class="vwrap">
+    <div class="v-toolbar">
+      <span class="v-title">产出</span>
+      <div class="v-modes">
+        <button class="on" data-vm="auto">自动</button>
+        <button data-vm="dev">开发</button>
+        <button data-vm="run">运行</button>
+      </div>
+      <span class="v-live">实时监听中</span>
+    </div>
+    <div class="v-tabs">
+      <button class="on" data-vt="files">文件</button>
+      <button data-vt="changes">本轮产物 <span class="ct">3</span></button>
+      <button data-vt="tm">时间机器 <span class="ct">3</span></button>
+    </div>
+    <div class="v-body">
+      <div class="v-list">
+        <div class="v-filter"><input id="vFilter" placeholder="过滤文件名…"></div>
+        <div class="v-items" id="vItems"></div>
+      </div>
+      <div class="v-mainpane">
+        <div class="v-fhead" id="vFhead" style="display:none;">
+          <div><div class="vfn" id="vFn"></div><div class="vfm" id="vFm"></div></div>
+          <div class="vacts" id="vActs"></div>
+        </div>
+        <div class="v-content" id="vContent"></div>
+        <div class="v-foot"><span>以真实工作目录为准 · 不做第二份事实</span><span id="vCount"></span></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+// ── 屏 4 · Kimi 接入态 ──
+const mainLive = `
+<div class="main main-live">
+  <div class="l-grid">
+    <div class="l-frame">
+      <span class="l-badge">Kimi Code Web · 嵌入视图（接入 ≠ 改造）</span>
+      <div class="l-ph">这里是 Kimi 的原生界面<br>它的按钮、会话列表、输入框都保持原样</div>
+    </div>
+    <aside class="l-rail">
+      <div class="l-blk">
+        <div class="l-h">本项目</div>
+        <div class="l-r"><span class="lk">目录</span><span class="lv lv-ok">D:\_projects\tools\KCCWorkbench</span></div>
+        <div class="l-r"><span class="lk">接续点</span><span class="lv">原型迭代</span></div>
+        <div class="l-r"><span class="lk">携带上下文</span><span class="lv lv-ok">2 项</span></div>
+      </div>
+      <div class="l-blk">
+        <div class="l-h">会话状态</div>
+        <div class="l-r"><span class="lk">会话</span><span class="lv lv-ok">进行中</span></div>
+        <div class="l-r"><span class="lk">来自</span><span class="lv">Kimi Code Web</span></div>
+        <div class="l-r"><span class="lk">开始</span><span class="lv">14:32</span></div>
+      </div>
+      <div class="l-blk">
+        <div class="l-h">文件变化</div>
+        <div class="l-cf"><a onclick="toast(&quot;原型未实现跳转&quot;)">docs/assets/notes.md</a><span class="lst">新增</span></div>
+        <div class="l-cf"><a onclick="toast(&quot;原型未实现跳转&quot;)">src/main/session.ts</a><span class="lst">+18</span></div>
+        <div class="l-note">以真实工作目录为准 · agent 说完成不等于完成</div>
+      </div>
+      <div class="l-blk">
+        <div class="l-h">接回项目</div>
+        <button class="l-go">会话结束 · 回到项目 →</button>
+        <div class="l-note">你不需要手动复制产出或摘要</div>
+      </div>
+    </aside>
+  </div>
+</div>`;
+
+// ── 右缘栏（书页边注）──
+const marginRail = (activeScreen) => {
+  if (activeScreen === 'out') return '';
+  const notes = {
+    space: [
+      ['更新', '08-27 16:02 · 你确认'],
+      ['来源', 'Codex · Kimi · Claude Code'],
+      ['状态', '原型迭代中'],
+    ],
+    map: [
+      ['节点', '5 个经历 · 1 个分叉'],
+      ['跨度', '08-25 → 今天'],
+      ['说明', '分叉只保留，不支配'],
+    ],
+    live: [
+      ['会话', '进行中 · 14:32 起'],
+      ['来源', 'Kimi Code Web'],
+      ['变化', '2 个文件'],
+    ],
+  };
+  return `
+<aside class="mrail">
+  <div class="mrail-head">边注</div>
+  ${notes[activeScreen].map(([k, v]) => `
+  <div class="mnote"><span class="mk">${k}</span><span class="mv">${v}</span></div>`).join('')}
+  <div class="mnote mnote-foot"><span class="mk">页</span><span class="mv">03</span></div>
+</aside>`;
+};
+
+// ── 屏 1 · 项目空间 ──
+const mainSpace = `
+<div class="main">
+  <h1>Arckeep 设计</h1>
+
+  <div class="opening">
+    <div class="o-meta">
+      <span class="o-conf">你确认的</span>
+      <span class="o-time">08-27 16:02</span>
+    </div>
+    <div class="o-sentence">设计哲学和概要设计 v0.1 已定稿，项目恢复原型正在探索。</div>
+  </div>
+
+  <div class="grid">
+    <div class="g-main">
+      <section class="blk">
+        <div class="bhead">可能值得继续的事 <span class="bsub">推测 · 不是指令</span></div>
+        <div class="next">
+          <span class="tick"></span>
+          <span class="ntxt">让 Kimi 重新设计项目恢复体验的原型</span>
+          <span class="nsrc">来自最近的对话</span>
+        </div>
+        <div class="next">
+          <span class="tick"></span>
+          <span class="ntxt">明确 Session Map 分叉语义（未决）</span>
+          <span class="nsrc">来自概要设计 §15.3</span>
+        </div>
+        <div class="next">
+          <span class="tick tick-gray"></span>
+          <span class="ntxt">整理概要设计 v0.2（原型验证完成后）</span>
+          <span class="nsrc">你自己写的</span>
+        </div>
+        <div class="next">
+          <span class="tick tick-gray"></span>
+          <span class="ntxt">Session Map 节点接续动作（点击后的行为）</span>
+          <span class="nsrc">来自原型探索</span>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="bhead">关键判断 <span class="bsub">当前 2 · 历史 1</span></div>
+        <div class="dec">
+          <span class="dline"></span>
+          <div>
+            <div class="dtxt">项目是稳定中心，Agent 是可替换工具。</div>
+            <div class="dsrc">Codex · 不变与变会话 · 08-26 你确认</div>
+          </div>
+        </div>
+        <div class="dec">
+          <span class="dline"></span>
+          <div>
+            <div class="dtxt">Viewer 和 Session Map 是已确认模块。</div>
+            <div class="dsrc">概要设计 D-07 / D-08</div>
+          </div>
+        </div>
+        <div class="dec dec-old">
+          <span class="dline dline-old"></span>
+          <div>
+            <div class="dtxt">做第二个 Vibe Kanban。</div>
+            <div class="dsrc">你后来主动否定 · 历史保留，不支配现在</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="g-side">
+      <section class="blk">
+        <div class="bhead">最近产出 <span class="bsub">6 个文件</span></div>
+        <div class="row"><span class="rn">PRODUCT_DESIGN_PHILOSOPHY.md</span><span class="rmeta">08-26 · 你确认</span></div>
+        <div class="row"><span class="rn">HIGH_LEVEL_DESIGN_V0.1.md</span><span class="rmeta">08-27 · 你确认</span></div>
+        <div class="row"><span class="rn">arckeep-open-space-v0.2.html</span><span class="rmeta">08-27 · 今天的原型</span></div>
+        <div class="row"><span class="rn">arckeep-resume-flow.html</span><span class="rmeta">08-27 · Kimi 交付</span></div>
+        <div class="row"><span class="rn">arckeep-resume-flow-fused.html</span><span class="rmeta">08-27 · 融合版</span></div>
+        <div class="row"><span class="rn">arckeep-visual-v0.1.html</span><span class="rmeta">08-27 · 视觉稿</span></div>
+      </section>
+
+      <section class="blk">
+        <div class="bhead">会话现场 <span class="bsub">Codex · 昨天 22:41 停止</span></div>
+        <div class="quote"><span class="qwho">你</span><span class="qtxt">让 Kimi 帮忙重新设计原型。</span></div>
+        <div class="quote"><span class="qwho">Codex</span><span class="qtxt">上一版被否定为看板，已写好求助提示词交给 Kimi。</span></div>
+      </section>
+
+      <div class="launch">
+        <span class="llabel">继续</span>
+        <button class="ag on">Codex</button>
+        <button class="ag">Claude Code</button>
+        <button class="ag">Kimi Code</button>
+        <span class="lspacer"></span>
+        <button class="go">开始 →</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+for (const s of ['space', 'map', 'out', 'live']) {
+  const out = OUT.replace('.html', `-${s}.html`);
+  fs.writeFileSync(out, pageFor(s), 'utf8');
+  console.log('written:', out, ' · ', pageFor(s).length, 'chars');
+}

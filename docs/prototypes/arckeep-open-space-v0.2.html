@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Arckeep · 项目空间原型 v0.2</title>
+  <style>
+    :root {
+      --ink: #2a2a2a;
+      --ink-2: #666;
+      --ink-3: #9a9a9a;
+      --ink-4: #c8c8c8;
+      --hair: #e5e5e5;
+      --hair-2: #f0f0f0;
+      --paper: #fafafa;
+      --white: #fff;
+      --accent: #2a2a2a;
+      --accent-soft: #f3f3f3;
+      --suggest: #8a7a3a;
+      --suggest-soft: #faf7ee;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font: 14px/1.7 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    ::selection { background: var(--ink); color: var(--white); }
+
+    /* ── 整体 ─────────────────── */
+    #app { display: flex; height: 100vh; background: var(--white); }
+
+    /* ── 侧栏 ─────────────────── */
+    aside {
+      width: 210px; flex: none;
+      border-right: 1px solid var(--hair);
+      display: flex; flex-direction: column;
+    }
+
+    .brand { padding: 18px 20px 14px; border-bottom: 1px solid var(--hair); }
+    .brand strong { font-size: 14px; font-weight: 600; }
+    .brand small { display: block; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+    .side-section { padding: 14px 10px; border-bottom: 1px solid var(--hair-2); }
+    .side-label { font-size: 10px; color: var(--ink-3); letter-spacing: .15em; margin: 0 10px 6px; }
+
+    .nav-item {
+      all: unset; font: inherit; font-size: 13px; color: var(--ink-2);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; border-radius: 4px; cursor: pointer;
+    }
+    .nav-item:hover { color: var(--ink); background: var(--hair-2); }
+    .nav-item.on { color: var(--ink); font-weight: 600; background: var(--accent-soft); }
+    .nav-item .count { font-size: 11px; color: var(--ink-3); }
+
+    .nav-item.candidate { color: var(--ink-4); font-style: italic; cursor: default; }
+    .nav-item.candidate:hover { background: transparent; color: var(--ink-4); }
+
+    .side-foot { margin-top: auto; padding: 14px 20px; font-size: 10px; color: var(--ink-4); line-height: 1.7; }
+
+    /* ── 主区 ─────────────────── */
+    main { flex: 1; overflow-y: auto; }
+
+    .view { display: none; }
+    .view.on { display: block; }
+
+    .wrap { max-width: 780px; margin: 0 auto; padding: 48px 40px 120px; }
+
+    .kick { font-size: 11px; color: var(--ink-3); letter-spacing: .1em; }
+
+    h1 { font-size: 13px; color: var(--ink-3); letter-spacing: .2em; margin-bottom: 28px; font-weight: 600; }
+
+    /* ── 项目空间：核心区域 ────────── */
+    .field {
+      margin-bottom: 24px;
+    }
+
+    .field-head {
+      display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;
+    }
+
+    .field-title { font-size: 12px; color: var(--ink-3); letter-spacing: .08em; }
+    .field-count { font-size: 11px; color: var(--ink-4); }
+
+    .field-body {
+      border-top: 1px solid var(--hair); padding-top: 10px;
+    }
+
+    /* 当前状态 */
+    .now-state {
+      font-size: 19px; line-height: 1.55; font-weight: 400; margin: 4px 0 0; padding: 0;
+    }
+    .now-state .confirmed {
+      display: inline-block; background: var(--ink); color: var(--white);
+      font-size: 10px; line-height: 1; padding: 3px 7px; border-radius: 2px;
+      vertical-align: 3px; margin-right: 9px; letter-spacing: .05em;
+    }
+    .now-state .system {
+      display: inline-block; border: 1px dashed var(--suggest); color: var(--suggest);
+      font-size: 10px; line-height: 1; padding: 2px 7px; border-radius: 2px;
+      vertical-align: 3px; margin-right: 9px; background: var(--suggest-soft);
+    }
+
+    /* 下一步 */
+    .next-area { margin-top: 6px; }
+    .next-item {
+      display: flex; align-items: baseline; gap: 12px;
+      padding: 10px 12px; margin: 0 -12px;
+      border-radius: 4px; cursor: pointer;
+    }
+    .next-item:hover { background: var(--hair-2); }
+    .next-item .mark { font-size: 11px; color: var(--ink-4); flex: none; width: 18px; }
+    .next-item .text { flex: 1; font-size: 14px; }
+    .next-item .source { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+    .next-item.system-guess .source { color: var(--suggest); }
+
+    /* 判断 */
+    .decision { padding: 10px 0; border-bottom: 1px solid var(--hair-2); }
+    .decision:last-child { border-bottom: none; }
+    .decision .line { display: flex; gap: 12px; align-items: baseline; }
+    .decision .tag {
+      font-size: 10px; padding: 2px 7px; border-radius: 2px; flex: none; letter-spacing: .04em;
+    }
+    .decision .tag.current { background: var(--ink); color: var(--white); }
+    .decision .tag.superseded { background: var(--hair-2); color: var(--ink-3); }
+    .decision .tag.tentative { border: 1px dashed var(--suggest); color: var(--suggest); background: var(--suggest-soft); }
+    .decision .content { font-size: 13px; flex: 1; }
+    .decision .src { font-size: 11px; color: var(--ink-3); margin-top: 3px; padding-left: calc(12px + 52px); }
+
+    /* 产出 */
+    .artifact { padding: 9px 0; border-bottom: 1px solid var(--hair-2); display: flex; gap: 12px; align-items: baseline; }
+    .artifact:last-child { border-bottom: none; }
+    .artifact .icon { font-size: 11px; color: var(--ink-4); width: 18px; flex: none; text-align: center; }
+    .artifact .name { font-size: 13px; flex: 1; }
+    .artifact .meta { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+
+    /* 待办 */
+    .todo { padding: 8px 0; border-bottom: 1px solid var(--hair-2); display: flex; gap: 10px; align-items: baseline; }
+    .todo:last-child { border-bottom: none; }
+    .todo .mark { font-size: 11px; color: var(--ink-4); width: 18px; flex: none; text-align: center; }
+    .todo .text { font-size: 13px; flex: 1; }
+    .todo .src { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+
+    /* 展开更多 */
+    .more {
+      margin-top: 8px; font-size: 12px; color: var(--ink-3); cursor: pointer;
+      border: none; background: none; padding: 2px 0;
+      text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-4);
+    }
+    .more:hover { color: var(--ink); text-decoration-color: var(--ink); }
+
+    /* ── 底部：启动区 ─────────────── */
+    .launch {
+      margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--hair);
+      display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    }
+    .launch-label { font-size: 12px; color: var(--ink-3); }
+    .launch .agent-btn {
+      all: unset; font: inherit; font-size: 13px; cursor: pointer;
+      padding: 5px 14px; border: 1px solid var(--hair); border-radius: 16px;
+      color: var(--ink-2);
+    }
+    .launch .agent-btn:hover { border-color: var(--ink-2); color: var(--ink); }
+    .launch .agent-btn.on { border-color: var(--ink); color: var(--ink); background: var(--accent-soft); font-weight: 600; }
+    .launch .go {
+      all: unset; font: inherit; font-size: 13px; cursor: pointer;
+      padding: 6px 20px; background: var(--ink); color: var(--white); border-radius: 16px;
+    }
+    .launch .go:hover { background: #333; }
+    .launch .hint { font-size: 11px; color: var(--ink-4); margin-left: auto; }
+
+    /* ── 接入态 ─────────────── */
+    .live-grid {
+      display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 16px;
+      max-width: 1080px; margin: 0 auto; padding: 32px 32px 60px; min-height: 500px;
+    }
+    .kimi-frame {
+      border: 1px dashed var(--ink-4); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--paper); position: relative; min-height: 420px;
+    }
+    .kimi-frame .badge {
+      position: absolute; top: 10px; left: 12px; font-size: 11px; color: var(--ink-3);
+    }
+    .kimi-frame .placeholder { font-size: 13px; color: var(--ink-4); text-align: center; line-height: 1.9; }
+    .context-rail { border-left: 1px solid var(--hair); padding-left: 16px; font-size: 12px; }
+    .context-rail h4 {
+      font-size: 10px; color: var(--ink-3); letter-spacing: .15em; margin: 0 0 8px; font-weight: 600;
+    }
+    .context-rail .block { margin-bottom: 20px; }
+    .context-rail .row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+    .context-rail .row .k { color: var(--ink-3); }
+    .context-rail .row .v { text-align: right; }
+    .context-rail .ok { color: var(--ink); }
+    .context-rail .changed-file { padding: 4px 0; border-bottom: 1px solid var(--hair-2); display: flex; justify-content: space-between; gap: 8px; }
+    .context-rail .changed-file:last-child { border-bottom: none; }
+    .context-rail .changed-file a { color: var(--ink-2); text-decoration: none; cursor: pointer; }
+    .context-rail .changed-file a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .context-rail .note { font-size: 11px; color: var(--ink-4); margin-top: 6px; line-height: 1.6; }
+    .back-link {
+      all: unset; font: inherit; font-size: 12px; color: var(--ink-3); cursor: pointer;
+      margin-bottom: 16px; display: inline-block;
+    }
+    .back-link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ── 地图视图 ─────────────── */
+    .map-wrap { max-width: 900px; margin: 0 auto; padding: 48px 40px 120px; }
+
+    .map-canvas { position: relative; height: 420px; margin: 20px 0 30px; }
+
+    .map-node { position: absolute; width: 210px; cursor: pointer; }
+    .map-node .dot { width: 10px; height: 10px; border: 1.5px solid var(--ink); background: var(--white); margin-bottom: 8px; }
+    .map-node.dash .dot { border-style: dashed; border-color: var(--ink-3); }
+    .map-node.dim { opacity: .35; }
+    .map-node .name { font-size: 13px; font-weight: 600; display: inline-block; }
+    .map-node.sel .name::after { content: ""; display: block; height: 2px; background: var(--ink); margin-top: 3px; width: 24px; }
+    .map-node .tm { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+
+    .map-link { position: absolute; background: var(--ink-4); height: 1px; }
+    .map-link.dash { background: none; border-top: 1px dashed var(--ink-4); height: 0; }
+    .map-link.v { width: 1px; height: auto; }
+
+    .map-detail { border-top: 2px solid var(--ink); padding-top: 18px; margin-top: 10px; min-height: 140px; }
+    .map-detail h3 { font-size: 16px; margin-bottom: 10px; }
+    .map-detail .sum { font-size: 13px; color: var(--ink-2); }
+    .map-detail .src { font-size: 11px; color: var(--ink-3); margin-top: 8px; }
+
+    .map-legend { position: absolute; right: 0; bottom: 0; font-size: 11px; color: var(--ink-4); }
+
+    /* ── 产出视图 ─────────────── */
+    /* ── 完整 Viewer ─────────────── */
+    .viewer-shell {
+      display: grid; grid-template-rows: auto auto minmax(0, 1fr);
+      max-width: 1120px; margin: 0 auto; padding: 32px 32px 60px; height: 100%;
+    }
+    .viewer-toolbar {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .viewer-toolbar .mode-switch {
+      display: flex; border: 1px solid var(--hair); border-radius: 4px; overflow: hidden;
+    }
+    .viewer-toolbar .mode-switch button {
+      all: unset; font: inherit; font-size: 12px; padding: 5px 14px; cursor: pointer;
+      color: var(--ink-2); border-right: 1px solid var(--hair);
+    }
+    .viewer-toolbar .mode-switch button:last-child { border-right: none; }
+    .viewer-toolbar .mode-switch button.on { background: var(--ink); color: var(--white); }
+    .viewer-toolbar .mode-label { font-size: 11px; color: var(--ink-4); }
+    .viewer-toolbar .live-ind { margin-left: auto; font-size: 11px; color: #3a7a3a; }
+    .viewer-toolbar .live-ind::before { content: "● "; }
+
+    .viewer-sidebar-tabs {
+      display: flex; gap: 0; border-bottom: 1px solid var(--hair); margin-bottom: 0;
+    }
+    .viewer-sidebar-tabs button {
+      all: unset; font: inherit; font-size: 13px; padding: 8px 18px; cursor: pointer;
+      color: var(--ink-2); border-bottom: 2px solid transparent;
+    }
+    .viewer-sidebar-tabs button.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+    .viewer-sidebar-tabs .count { font-size: 11px; color: var(--ink-3); margin-left: 4px; }
+
+    .viewer-body {
+      display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 0;
+      border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; min-height: 480px;
+    }
+    .viewer-list { border-right: 1px solid var(--hair); display: flex; flex-direction: column; min-height: 0; }
+    .viewer-filter { padding: 8px 10px; border-bottom: 1px solid var(--hair-2); display: flex; gap: 6px; }
+    .viewer-filter input {
+      all: unset; font: inherit; font-size: 12px; flex: 1; padding: 5px 8px;
+      border: 1px solid var(--hair); border-radius: 3px;
+    }
+    .viewer-filter input:focus { border-color: var(--ink-2); }
+    .viewer-filter .refresh {
+      all: unset; font: inherit; font-size: 12px; cursor: pointer; padding: 4px 8px;
+      color: var(--ink-3); border: 1px solid var(--hair); border-radius: 3px;
+    }
+    .viewer-filter .refresh:hover { color: var(--ink); border-color: var(--ink-2); }
+    .viewer-items { overflow-y: auto; flex: 1; }
+
+    .vi { padding: 8px 12px; border-bottom: 1px solid var(--hair-2); cursor: pointer; }
+    .vi:last-child { border-bottom: none; }
+    .vi:hover { background: var(--hair-2); }
+    .vi.on { background: var(--accent-soft); font-weight: 600; }
+    .vi .vi-name { font-size: 12px; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+    .vi .vi-meta { font-size: 10px; color: var(--ink-3); margin-top: 2px; font-weight: 400; }
+    .vi .vi-type {
+      font-size: 9px; padding: 1px 5px; border-radius: 2px; flex: none;
+      background: var(--hair-2); color: var(--ink-3); font-weight: 400;
+    }
+    .vi .vi-type.add { background: #e5f2e5; color: #3a7a3a; }
+    .vi .vi-type.del { background: #f2e5e5; color: #a05050; }
+    .vi .vi-type.mod { background: #f0ebe0; color: #8a6a3a; }
+
+    .viewer-main { display: flex; flex-direction: column; min-height: 0; }
+    .viewer-file-head {
+      padding: 10px 16px; border-bottom: 1px solid var(--hair-2);
+      display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    }
+    .viewer-file-head .fname { font-size: 13px; font-weight: 600; }
+    .viewer-file-head .fmeta { font-size: 11px; color: var(--ink-3); }
+    .viewer-file-head .actions { display: flex; gap: 6px; align-items: baseline; }
+    .viewer-file-head .actions button {
+      all: unset; font: inherit; font-size: 11px; padding: 3px 10px; cursor: pointer;
+      border: 1px solid var(--hair); border-radius: 3px; color: var(--ink-2);
+    }
+    .viewer-file-head .actions button.on { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+    .viewer-file-head .actions .fork-btn {
+      border: 1px solid var(--ink-4); color: var(--ink-2); font-size: 11px; padding: 3px 10px;
+      cursor: pointer; border-radius: 3px; background: none;
+    }
+    .viewer-file-head .actions .fork-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+    .viewer-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .vcode { font: 12px/1.9 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+    .vcode .add { color: #3a7a3a; }
+    .vcode .del { color: #a05050; }
+    .vcode .ctx { color: var(--ink-3); }
+    .vcode .mark { color: var(--ink-4); margin-right: 8px; user-select: none; }
+    .vcode .ln { color: var(--ink-4); margin-right: 12px; user-select: none; text-align: right; min-width: 30px; display: inline-block; }
+
+    .vmd h1, .vmd h2, .vmd h3 { font-size: 15px; margin: 14px 0 8px; font-weight: 600; }
+    .vmd h1:first-child { margin-top: 0; }
+    .vmd p { font-size: 13px; color: var(--ink-2); margin: 6px 0; line-height: 1.8; }
+    .vmd ul { margin: 6px 0 6px 20px; font-size: 13px; color: var(--ink-2); line-height: 1.9; }
+    .vmd code { font: 12px ui-monospace, Consolas, monospace; background: var(--hair-2); padding: 1px 4px; border-radius: 2px; }
+    .vmd blockquote { border-left: 2px solid var(--ink-4); padding-left: 14px; margin: 8px 0; font-size: 13px; color: var(--ink-3); }
+
+    .vempty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--ink-4); font-size: 13px; text-align: center; line-height: 2;
+    }
+
+    .time-machine-rail { position: relative; padding-left: 22px; }
+    .time-machine-rail::before {
+      content: ""; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 1px;
+      background: var(--hair);
+    }
+    .tm-item { position: relative; padding: 6px 0 6px 0; cursor: pointer; }
+    .tm-item::before {
+      content: ""; position: absolute; left: -18px; top: 12px; width: 9px; height: 9px;
+      border: 1.5px solid var(--ink); border-radius: 50%; background: var(--white);
+    }
+    .tm-item:first-child::before { background: var(--ink); }
+    .tm-item .t { font-size: 12px; font-weight: 600; }
+    .tm-item .m { font-size: 10px; color: var(--ink-3); }
+
+    .viewer-footer { padding: 8px 16px; border-top: 1px solid var(--hair-2); font-size: 10px; color: var(--ink-4); display: flex; justify-content: space-between; }
+
+    /* ── 启动确认 ─────────────── */
+    #launch-layer {
+      position: fixed; inset: 0; background: rgba(250, 250, 250, .85);
+      display: none; align-items: center; justify-content: center; z-index: 20;
+    }
+    #launch-layer.on { display: flex; }
+    .launch-panel { background: var(--white); border: 1px solid var(--ink-4); width: 520px; padding: 26px 30px; }
+    .launch-panel h2 { font-size: 15px; margin-bottom: 4px; }
+    .launch-panel .sub { font-size: 12px; color: var(--ink-3); margin-bottom: 18px; }
+    .cx-row { display: flex; gap: 12px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--hair-2); }
+    .cx-row input { width: 13px; height: 13px; accent-color: var(--ink); flex: none; }
+    .cx-row .label { flex: 1; font-size: 13px; }
+    .cx-row .label.unchecked { color: var(--ink-4); text-decoration: line-through; text-decoration-color: var(--ink-4); }
+    .cx-row .from { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+    .launch-actions { display: flex; gap: 14px; justify-content: flex-end; margin-top: 18px; }
+
+    /* ── toast ─────────────── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(14px);
+      background: var(--ink); color: var(--white); font-size: 12px; padding: 9px 20px; border-radius: 4px;
+      opacity: 0; pointer-events: none; transition: all .25s; z-index: 30;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <aside>
+    <div class="brand">
+      <strong>Arckeep</strong>
+      <small>长期工作环境</small>
+    </div>
+
+    <div class="side-section">
+      <p class="side-label">项目</p>
+      <div class="nav-item on">Arckeep 设计</div>
+      <div class="nav-item">req-to-page <span class="count">昨天</span></div>
+      <div class="nav-item">efficiency-utils <span class="count">上周</span></div>
+    </div>
+
+    <div class="side-section">
+      <p class="side-label">当前项目</p>
+      <div class="nav-item on" data-view="space">项目空间</div>
+      <div class="nav-item" data-view="map">Session Map</div>
+      <div class="nav-item" data-view="artifacts">产出</div>
+      <div class="nav-item" data-view="live">Kimi 接入中</div>
+    </div>
+
+    <div class="side-section">
+      <p class="side-label">候选能力</p>
+      <div class="nav-item candidate" onclick="toast('未确认能力 · 点击无页面')">个人认知索引</div>
+      <div class="nav-item candidate" onclick="toast('未确认能力 · 点击无页面')">能力与资源</div>
+      <div class="nav-item candidate" onclick="toast('未确认能力 · 点击无页面')">额度总览</div>
+    </div>
+
+    <div class="side-foot">
+      原型 v0.2<br>开放空间 · 无固化流程
+    </div>
+  </aside>
+
+  <main>
+
+    <!-- ═══ 项目空间 ═══ -->
+    <section class="view on" id="v-space">
+      <div class="wrap">
+        <h1>ARCKEEP 设计</h1>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-title">当前状态</span>
+          </div>
+          <div class="field-body">
+            <p class="now-state">
+              <span class="confirmed">你确认的</span>
+              设计哲学和概要设计 v0.1 已定稿，项目恢复原型正在探索。
+            </p>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-title">可能值得继续的事</span>
+            <span class="field-count">系统推测 · 不是指令</span>
+          </div>
+          <div class="field-body next-area">
+            <div class="next-item system-guess" onclick="toast('这只是系统推测 · 你可以忽略或换一个方向')">
+              <span class="mark">·</span>
+              <span class="text">让 Kimi 重新设计项目恢复体验的原型</span>
+              <span class="source">来自最近的对话</span>
+            </div>
+            <div class="next-item system-guess" onclick="toast('这只是系统推测 · 你可以忽略或换一个方向')">
+              <span class="mark">·</span>
+              <span class="text">明确 Session Map 分叉语义（未决）</span>
+              <span class="source">来自概要设计 §15.3</span>
+            </div>
+            <div class="next-item" onclick="toast('你自己记下的 · 系统只是展示')">
+              <span class="mark">·</span>
+              <span class="text">整理概要设计 v0.2（原型验证完成后）</span>
+              <span class="source">你自己写的</span>
+            </div>
+            <button class="more" onclick="toast('原型未实现自定义')">+ 添加</button>
+          </div>
+            <p style="font-size:11px; color:var(--ink-4); margin-top:6px;">系统的推测和你的记录混在一起，没有谁"指挥"谁。</p>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-title">关键判断</span>
+            <span class="field-count">当前 2 · 历史 1</span>
+          </div>
+          <div class="field-body">
+            <div class="decision">
+              <div class="line">
+                <span class="tag current">当前</span>
+                <span class="content">项目是稳定中心，Agent 是可替换工具。</span>
+              </div>
+              <p class="src">Codex · 不变与变会话 · 你在 08-26 确认</p>
+            </div>
+            <div class="decision">
+              <div class="line">
+                <span class="tag current">当前</span>
+                <span class="content">Viewer 和 Session Map 是已确认模块。</span>
+              </div>
+              <p class="src">概要设计 D-07 / D-08</p>
+            </div>
+            <div class="decision">
+              <div class="line">
+                <span class="tag superseded">已取代</span>
+                <span class="content">做第二个 Vibe Kanban。</span>
+              </div>
+              <p class="src">你后来主动否定 · 历史保留可查，不支配现在</p>
+            </div>
+          </div>
+        </div>
+
+        <details class="field">
+          <summary class="field-head" style="cursor:pointer; list-style:none;">
+            <span class="field-title">最近产出</span>
+            <span class="field-count">6 个文件</span>
+            <span style="margin-left:auto; font-size:11px; color:var(--ink-3);">展开</span>
+          </summary>
+          <div class="field-body">
+            <div class="artifact">
+              <span class="icon">M</span>
+              <span class="name">PRODUCT_DESIGN_PHILOSOPHY.md</span>
+              <span class="meta">08-26 · 你确认</span>
+            </div>
+            <div class="artifact">
+              <span class="icon">M</span>
+              <span class="name">HIGH_LEVEL_DESIGN_V0.1.md</span>
+              <span class="meta">08-27 · 你确认</span>
+            </div>
+            <div class="artifact">
+              <span class="icon">H</span>
+              <span class="name">prototype-arckeep-recovery-v0.1.html</span>
+              <span class="meta">08-27 · 被否定为看板</span>
+            </div>
+            <div class="artifact">
+              <span class="icon">H</span>
+              <span class="name">arckeep-resume-flow.html</span>
+              <span class="meta">08-27 · Kimi 交付</span>
+            </div>
+            <p class="src" style="font-size:11px; color:var(--ink-3); margin-top:8px;">
+              产出以真实工作目录为准 · <a href="#" onclick="toast('原型未实现跳转'); return false;" style="color:var(--ink-2);">在产出中查看</a>
+            </p>
+          </div>
+        </details>
+
+        <details class="field">
+          <summary class="field-head" style="cursor:pointer; list-style:none;">
+            <span class="field-title">待办</span>
+            <span class="field-count">2</span>
+            <span style="margin-left:auto; font-size:11px; color:var(--ink-3);">展开</span>
+          </summary>
+          <div class="field-body">
+            <div class="todo">
+              <span class="mark">·</span>
+              <span class="text">Session Map 分叉语义</span>
+              <span class="src">概要设计 §15.3</span>
+            </div>
+            <div class="todo">
+              <span class="mark">·</span>
+              <span class="text">记忆升级规则（候选 → 已确认）</span>
+              <span class="src">概要设计 §15.4</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="field">
+          <summary class="field-head" style="cursor:pointer; list-style:none;">
+            <span class="field-title">上一次会话现场</span>
+            <span class="field-count">Codex · 昨天 22:41 停止</span>
+            <span style="margin-left:auto; font-size:11px; color:var(--ink-3);">展开</span>
+          </summary>
+          <div class="field-body">
+            <p style="font-size:13px; color:var(--ink-2); border-left: 2px solid var(--hair); padding: 4px 0 4px 14px; margin-bottom: 6px;">
+              <strong style="font-weight:600;">你</strong>　让 Kimi 帮忙重新设计原型。
+            </p>
+            <p style="font-size:13px; color:var(--ink-2); border-left: 2px solid var(--hair); padding: 4px 0 4px 14px; margin-bottom: 6px;">
+              <strong style="font-weight:600;">Codex</strong>　上一版被否定为看板，已写好求助提示词交给 Kimi。
+            </p>
+            <p style="font-size:11px; color:var(--ink-3); margin-top:6px;">
+              摘要只是索引 · <a href="#" onclick="toast('原型未实现跳转'); return false;" style="color:var(--ink-2);">打开原始会话</a>
+            </p>
+          </div>
+        </details>
+
+        <div class="launch">
+          <span class="launch-label">继续</span>
+          <button class="agent-btn on">Codex</button>
+          <button class="agent-btn">Claude Code</button>
+          <button class="agent-btn">Kimi Code</button>
+          <button class="go">开始 →</button>
+          <span class="hint">agent 可换 · 项目和上下文不变</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ Kimi 接入态 ═══ -->
+    <section class="view" id="v-live">
+      <div class="live-grid">
+        <div>
+          <button class="back-link" onclick="document.querySelectorAll('[data-view]')[0].click()">← 回到项目空间</button>
+          <div class="kimi-frame">
+            <span class="badge">Kimi Code Web · 嵌入视图（接入 ≠ 改造）</span>
+            <div class="placeholder">
+              这里是 Kimi 的原生界面<br>它的按钮、会话列表、输入框都保持原样
+            </div>
+          </div>
+        </div>
+
+        <aside class="context-rail">
+          <div class="block">
+            <h4>本项目</h4>
+            <div class="row"><span class="k">目录</span><span class="v ok">D:\_projects\tools\KCCWorkbench</span></div>
+            <div class="row"><span class="k">接续点</span><span class="v">原型迭代</span></div>
+            <div class="row"><span class="k">携带上下文</span><span class="v ok">2 项</span></div>
+          </div>
+
+          <div class="block">
+            <h4>会话状态</h4>
+            <div class="row"><span class="k">会话</span><span class="v ok">进行中</span></div>
+            <div class="row"><span class="k">来自</span><span class="v">Kimi Code Web</span></div>
+            <div class="row"><span class="k">开始时间</span><span class="v">14:32</span></div>
+          </div>
+
+          <div class="block">
+            <h4>文件变化</h4>
+            <div class="changed-file">
+              <a onclick="toast('原型未实现跳转到产出')">docs/assets/notes.md</a>
+              <span style="color: var(--ink-3); font-size: 11px;">新增</span>
+            </div>
+            <div class="changed-file">
+              <a onclick="toast('原型未实现跳转到产出')">src/main/session.ts</a>
+              <span style="color: var(--ink-3); font-size: 11px;">+18</span>
+            </div>
+            <p class="note">以真实工作目录为准 · agent 说完成不等于完成</p>
+          </div>
+
+          <div class="block">
+            <h4>接回项目</h4>
+            <button class="go" style="width: 100%; text-align: center;" onclick="toast('会话结束后，产出和摘要自动回流到项目空间')">会话结束 · 回到项目 →</button>
+            <p class="note">你不需要手动复制产出或摘要</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ═══ Session Map ═══ -->
+    <section class="view" id="v-map">
+      <div class="map-wrap">
+        <h1>SESSION MAP · 经历与接续</h1>
+
+        <div class="map-canvas" id="map">
+          <div class="map-link" style="left:16px; top:12px; width:200px;"></div>
+          <div class="map-link dash" style="left:240px; top:12px; width:200px;"></div>
+          <div class="map-link v dash" style="left:14px; top:16px; height:100px;"></div>
+          <div class="map-link dash" style="left:14px; top:120px; width:52px;"></div>
+
+          <div class="map-node" id="n1" style="left:0; top:0;" onclick="pick('n1')">
+            <div class="dot"></div>
+            <span class="name">产品困惑</span>
+            <div class="tm">Codex · 08-25</div>
+          </div>
+          <div class="map-node" id="n2" style="left:240px; top:0;" onclick="pick('n2')">
+            <div class="dot"></div>
+            <span class="name">不变与变</span>
+            <div class="tm">Codex · 08-26</div>
+          </div>
+          <div class="map-node dash dim" id="n3" style="left:70px; top:116px;" onclick="pick('n3')">
+            <div class="dot"></div>
+            <span class="name">Session Map 探索</span>
+            <div class="tm">Claude Code · 08-26 · 分叉</div>
+          </div>
+          <div class="map-node" id="n4" style="left:460px; top:0;" onclick="pick('n4')">
+            <div class="dot"></div>
+            <span class="name">概要设计 v0.1</span>
+            <div class="tm">Codex · 08-27</div>
+          </div>
+          <div class="map-node" id="n5" style="left:680px; top:0;" onclick="pick('n5')">
+            <div class="dot"></div>
+            <span class="name">原型迭代</span>
+            <div class="tm">Codex + Kimi · 08-27</div>
+          </div>
+
+          <div class="map-legend">—— 确认 · - - - 推测 / 分叉</div>
+        </div>
+
+        <div class="map-detail" id="detail">
+          <h3>不变与变</h3>
+          <p class="sum">确定稳定核心假设：项目是中心，Agent 可替换。产生未决问题：管理者-执行者是否是最佳多 Agent 模式？</p>
+          <p class="src">Codex · 08-26 · 摘要由你确认</p>
+        </div>
+
+        <div class="launch" style="margin-top: 20px;">
+          <span class="launch-label">从选中的经历继续</span>
+          <button class="agent-btn on">Codex</button>
+          <button class="agent-btn">Claude Code</button>
+          <button class="go">开始 →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 产出（完整 Viewer）═══ -->
+    <section class="view" id="v-artifacts">
+      <div class="viewer-shell">
+        <div class="viewer-toolbar">
+          <span class="kick" style="letter-spacing:.2em;">产出</span>
+          <div class="mode-switch">
+            <button class="on" data-vmode="auto">自动</button>
+            <button data-vmode="dev">开发</button>
+            <button data-vmode="run">运行</button>
+          </div>
+          <span class="mode-label" id="vmode-label">自动推断（跟随会话性质）</span>
+          <span class="live-ind">实时监听中</span>
+        </div>
+
+        <div class="viewer-sidebar-tabs">
+          <button class="on" data-vtab="files">文件</button>
+          <button data-vtab="changes">本轮产物 <span class="count" id="vc-changes">3</span></button>
+          <button data-vtab="tm">时间机器 <span class="count" id="vc-tm">3</span></button>
+        </div>
+
+        <div class="viewer-body">
+          <div class="viewer-list">
+            <div class="viewer-filter" id="v-filter-row">
+              <input id="v-filter" placeholder="过滤文件名…" />
+              <button class="refresh" title="刷新" onclick="toast('原型未实现刷新')">⟳</button>
+            </div>
+            <div class="viewer-items" id="v-items"></div>
+          </div>
+
+          <div class="viewer-main">
+            <div class="viewer-file-head" id="v-file-head" style="display:none;">
+              <div>
+                <div class="fname" id="v-fname"></div>
+                <div class="fmeta" id="v-fmeta"></div>
+              </div>
+              <div class="actions" id="v-actions"></div>
+            </div>
+            <div class="viewer-content" id="v-content"></div>
+            <div class="viewer-footer">
+              <span>以真实工作目录为准 · 不做第二份事实</span>
+              <span id="v-count-info"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 启动确认 -->
+<div id="launch-layer">
+  <div class="launch-panel">
+    <h2>开始新会话</h2>
+    <p class="sub">接续点：不变与变 · 用 Codex</p>
+
+    <p style="font-size:12px; color:var(--ink-3); margin: 14px 0 4px;">带什么进入新会话（默认最小）</p>
+    <div class="cx-row">
+      <input type="checkbox" checked id="cx1" onchange="this.nextElementSibling.classList.toggle('unchecked', !this.checked)">
+      <span class="label">会话摘要：项目是中心，Agent 可替换</span>
+      <span class="from">你在会话中确认</span>
+    </div>
+    <div class="cx-row">
+      <input type="checkbox" checked id="cx2" onchange="this.nextElementSibling.classList.toggle('unchecked', !this.checked)">
+      <span class="label">产品设计哲学.md</span>
+      <span class="from">本地文件</span>
+    </div>
+    <div class="cx-row">
+      <input type="checkbox" id="cx3" onchange="this.nextElementSibling.classList.toggle('unchecked', !this.checked)">
+      <span class="label">未决：管理者-执行者是否最佳？</span>
+      <span class="from">你记下</span>
+    <p style="font-size:11px; color:var(--ink-4); margin-top:6px;">勾选决定带什么 · 默认最小 · agent 拿到的只有你勾选的内容</p>
+
+    <div class="launch-actions">
+      <button class="more" onclick="document.getElementById('launch-layer').classList.remove('on')">取消</button>
+      <button class="go" onclick="document.getElementById('launch-layer').classList.remove('on'); toast('会话开始 · 真实产品中嵌入 agent 终端 / 原生视图')">开始 →</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+const views = ['space', 'map', 'artifacts', 'live'];
+document.querySelectorAll('[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    views.forEach(v => {
+      document.getElementById('v-' + v).classList.toggle('on', v === btn.dataset.view);
+    });
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b === btn));
+  });
+});
+
+const DETAIL = {
+  n1: { name: '产品困惑', sum: '讨论 KCC 后续价值，产生 3 个候选方向。', src: 'Codex · 08-25 · 摘要由你确认' },
+  n2: { name: '不变与变', sum: '确定稳定核心假设：项目是中心，Agent 可替换。产生未决问题：管理者-执行者是否是最佳多 Agent 模式？', src: 'Codex · 08-26 · 摘要由你确认' },
+  n3: { name: 'Session Map 探索', sum: '（推测）此分叉探讨了 Session Map 定位，但你后来说"不想往这个方向深入"。分叉保留可查，不支配现在。', src: 'Claude Code · 08-26 · 推测' },
+  n4: { name: '概要设计 v0.1', sum: '写入 D-01 到 D-14。确认 Viewer 和 Session Map 两个模块。', src: 'Codex · 08-27 · 摘要由你确认' },
+  n5: { name: '原型迭代', sum: '第一版被否定为看板，Kimi 交付了流程版，融合版产出。当前探索中。', src: 'Codex + Kimi · 08-27 · 进行中' },
+};
+
+document.querySelectorAll('.map-node').forEach(node => {
+  node.addEventListener('click', () => {
+    document.querySelectorAll('.map-node').forEach(n => n.classList.remove('sel'));
+    node.classList.add('sel');
+    const d = DETAIL[node.id];
+    document.getElementById('detail').innerHTML = `
+      <h3>${d.name}</h3>
+      <p class="sum">${d.sum}</p>
+      <p class="src">${d.src}</p>`;
+  });
+});
+document.getElementById('n2').classList.add('sel');
+
+document.querySelectorAll('.launch .go, .map-wrap .go').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('launch-layer').classList.add('on');
+  });
+});
+
+/* ── 完整 Viewer 逻辑 ── */
+const V_FILES = [
+  { name: 'PRODUCT_DESIGN_PHILOSOPHY.md', ext: 'md', mtime: '08-26 16:42', size: '9.4 KB', body: 'md' },
+  { name: 'HIGH_LEVEL_DESIGN_V0.1.md', ext: 'md', mtime: '08-27 10:16', size: '24 KB', body: 'md' },
+  { name: 'arckeep-open-space-v0.2.html', ext: 'html', mtime: '08-27 14:52', size: '31 KB', body: 'html' },
+  { name: 'arckeep-resume-flow.html', ext: 'html', mtime: '08-27 11:19', size: '40 KB', body: 'html' },
+  { name: 'arckeep-resume-flow-fused.html', ext: 'html', mtime: '08-27 13:08', size: '43 KB', body: 'html' },
+];
+
+const V_CHANGES = [
+  { name: 'arckeep-open-space-v0.2.html', type: 'mod', stats: '+72 −18', when: '14:52',
+    diff: [
+      { t: 'ctx', text: '/* ── 产出（完整 Viewer）────────────── */' },
+      { t: 'del', text: '.file-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); }' },
+      { t: 'del', text: '.file-item { padding: 10px 12px; ... }' },
+      { t: 'add', text: '.viewer-shell { display: grid; grid-template-rows: auto auto minmax(0, 1fr); }' },
+      { t: 'add', text: '.viewer-toolbar .mode-switch { display: flex; border: 1px solid var(--hair); }' },
+      { t: 'add', text: '.viewer-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 480px; }' },
+      { t: 'add', text: '.vi .vi-type.add { background: #e5f2e5; color: #3a7a3a; }' },
+      { t: 'ctx', text: '' },
+      { t: 'ctx', text: '// 完整 Viewer 逻辑' },
+      { t: 'del', text: '// （旧版：硬编码 5 个文件，无模式切换，无时间机器）' },
+      { t: 'add', text: 'const V_FILES = [...] // 文件树：过滤 · 类型 · 修改时间' },
+      { t: 'add', text: 'const V_CHANGES = [...] // 本轮产物：diff · 状态标签' },
+      { t: 'add', text: 'const V_TM = [...] // 时间机器：检查点 · Git 分叉' },
+    ] },
+  { name: 'PRODUCT_DESIGN_PHILOSOPHY.md', type: 'mod', stats: '+3 −1', when: '14:38',
+    diff: [
+      { t: 'ctx', text: '## 13. 一句话总结' },
+      { t: 'del', text: '> 以用户的长期工作为中心，让项目、认知与合作经验跨越 Agent 持续演进。' },
+      { t: 'add', text: '> 以用户的长期工作为中心，让项目、认知与合作经验跨越 Agent 持续演进；' },
+      { t: 'add', text: '> 保留完整历史，只在正确场景唤起正确经验，以克制、透明和可替换的方式帮助用户持续进步。' },
+    ] },
+  { name: 'arckeep-resume-flow-fused.html', type: 'del', stats: '−1082', when: '13:08',
+    diff: [
+      { t: 'del', text: '<!DOCTYPE html>' },
+      { t: 'del', text: '<!-- Arckeep ·「继续一项工作」原型 v4 -->' },
+      { t: 'del', text: '... (整个文件被删除)' },
+    ] },
+];
+
+const V_TM = [
+  { title: '概要设计 v0.1 定稿', when: '08-27 10:16', git: 'main · a3f9c2', files: 2 },
+  { title: '第一版原型（看板）', when: '08-27 09:41', git: 'main · b7e2d1', files: 1 },
+  { title: 'Session Map 探索', when: '08-26 22:38', git: '非 Git 快照', files: 1 },
+];
+
+const VMODE_LABEL = { auto: '自动推断（跟随会话性质）', dev: '开发模式（全量文件）', run: '运行模式（人类可读产物）' };
+let vmode = 'auto';
+let vtab = 'files';
+let vselected = null;  // 当前选中的文件或 change
+let vshowSource = false; // HTML 文件源码 / 预览
+
+const vItems = document.getElementById('v-items');
+const vContent = document.getElementById('v-content');
+const vFileHead = document.getElementById('v-file-head');
+const vFname = document.getElementById('v-fname');
+const vFmeta = document.getElementById('v-fmeta');
+const vActions = document.getElementById('v-actions');
+const vFilterRow = document.getElementById('v-filter-row');
+const vFilterInput = document.getElementById('v-filter');
+
+function vTypeLabel(t) {
+  return { add: '新增', del: '删除', mod: '修改' }[t] || t;
+}
+
+function vRenderItems() {
+  const q = (vFilterInput.value || '').toLowerCase();
+  vItems.innerHTML = '';
+
+  if (vtab === 'files') {
+    const visible = V_FILES.filter(f => f.name.toLowerCase().includes(q));
+    visible.forEach(f => {
+      const el = document.createElement('div');
+      el.className = 'vi' + (vselected === f.name ? ' on' : '');
+      el.innerHTML = `
+        <div class="vi-name"><span>${f.name}</span><span class="vi-type">${f.ext}</span></div>
+        <div class="vi-meta">${f.mtime} · ${f.size}</div>`;
+      el.onclick = () => { vselected = f.name; vshowSource = false; vRenderItems(); vRenderFile(f); };
+      vItems.appendChild(el);
+    });
+    document.getElementById('v-count-info').textContent = `${visible.length} / ${V_FILES.length} 个文件`;
+  }
+
+  if (vtab === 'changes') {
+    const visible = V_CHANGES.filter(f => f.name.toLowerCase().includes(q));
+    visible.forEach(c => {
+      const el = document.createElement('div');
+      el.className = 'vi' + (vselected === 'c:' + c.name ? ' on' : '');
+      el.innerHTML = `
+        <div class="vi-name"><span>${c.name}</span><span class="vi-type ${c.type}">${vTypeLabel(c.type)}</span></div>
+        <div class="vi-meta">${c.stats} · ${c.when}</div>`;
+      el.onclick = () => { vselected = 'c:' + c.name; vshowSource = false; vRenderItems(); vRenderChange(c); };
+      vItems.appendChild(el);
+    });
+    document.getElementById('v-count-info').textContent = `${visible.length} 个本轮变化`;
+  }
+
+  if (vtab === 'tm') {
+    vFilterRow.style.display = 'none';
+    V_TM.forEach((t, i) => {
+      const el = document.createElement('div');
+      el.className = 'tm-item' + (vselected === 'tm:' + i ? ' on' : '');
+      el.innerHTML = `
+        <div class="t">${t.title}</div>
+        <div class="m">${t.when} · ${t.git} · ${t.files} 个文件</div>`;
+      el.onclick = () => { vselected = 'tm:' + i; vRenderItems(); vRenderCheckpoint(t); };
+      vItems.appendChild(el);
+    });
+    document.getElementById('v-count-info').textContent = `${V_TM.length} 个检查点`;
+    return;
+  }
+
+  vFilterRow.style.display = 'flex';
+}
+
+function vRenderFile(f) {
+  vFileHead.style.display = 'flex';
+  vFname.textContent = f.name;
+  vFmeta.textContent = `${f.mtime} · ${f.size}`;
+
+  if (f.body === 'html') {
+    vActions.innerHTML = `
+      <button class="${!vshowSource ? 'on' : ''}" onclick="vshowSource=false; vRerender()">预览</button>
+      <button class="${vshowSource ? 'on' : ''}" onclick="vshowSource=true; vRerender()">源文件</button>`;
+    if (vshowSource) {
+      vContent.innerHTML = `<div class="vcode"><span class="ln">1</span><span class="ctx">&lt;!DOCTYPE html&gt;</span>\n<span class="ln">2</span><span class="ctx">&lt;html lang="zh-CN"&gt;</span>\n<span class="ln">3</span><span class="ctx">... (源码共 820 行)</span></div>`;
+    } else {
+      vContent.innerHTML = `
+        <div style="border:1px dashed var(--ink-4); border-radius:4px; padding:40px; text-align:center; color:var(--ink-4); font-size:13px; line-height:2;">
+          安全预览（iframe sandbox）<br>HTML 文件以只读方式渲染，脚本不执行
+        </div>`;
+    }
+    return;
+  }
+
+  vActions.innerHTML = '';
+  if (f.body === 'md') {
+    vContent.innerHTML = `
+      <div class="vmd">
+        <h1>Arckeep 产品设计哲学</h1>
+        <p><strong>让工作连续，让进步复利。</strong></p>
+        <p>用户每次回来，都能准确地继续工作；每一次工作，也都能成为下一次更好的起点。</p>
+        <blockquote>项目是稳定中心，Agent 是可替换工具。</blockquote>
+        <ul>
+          <li>信息完整，注意力极简</li>
+          <li>可以学习，但不能擅自立法</li>
+          <li>对可能影响结果的理解保持透明</li>
+        </ul>
+        <p>... (原型省略完整内容)</p>
+      </div>`;
+  }
+}
+
+function vRenderChange(c) {
+  vFileHead.style.display = 'flex';
+  vFname.textContent = c.name;
+  vFmeta.textContent = `${vTypeLabel(c.type)} · ${c.stats} · ${c.when}`;
+  vActions.innerHTML = '<button onclick="toast(\'原型未实现打开目录\')">打开目录</button>';
+  vContent.innerHTML = `
+    <div class="vcode">${c.diff.map((line, i) => {
+      const mark = line.t === 'add' ? '+' : line.t === 'del' ? '−' : ' ';
+      return `<div><span class="ln">${i + 1}</span><span class="mark">${mark}</span><span class="${line.t}">${line.text || '&nbsp;'}</span></div>`;
+    }).join('')}</div>`;
+}
+
+function vRenderCheckpoint(t) {
+  vFileHead.style.display = 'flex';
+  vFname.textContent = t.title;
+  vFmeta.textContent = `${t.when} · ${t.git} · ${t.files} 个文件变化`;
+  vActions.innerHTML = `
+    <button onclick="toast('原型未实现 Git 操作 · 仅确认后执行')">从这里继续（Git 分叉）</button>`;
+  vContent.innerHTML = `
+    <div class="vcode">
+      <div><span class="ctx">此检查点记录了 ${t.files} 个文件在 ${t.when} 的状态。</span></div>
+      <div><span class="ctx">真实产品中可选择单个文件查看"变更对比"或"此时内容"。</span></div>
+      <div>&nbsp;</div>
+      <div><span class="ctx">"从这里继续"会创建隔离 Git worktree，当前分支不受影响。</span></div>
+    </div>`;
+}
+
+function vRerender() {
+  if (vtab === 'files' && vselected) {
+    const f = V_FILES.find(x => x.name === vselected);
+    if (f) vRenderFile(f);
+  }
+}
+
+document.querySelectorAll('[data-vmode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    vmode = btn.dataset.vmode;
+    document.querySelectorAll('[data-vmode]').forEach(b => b.classList.toggle('on', b === btn));
+    document.getElementById('vmode-label').textContent = VMODE_LABEL[vmode];
+  });
+});
+
+document.querySelectorAll('[data-vtab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    vtab = btn.dataset.vtab;
+    vselected = null;
+    document.querySelectorAll('[data-vtab]').forEach(b => b.classList.toggle('on', b === btn));
+    vFileHead.style.display = 'none';
+    vContent.innerHTML = `<div class="vempty">← 从左侧选择一项</div>`;
+    vRenderItems();
+  });
+});
+
+vFilterInput.addEventListener('input', () => vRenderItems());
+
+// 初始化：默认选中第一个文件
+if (V_FILES.length) {
+  vselected = V_FILES[0].name;
+  vRenderItems();
+  vRenderFile(V_FILES[0]);
+}
+</script>
+</body>
+</html>

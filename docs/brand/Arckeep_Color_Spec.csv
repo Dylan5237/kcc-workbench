@@ -1,0 +1,8 @@
+﻿Name,HEX,R,G,B,C,M,Y,K,Role
+Deep Charcoal,#232323,35,35,35,0,0,0,86,Primary logo / primary text
+Warm Ivory,#F5F2EA,245,242,234,0,1,4,4,Primary light surface / reverse mark
+Olive,#5B5E3B,91,94,59,3,0,37,63,Secondary accent
+Warm Sand,#C1A477,193,164,119,0,15,38,24,Warm neutral accent; flat only
+Soft Stone,#D8D4CB,216,212,203,0,2,6,15,Divider / quiet surface
+Muted Graphite,#66635D,102,99,93,0,3,9,60,Secondary text
+White,#FFFFFF,255,255,255,0,0,0,0,Utility white

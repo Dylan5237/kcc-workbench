@@ -1,0 +1,48 @@
+{
+  "brand": {
+    "name": "Arckeep",
+    "cn_name": "续境",
+    "tagline": "留住当下，延续未来"
+  },
+  "color": {
+    "deep_charcoal": {
+      "value": "#232323",
+      "type": "color"
+    },
+    "warm_ivory": {
+      "value": "#F5F2EA",
+      "type": "color"
+    },
+    "olive": {
+      "value": "#5B5E3B",
+      "type": "color"
+    },
+    "warm_sand": {
+      "value": "#C1A477",
+      "type": "color"
+    },
+    "soft_stone": {
+      "value": "#D8D4CB",
+      "type": "color"
+    },
+    "muted_graphite": {
+      "value": "#66635D",
+      "type": "color"
+    },
+    "white": {
+      "value": "#FFFFFF",
+      "type": "color"
+    }
+  },
+  "identity": {
+    "default_lockup": "symbol + Arckeep wordmark",
+    "cn_name_role": "auxiliary naming only",
+    "tagline_role": "campaign/communication copy only"
+  },
+  "digital_visual_language": {
+    "material": "flat/matte",
+    "metallic_effects": false,
+    "black_gold_theme": false,
+    "layout_prescription": false
+  }
+}
