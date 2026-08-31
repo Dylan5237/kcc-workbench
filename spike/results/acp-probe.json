@@ -1,0 +1,458 @@
+{
+  "stderr": [],
+  "responses": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": 1,
+        "agentCapabilities": {
+          "loadSession": true,
+          "promptCapabilities": {
+            "image": true,
+            "audio": false,
+            "embeddedContext": true
+          },
+          "sessionCapabilities": {
+            "list": {},
+            "resume": {},
+            "close": {},
+            "delete": {},
+            "fork": {},
+            "additionalDirectories": {}
+          },
+          "mcpCapabilities": {
+            "http": true,
+            "sse": true
+          },
+          "auth": {
+            "logout": {}
+          }
+        },
+        "authMethods": [
+          {
+            "id": "login",
+            "type": "terminal",
+            "name": "Login with Kimi account",
+            "description": "Open the device-code login flow in a terminal.",
+            "args": [
+              "--login"
+            ],
+            "env": {},
+            "_meta": {
+              "terminal-auth": {
+                "type": "terminal",
+                "label": "Login with Kimi account",
+                "command": "C:\\nvm4w\\nodejs\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs",
+                "args": [
+                  "login"
+                ],
+                "env": {}
+              }
+            }
+          }
+        ],
+        "agentInfo": {
+          "name": "Kimi Code CLI",
+          "version": "0.39.0"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "configOptions": [
+          {
+            "type": "select",
+            "id": "model",
+            "name": "Model",
+            "category": "model",
+            "currentValue": "kimi-code/k3",
+            "options": [
+              {
+                "value": "kimi-code/kimi-for-coding",
+                "name": "K2.7 Coding"
+              },
+              {
+                "value": "kimi-code/kimi-for-coding-highspeed",
+                "name": "K2.7 Coding Highspeed"
+              },
+              {
+                "value": "kimi-code/k3",
+                "name": "K3"
+              },
+              {
+                "value": "kimi-code/k3-256k",
+                "name": "K3-256k"
+              }
+            ]
+          },
+          {
+            "type": "select",
+            "id": "thinking",
+            "name": "Thinking",
+            "category": "thought_level",
+            "currentValue": "high",
+            "options": [
+              {
+                "value": "low",
+                "name": "Thinking Low"
+              },
+              {
+                "value": "high",
+                "name": "Thinking High"
+              },
+              {
+                "value": "max",
+                "name": "Thinking Max"
+              }
+            ]
+          },
+          {
+            "type": "select",
+            "id": "mode",
+            "name": "Mode",
+            "category": "mode",
+            "currentValue": "default",
+            "options": [
+              {
+                "value": "default",
+                "name": "Default",
+                "description": "Manual approvals; tools execute normally."
+              },
+              {
+                "value": "plan",
+                "name": "Plan",
+                "description": "Read-only planning; no tool execution."
+              },
+              {
+                "value": "auto",
+                "name": "Auto",
+                "description": "Auto-approve safe operations."
+              },
+              {
+                "value": "yolo",
+                "name": "YOLO",
+                "description": "Auto-approve everything."
+              }
+            ]
+          }
+        ],
+        "modes": {
+          "currentModeId": "default",
+          "availableModes": [
+            {
+              "id": "default",
+              "name": "Default",
+              "description": "Manual approvals; tools execute normally."
+            },
+            {
+              "id": "plan",
+              "name": "Plan",
+              "description": "Read-only planning; no tool execution."
+            },
+            {
+              "id": "auto",
+              "name": "Auto",
+              "description": "Auto-approve safe operations."
+            },
+            {
+              "id": "yolo",
+              "name": "YOLO",
+              "description": "Auto-approve everything."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": {
+        "stopReason": "end_turn"
+      }
+    }
+  ],
+  "notifications": [
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "available_commands_update",
+          "availableCommands": [
+            {
+              "name": "compact",
+              "description": "Compact the conversation context",
+              "input": {
+                "hint": "<optional custom summarization instructions>"
+              }
+            },
+            {
+              "name": "status",
+              "description": "Show current session status"
+            },
+            {
+              "name": "usage",
+              "description": "Show session token usage"
+            },
+            {
+              "name": "mcp",
+              "description": "Show MCP server status"
+            },
+            {
+              "name": "tasks",
+              "description": "List background tasks"
+            },
+            {
+              "name": "help",
+              "description": "Show available ACP commands"
+            },
+            {
+              "name": "check-kimi-code-docs",
+              "description": "Answer questions about the Kimi Code product using the official documentation — CLI usage, configuration, slash commands, features, membership and quota, API onboarding, third-party tool setup, and error codes. Use when the user asks how Kimi Code works, how to set something up, or what a Kimi Code error message means."
+            },
+            {
+              "name": "custom-theme",
+              "description": "Create or edit a kimi-code custom color theme — a JSON file under the resolved KIMI_CODE_HOME data directory that recolors the TUI. Use when the user wants their own theme, asks for a specific palette or mood, or wants to tweak an existing custom theme's colors."
+            },
+            {
+              "name": "import-from-cc-codex",
+              "description": "Import Claude Code and Codex instructions, skills, and MCP settings into Kimi Code."
+            },
+            {
+              "name": "mcp-config",
+              "description": "Configure MCP servers and handle MCP OAuth login."
+            },
+            {
+              "name": "sub-skill",
+              "description": "Discover and reorganize the skill inventory into hierarchical sub-skill bundles. Use when the user asks to review, group, or consolidate skills into a parent bundle."
+            },
+            {
+              "name": "sub-skill.consolidate",
+              "description": "Apply an approved sub-skill grouping by moving user-specified skills into a parent bundle, with timestamped backups of every modified directory."
+            },
+            {
+              "name": "sub-skill.review",
+              "description": "Analyze the available skill set and recommend candidate groups that could be consolidated into sub-skill bundles. Read-only — proposes a plan, does not move files."
+            },
+            {
+              "name": "update-config",
+              "description": "Inspect or edit kimi-code's own config — `config.toml` (model, provider, permission, hooks) and `tui.toml` (theme, editor, notifications, auto-update). Use when the user asks what a setting does, wants to change one, or needs to fix a deprecated config key / environment variable warning."
+            },
+            {
+              "name": "write-goal",
+              "description": "Help the user craft a well-specified `/goal` objective for goal mode — turn a rough intention into a completion contract with a clear finish line, proof, boundaries, and stop rule. Use when the user asks for help writing, refining, or improving a goal."
+            },
+            {
+              "name": "skill:design-interaction-design",
+              "description": "从数据驱动的用户画像构建与旅程映射、UI/UX信息架构与视觉风格设计、自动化UX可用性审计（视觉层级/认知负荷/导航评估）、微交互设计与WCAG 2.2无障碍规范，到量化美学与动效优化、WCAG 2.1 AA合规实现的完整交互设计工作流。覆盖用户研究、交互方案、可用性评估和无障碍实现全链路。"
+            },
+            {
+              "name": "skill:fireworks-tech-graph",
+              "description": "Use when the user wants to create any technical diagram - architecture, data flow, flowchart, sequence, agent/memory, or concept map - and export as SVG+PNG. Trigger on: \"画图\" \"帮我画\" \"生成图\" \"做个图\" \"架构图\" \"流程图\" \"可视化一下\" \"出图\" \"generate diagram\" \"draw diagram\" \"visualize\" or any system/flow description the user wants illustrated."
+            },
+            {
+              "name": "skill:gitlab-ops",
+              "description": "GitLab 仓库操作（push / 分支 / MR / pipeline / tag / 文件 / 历史）。配置在 config.env。每步执行前向用户说明会发生什么、结果、建议、风险。"
+            },
+            {
+              "name": "skill:karpathy-guidelines",
+              "description": "Behavioral guidelines to reduce common LLM coding mistakes. Use when writing, reviewing, or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria."
+            },
+            {
+              "name": "skill:kimi-webbridge",
+              "description": "Kimi WebBridge lets AI control the user's real browser — navigate, click, type, read, screenshot, and interact with any website using the user's actual login sessions. Use this skill whenever the user wants to interact with websites, automate browser tasks, scrape web content, or perform any action requiring a real browser. Also use when the user mentions \"browser\", \"webpage\", \"open URL\", \"screenshot\", or asks to read/interact with any website. Use even for simple-sounding browser requests — the daemon handles all complexity."
+            },
+            {
+              "name": "skill:leader",
+              "description": "把一句话的想法拆成 AI agent 能独立跑完的目标任务书。用户说「帮我给 agent 写个目标」「帮我详细拆一下这个目标」「写个任务书/brief 给 agent」「写个 goal 提示词」「让 agent 自己跑这个项目」「把活分给几个 agent 并行」时使用。先进代码库实测、必要时联网调研，再一次性提问（≤5 个），产出一份 ≤5000 字符、直接粘进 /goal 就能跑的任务书，含实测数字、白名单地界、防作弊验收和断点续跑。执行型与探索型（调研/选型/找方案）自动分流。"
+            },
+            {
+              "name": "skill:neat-freak",
+              "description": "Knowledge and governance closeout: reconcile project docs, rule files (CLAUDE.md/AGENTS.md), authorized agent memory, and workspace residue with what the code and runtime actually do, so the next session or the next person starts from one current answer. Trigger when the user names \"neat-freak\", \"洁癖\", or \"/neat\" — and also on clear knowledge-closeout intent without the name: syncing or tidying project docs/rules/memory after development (\"把文档和记忆整理一下\", \"收尾时把文档同步掉\", \"docs 和代码对不上了\"), stale or conflicting CLAUDE.md/memory, a clean handoff to a teammate or a fresh session, or auditing whether workspace rules are actually followed. Do not trigger for pure coding/refactoring/debugging tasks, tidying data or prose (JSON, 周报, changelog announcements), or a bare \"整理\" with no project-knowledge context."
+            },
+            {
+              "name": "skill:officecli",
+              "description": "Create, analyze, proofread, and modify Office documents (.docx, .xlsx, .pptx) using the officecli CLI tool. Use when the user wants to create, inspect, check formatting, find issues, add charts, or modify Office documents."
+            },
+            {
+              "name": "skill:skill-creator",
+              "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends CodeBuddy's capabilities with specialized knowledge, workflows, or tool integrations."
+            },
+            {
+              "name": "skill:smell",
+              "description": "Detect software architecture bad smells, algorithmic complexity hotspots, and anti-patterns in a codebase. Produces a detailed markdown report identifying violations of architectural principles, design patterns, code quality, and performance complexity. Triggers on: smell, code smell, architecture smell, find anti-patterns, detect bad smells, complexity analysis, 代码坏味道, 架构坏味道, 反模式, 找出坏味道, 复杂度分析."
+            },
+            {
+              "name": "skill:tech-bug-troubleshooting",
+              "description": "从多格式日志解析与错误模式分析到七步调试法、运行时执行追踪、四阶段系统化根因分析，再到零回归修复工作流和快速错误解释的完整Bug排查工作流。支持Python、Node.js、Java等多语言运行时调试，覆盖堆栈跟踪解析、错误模式识别、假设检验和修复验证。"
+            },
+            {
+              "name": "skill:tech-code-refactoring",
+              "description": "从深度代码结构分析与DDD模式识别、技术债务评估与架构反模式检测、SOLID/整洁代码/整洁架构原则指导、经典重构模式与遗留代码改造技术，到系统架构与模块化设计、不改变行为的代码简化重构执行的完整代码重构工作流。支持复杂度分析、依赖关系可视化、设计模式应用和渐进式重构策略。"
+            },
+            {
+              "name": "skill:tech-code-review",
+              "description": "从GitHub PR自动接入到严格代码审查、编码规范检查与自动修复、安全漏洞扫描、整洁代码原则验证，再到生成结构化中文审查报告的完整代码审查工作流。支持Python、JavaScript、TypeScript、Go、Swift、Kotlin等多语言，覆盖Bug检测、安全漏洞、性能问题、代码风格、复杂度分析等维度。"
+            },
+            {
+              "name": "skill:tiangong-skill-engineer",
+              "description": "按天宫 Skill 工程规范创建、重构、规范化改造和独立审查 Agent Skill。用于新建 Skill、修复真实缺陷、把旧 Skill 接入当前治理体系、判断规范符合性和交付状态；先识别 Create/Refactor/Review、治理作用域、能力画像与风险，再按阶段加载最小规则片。不要用于单纯执行已有 Skill，也不要用于与 Skill 工程无关的普通编码。"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "session_info_update",
+          "title": "【Arckeep spike ACP 简报测试】请只回复 OK，不要做任何其他操作。"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": "User"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": " asks"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": " to"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": " just"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": " reply"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": " OK"
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": "."
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_thought_chunk",
+          "content": {
+            "type": "text",
+            "text": ""
+          }
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "session/update",
+      "params": {
+        "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+        "update": {
+          "sessionUpdate": "agent_message_chunk",
+          "content": {
+            "type": "text",
+            "text": "OK"
+          }
+        }
+      }
+    }
+  ],
+  "verdict": {
+    "initializeOk": true,
+    "sessionNewOk": true,
+    "sessionId": "session_e4be4bca-1c17-49aa-b32e-e0a39595c762",
+    "promptCompleted": true,
+    "stopReason": "end_turn",
+    "notificationTypes": [
+      "session/update"
+    ]
+  }
+}

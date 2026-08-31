@@ -1,0 +1,34 @@
+{
+  "origin": "http://127.0.0.1:7198/",
+  "openUrlKnown": true,
+  "tokenLength": 43,
+  "probes": [
+    {
+      "route": "api/v1/meta",
+      "status": 200,
+      "body": "{\"code\":0,\"msg\":\"success\",\"data\":{\"server_version\":\"0.39.0\",\"capabilities\":{\"websocket\":true,\"file_upload\":true,\"fs_query\":true,\"mcp\":true,\"tasks\":true,\"terminal\":true},\"server_id\":\"01M13MZSFV1PGJ049GVZC9P6R5\",\"started_at\":\"2026-08-28T07:40:13.692Z\",\"open_in_apps\":[],\"dangerous_bypass_auth\":false,\"backend\":\"v2\",\"experimental_flags\":{\"secondary-model\":false,\"subagent_fork\":false,\"auto_session_title\":false,\"remote-control\":false,\"wait_for\":true,\"tower\":false,\"tool-select\":false,\"persistence_minidb_readmodel\":true,\"search_worker\":true},\"features\":[{\"name\":\"skill\",\"state\":\"Active\",\"meta\":{}},{\"nam"
+    },
+    {
+      "route": "api/v1/sessions",
+      "status": 200,
+      "body": "{\"code\":0,\"msg\":\"success\",\"data\":{\"items\":[{\"id\":\"session_6410fca1-b345-4c53-aaeb-d5aaa829e3ec\",\"workspace_id\":\"wd_tiangong-skill-engineer_736e1dc5445e\",\"title\":\"https://chatgpt.[redacted]\",\"created_at\":\"2026-08-27T11:12:37.274Z\",\"updated_at\":\"2026-08-28T07:38:43.316Z\",\"busy\":false,\"main_turn_active\":false,\"pending_interaction\":\"none\",\"last_turn_reason\":\"completed\",\"archived\":false,\"last_prompt\":\"关于第一步安装必须是真安装，我发现我们的提示词模板好像不符合客观情况，按照现在的流程是：创建完、拿到按模板生成的提示词、复制提示词给另一个AI助手、让AI助手执行。但是据我所知，现在市面上常见的Harness都有一个特性，skill在会话创建时统一加载。所以，这样的模式下，这个提示词并不能测出“Harness 加载技能后的行为”？这个特性我不太确定，你上网查证一下。如果真的是这样，那想想要怎么改\""
+    }
+  ],
+  "frontendPostSamples": [],
+  "frontendRoutes": [],
+  "createAttempts": [
+    {
+      "route": "api/v1/sessions",
+      "status": 200,
+      "body": "{\"code\":0,\"msg\":\"success\",\"data\":{\"id\":\"session_e0486d19-d66c-44f6-be74-8d3b83b3fab8\",\"workspace_id\":\"wd_spike_d77d2bd569e0\",\"title\":\"\",\"created_at\":\"2026-08-28T07:40:14.524Z\",\"updated_at\":\"2026-08-28T07:40:14.524Z\",\"busy\":false,\"main_turn_active\":false,\"pending_interaction\":\"none\",\"archived\":false,\"metadata\":{\"cwd\":\"D:\\\\_projects\\\\tools\\\\KCCWorkbench\\\\spike\"},\"agent_config\":{\"model\":\"\"},\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"cache_read_tokens\":0,\"cache_creation_tokens\":0,\"total_cost_usd\":0,\"context_tokens\":0,\"context_limit\":0,\"turn_count\":0},\"permission_rules\":[],\"message_count\":0,\"last_seq\":0},\"request_id\":\"01M13MZT3HTWK5C3ER4FYTZMCV\"}"
+    }
+  ],
+  "deliveryEvidence": {
+    "sessionId": "session_e0486d19-d66c-44f6-be74-8d3b83b3fab8",
+    "workspaceId": "wd_spike_d77d2bd569e0",
+    "messageCount": 0,
+    "transcriptContainsBrief": false,
+    "messagesSample": "{\"code\":0,\"msg\":\"success\",\"data\":{\"items\":[],\"has_more\":false},\"request_id\":\"01M13N1N4TV95V2JAPN2JWN2ZG\"}",
+    "turnsStatus": 404
+  }
+}

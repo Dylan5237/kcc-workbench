@@ -1,0 +1,14 @@
+{
+  "sessionId": "session_774ec661-6c0e-4688-8ac0-cb7d151e94a8",
+  "incoming": [
+    "{\"type\":\"server_hello\",\"timestamp\":\"2026-08-28T07:48:20.364Z\",\"payload\":{\"ws_connection_id\":\"conn_01M13NEMRCY4Z2W4KFZS1NS92V\",\"protocol_version\":2,\"heartbeat_ms\":10000,\"max_event_buffer_size\":1000,\"capabilities\":{\"event_batching\":false,\"compression\":false}}}",
+    "{\"type\":\"ping\",\"timestamp\":\"2026-08-28T07:48:30.370Z\",\"payload\":{\"nonce\":\"01M13NEYH25JRM59HEE49HTXHS\"}}",
+    "{\"type\":\"ping\",\"timestamp\":\"2026-08-28T07:48:40.384Z\",\"payload\":{\"nonce\":\"01M13NF8A088MPXS41ACEE7FMH\"}}"
+  ],
+  "attempts": [],
+  "finalSession": {
+    "busy": false,
+    "message_count": 0,
+    "last_prompt": null
+  }
+}

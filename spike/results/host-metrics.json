@@ -1,0 +1,14 @@
+{
+  "dotnet": "7.0.2",
+  "webview2_runtime": "151.0.4129.107",
+  "kimi_web_url": "http://127.0.0.1:2642/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+  "cold_start_ms_to_shown": 2790,
+  "agent_nav_completed": true,
+  "agent_nav_ms_from_launch": 6182,
+  "capture_agent": true,
+  "capture_rail": true,
+  "webview2_processes": 12,
+  "webview2_working_set_mb": 1343.4,
+  "host_working_set_mb": 57.2,
+  "total_elapsed_ms": 18471
+}
