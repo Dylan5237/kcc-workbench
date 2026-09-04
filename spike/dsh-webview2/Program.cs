@@ -53,6 +53,14 @@ namespace DshSpike
             using var dsh = new DshService();
             string? dshUrl = null;
 
+            // PRE_READY_HANG / NEVER_READY：真实存活的 child process 永远不就绪，
+            // 验证 StartAsync 超时失败返回前已机械清理自有进程树（无窗口，纯进程语义）
+            if (mode == "hang")
+            {
+                RunHangScenario(dsh);
+                return;
+            }
+
             // 1) start/attach（纯 .NET，无 COM）
             if (mode == "fail")
             {
@@ -103,16 +111,95 @@ namespace DshSpike
                 if (finalMode == DshService.Ownership.Owned && !killTest) M["owned_process_gone_after_exit"] = !alive;
                 if (finalMode == DshService.Ownership.Attached) M["attached_alive_after_exit"] = alive;
             }
-            try
-            {
-                File.WriteAllText(Path.Combine(ResultsDir, "dsh-probe.json"), JsonSerializer.Serialize(M, new JsonSerializerOptions { WriteIndented = true }));
-            }
-            catch { }
+            WriteResults();
             Console.WriteLine("SPIKE DONE " + JsonSerializer.Serialize(M));
         }
 
         private static async Task<bool> Ping(string url) =>
             await DshService.TryAttachAsync(new Uri(url).Authority) is not null;
+
+        /// <summary>
+        /// PRE_READY_HANG / NEVER_READY：PATH 里放假 dsh.cmd（ping 长眠，真实存活、永不就绪），
+        /// StartAsync 必须超时失败且返回前已清理自有进程树。
+        /// </summary>
+        private static void RunHangScenario(DshService dsh)
+        {
+            var fakeDir = Path.Combine(Root, "tmp-fake-dsh");
+            Directory.CreateDirectory(fakeDir);
+            File.WriteAllText(Path.Combine(fakeDir, "dsh.cmd"), "@echo off\r\nping -n 999 127.0.0.1 >nul\r\n");
+            Environment.SetEnvironmentVariable("PATH", fakeDir + ";" + Environment.GetFolderPath(Environment.SpecialFolder.System));
+
+            int? spawnedPid = null;
+            var aliveAt2s = false;
+            var aliveAt5s = false;
+            var watch = Task.Run(async () =>
+            {
+                var t0 = Clock.Elapsed;
+                while (Clock.Elapsed - t0 < TimeSpan.FromSeconds(9))
+                {
+                    spawnedPid ??= dsh.OwnedProcessId;
+                    if (spawnedPid is int pid)
+                    {
+                        var alive = ProcessAlive(pid);
+                        if (Clock.Elapsed - t0 > TimeSpan.FromSeconds(2)) aliveAt2s |= alive;
+                        if (Clock.Elapsed - t0 > TimeSpan.FromSeconds(5)) aliveAt5s |= alive;
+                    }
+                    await Task.Delay(100);
+                }
+            });
+
+            var sw = Stopwatch.StartNew();
+            var url = dsh.StartAsync(Environment.CurrentDirectory, TimeSpan.FromSeconds(8), "127.0.0.1:1").GetAwaiter().GetResult();
+            sw.Stop();
+            watch.Wait(15000);
+
+            M["startup_failed"] = url is null;
+            M["failure_recorded"] = dsh.Failure is not null;
+            M["failure_message"] = dsh.Failure?.Message;
+            M["owned_process_started"] = spawnedPid is not null;
+            M["owned_process_alive_at_2s"] = aliveAt2s;
+            M["owned_process_alive_at_5s"] = aliveAt5s;
+            if (spawnedPid is int p)
+                M["owned_process_gone_after_failure"] = !ProcessAlive(p) && !HasChild(p);
+            M["mode_after_failure"] = dsh.Mode.ToString();
+            M["open_url_after_failure"] = dsh.OpenUrl;
+            M["owned_ref_after_failure"] = dsh.OwnedProcessId;
+            M["elapsed_ms"] = sw.ElapsedMilliseconds;
+            Console.WriteLine($"[step] hang: failed={M["startup_failed"]} started={M["owned_process_started"]} " +
+                $"alive2s={aliveAt2s} alive5s={aliveAt5s} gone={M["owned_process_gone_after_failure"]} elapsed={sw.ElapsedMilliseconds}ms");
+            WriteResults();
+            Console.WriteLine("SPIKE DONE " + JsonSerializer.Serialize(M));
+        }
+
+        private static bool ProcessAlive(int pid)
+        {
+            try { using var p = Process.GetProcessById(pid); return !p.HasExited; }
+            catch { return false; }
+        }
+
+        /// <summary>进程树残留检查：自有 cmd 被杀后其 child（ping）也必须不存在。</summary>
+        private static bool HasChild(int pid)
+        {
+            try
+            {
+                using var ps = Process.Start(new ProcessStartInfo("powershell",
+                    $"-NoProfile -Command \"(Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}' | Measure-Object).Count\"")
+                { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true });
+                var outp = ps!.StandardOutput.ReadToEnd().Trim();
+                ps.WaitForExit(15000);
+                return outp != "0";
+            }
+            catch { return false; }
+        }
+
+        private static void WriteResults()
+        {
+            try
+            {
+                File.WriteAllText(Path.Combine(ResultsDir, "dsh-probe.json"), JsonSerializer.Serialize(M, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
+        }
 
         private static async Task OnShownAsync(Form form, WebView2 dshView, WebView2 otherView, DshService dsh, string? dshUrl, bool killTest)
         {

@@ -54,11 +54,13 @@ internal sealed class DshService : IDisposable
         {
             // --port 0：OS 分配空闲端口，stdout 打印 "dsh web: http://127.0.0.1:<port>"
             await SpawnAndWaitReadyAsync(cwd, timeout ?? TimeSpan.FromSeconds(60));
-            Mode = Ownership.Owned;
             return OpenUrl;
         }
         catch (Exception ex)
         {
+            // spawned-but-not-ready 也必须清理：任何 post-spawn 失败返回前，
+            // 先机械终止 Arckeep 已创建的进程树（不依赖调用方再 Dispose）
+            TerminateOwned();
             Failure = ex;
             Program.Log("dsh 启动失败：" + ex.Message);
             return null;
@@ -125,6 +127,9 @@ internal sealed class DshService : IDisposable
             CreateNoWindow = true,
         };
         _proc = Process.Start(psi) ?? throw new InvalidOperationException("dsh web 无法启动");
+        // spawn 成功即刻机械视为 Arckeep-owned：此后任何失败路径（含本方法抛错）
+        // 都由 StartAsync 的 catch → TerminateOwned 兜底清理，不存在无归属窗口
+        Mode = Ownership.Owned;
 
         var sb = new StringBuilder();
         var sync = new object();
@@ -161,14 +166,17 @@ internal sealed class DshService : IDisposable
         Program.Log($"dsh 已启动（Arckeep 自有）{OpenUrl}");
     }
 
-    /// <summary>只清理 Arckeep 明确创建并拥有的进程树；attach 的用户实例绝不动。</summary>
-    public void Dispose()
+    /// <summary>
+    /// 终止自有进程树并复位状态。只在 Owned 语义下有意义（_proc 非空）；
+    /// Attached 模式 _proc 恒为 null，本方法必然无操作——用户实例绝不受影响。
+    /// </summary>
+    private void TerminateOwned()
     {
         try
         {
-            if (Mode == Ownership.Owned && _proc is { HasExited: false })
+            if (_proc is { HasExited: false })
             {
-                // 等待 taskkill 完成，保证 Dispose 返回时进程树已确定终止（D6 关闭语义）
+                // 等待 taskkill 完成，保证返回时进程树已确定终止（D6 关闭语义）
                 Process.Start(new ProcessStartInfo("taskkill", $"/PID {_proc.Id} /T /F") { CreateNoWindow = true })
                     ?.WaitForExit(10000);
                 _proc.WaitForExit(10000);
@@ -178,5 +186,12 @@ internal sealed class DshService : IDisposable
         _proc = null;
         OpenUrl = null;
         Mode = Ownership.None;
+    }
+
+    /// <summary>只清理 Arckeep 明确创建并拥有的进程树；attach 的用户实例绝不动。</summary>
+    public void Dispose()
+    {
+        if (Mode == Ownership.Owned) TerminateOwned();
+        else { _proc = null; OpenUrl = null; Mode = Ownership.None; }
     }
 }

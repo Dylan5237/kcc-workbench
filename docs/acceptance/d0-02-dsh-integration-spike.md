@@ -70,12 +70,33 @@
   - attach：`attached_alive_after_exit=true`（`dsh-probe-attach.json`），模拟用户实例在探针退出后仍正常服务。
 - 防误杀设计：attach 只认 `host.describe` 验明正身的实例；owned 启动用 `--port 0`，绝不与用户实例争端口，也不 bind 用户可能在用的 3080。
 
+## R1 — Process ownership 修复（Architecture Review REQUEST_CHANGES，reviewed HEAD `88f97025be9337344dfae1b1759e272ccd744cb3`）
+
+**Finding**：原实现 spawn 成功但 readiness 未达成时（stdout URL 超时 / host.describe 超时 / 其他 post-spawn 异常），`Mode` 仍为 `None`，`Dispose()` 只在 `Owned` 时 kill —— spawned-but-not-ready 的自有进程树可能泄漏。
+
+**修复设计**（`arckeep/shell/DshService.cs`）：
+
+1. `Process.Start()` 成功即刻 `Mode = Ownership.Owned`——机械归属，不存在无归属窗口；
+2. `StartAsync` 的 catch 在返回 `null` 前先调用 `TerminateOwned()`：`taskkill /T /F` 进程树 + 等待退出 + `_proc`/`OpenUrl`/`Mode` 复位（`Failure` 保留用于诊断）；
+3. `Dispose()` 复用同一 `TerminateOwned()`（仅 `Owned` 时调用）；
+4. `Attached` 模式 `_proc` 恒为 null，`TerminateOwned` 必然无操作——用户实例绝不受影响。
+
+**PRE_READY_HANG / NEVER_READY 探针**（`DSH_PROBE_MODE=hang`）：PATH 中放置假 `dsh.cmd`（`ping -n 999` 长眠——真实启动、长时间存活、永不就绪），`StartAsync` 8s 超时。证据 `spike/results/dsh-probe-pre-ready-hang.json`：
+
+- `startup_failed=true`、`failure_recorded=true`
+- `owned_process_started=true`、`owned_process_alive_at_2s=true`、`owned_process_alive_at_5s=true`（真实长存活 child，非“命令不存在自己退出”）
+- `owned_process_gone_after_failure=true`（cmd + ping 进程树均不存在）
+- `mode_after_failure="None"`、`open_url_after_failure=null`、`owned_ref_after_failure=null`
+- `elapsed_ms=12406`（8s 超时 + taskkill 等待）
+
+修复后五场景回归全过：owned（`owned_process_gone_after_exit=true`）/ owned+kill / attach（`attached_alive_after_exit=true`）/ fail / pre-ready-hang。
+
 ## Changed files
 
-- `arckeep/shell/DshService.cs`（新增）— 生产 glue：start/attach/readiness/ownership
-- `spike/dsh-webview2/DshSpike.csproj`、`spike/dsh-webview2/Program.cs`（新增）— WebView2 集成探针（链接生产 `DshService.cs` 源码，验证的就是真接缝）
-- `spike/results/dsh-probe-owned.json` / `dsh-probe-owned-kill.json` / `dsh-probe-attach.json` / `dsh-probe-fail.json`（新增，证据）
-- `.gitignore`（spike/dsh-webview2 构建与 UDF 产物）
+- `arckeep/shell/DshService.cs`（新增；R1 修复生命周期归属）
+- `spike/dsh-webview2/DshSpike.csproj`、`spike/dsh-webview2/Program.cs`（新增；R1 增加 hang 场景）
+- `spike/results/dsh-probe-owned.json` / `dsh-probe-owned-kill.json` / `dsh-probe-attach.json` / `dsh-probe-fail.json` / `dsh-probe-pre-ready-hang.json`（证据）
+- `.gitignore`（spike/dsh-webview2 构建、UDF 与临时假 dsh 目录产物）
 
 未改动：`ShellWindow.cs` 及任何既有行为（工作面接线属 D0-03）；未触碰 DSH 本体、Kimi/Claude、Viewer。
 
@@ -83,7 +104,7 @@
 
 - `arckeep/shell`：`dotnet build -c Release` 0 错误（仅既有 MSB3277 WPF 引用警告，spike README 已记录无害）
 - `spike/dsh-webview2`：`dotnet build -c Release` 0 错误
-- 探针四场景全部通过（owned / owned+kill / attach / fail），结果 JSON 入库
+- 探针五场景全部通过（owned / owned+kill / attach / fail / pre-ready-hang），结果 JSON 入库
 - `npm test` 未运行：本 diff 不含任何 JS/TS 改动（`src/`、`test/` 均未触碰），KCC v1 Node 测试与本改动无覆盖关系；worktree 未执行 `npm ci`
 
 ## Limitations
@@ -97,4 +118,4 @@
 
 ## STOP 状态
 
-无 `PLUGIN_REQUIRED`、无 `ARCHITECTURE_EXCEPTION`。等待 ChatGPT Architecture Review；不 merge，不启动 D0-03。
+无 `PLUGIN_REQUIRED`、无 `ARCHITECTURE_EXCEPTION`。R1 ownership 修复已完成并回归；等待 ChatGPT Architecture re-review；不 merge，不启动 D0-03。

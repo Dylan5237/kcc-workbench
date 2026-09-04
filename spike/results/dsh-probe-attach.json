@@ -6,14 +6,14 @@
   "attach_authority": "127.0.0.1:43982",
   "dsh_url": "http://127.0.0.1:43982/",
   "mode_actual": "Attached",
-  "start_ms": 192,
+  "start_ms": 221,
   "d3_nav_completed": true,
-  "d3_nav_ms_from_launch": 2978,
+  "d3_nav_ms_from_launch": 4759,
   "d3_document_title": "\u0022DeepSeek Harness\u0022",
   "d4_mark_survives_hide_show": true,
   "d4_timeorigin_equal_after_hide_show": true,
   "d4_mark_survives_switch": true,
   "d4_timeorigin_equal_after_switch": true,
-  "total_elapsed_ms": 16294,
+  "total_elapsed_ms": 17971,
   "attached_alive_after_exit": true
 }
