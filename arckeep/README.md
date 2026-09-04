@@ -41,6 +41,8 @@ M1.5（m2-titlebar.png、quota-fixture.json、quota-debug 日志）：
 ```bash
 ARCKEEP_AUTO=1 ARCKEEP_SHOT=<final.png> ARCKEEP_SHOT_EARLY=<mid.png> [ARCKEEP_SHOT_EARLY_MS=40000] [ARCKEEP_DUMP=<dom.json>] ./Arckeep.exe
 ARCKEEP_QUOTA_FIXTURE=<out.json> ./Arckeep.exe   # 额度提取 fixture 自测，exit 0=通过
+ARCKEEP_TEST_VIEWER=1 ARCKEEP_TEST_VIEWER_PROJECT=<dir> ARCKEEP_TEST_VIEWER_OUT=<proof.json> ./Arckeep.exe   # Viewer sidecar + WebView2 真实加载，exit 0=通过
+# 加 ARCKEEP_TEST_VIEWER_KILL=1：中途杀 sidecar，验证壳不崩且 Viewer 可重启恢复（V5 故障隔离）
 ```
 
 ## 踩坑记录（后续开发别再踩）
@@ -53,14 +55,16 @@ ARCKEEP_QUOTA_FIXTURE=<out.json> ./Arckeep.exe   # 额度提取 fixture 自测�
 6. **禁止在 WebView2 事件回调里初始化新 WebView2**（E_ABORT 重入保护）：桥消息先 `BeginInvoke` 出队再处理。Electron 的 IPC 无此约束——这是两个平台的真实差异，移植窗口编排代码时必须重新验证真实触发路径
 7. 验证前先看二进制新不新鲜：实例运行中构建会写不进去（error MSB3027，不是 CS 错误），构建输出过滤别只看 `error CS`
 8. 页面加载完成前 PostWebMessageAsJson 会丢：启动期的状态推送改为在 `ui-ready` 里应答式补发
+9. `ExecuteScriptAsync` **不 await 返回的 Promise**（异步结果序列化成 `{}`）：采集异步证据先 `fetch(...).then(r=>window._proof=...)`，再隔秒轮询 `window._proof`
 
 ## 结构
 
 ```
 shell/
   Program.cs         入口
-  ShellWindow.cs     窗口、双 WebView2 布局切换、桥接、ACP 编排、fs diff 回流
+  ShellWindow.cs     窗口、双 WebView2 布局切换、桥接、ACP 编排、fs diff 回流、Viewer 模式
   KimiWebService.cs  kimi web 按需启动（视觉平面）
+  ViewerService.cs   KCC Viewer sidecar（node src/viewer/standalone.cjs，stdout 握手 + stdin 控制通道）
   ProjectStore.cs    .arckeep/ 读写（原子写、待办确认/忽略/添加、会话记录）
   AcpClient.cs       ACP 客户端（控制平面）
 ui/                  原生 HTML/JS（品牌 v1.0，无构建步骤）
@@ -69,11 +73,13 @@ ui/                  原生 HTML/JS（品牌 v1.0，无构建步骤）
   app.js             桥接、渲染、交互
 ```
 
+Viewer 复用 `src/viewer/`（Node sidecar，不重写）：标题栏 `Viewer` 按钮或项目空间「Viewer 检查」打开；项目根目录经 sidecar stdin 控制通道确定性同步。
+
 ## 已知边界（M1 不做，后续里程碑）
 
 - 侧轨"文件变化"暂在回流后显示，不做会话中实时刷新
 - 关键判断的添加/确认交互未做（只读展示）
-- Session Map / Viewer / 时间机器未接入
+- Session Map / 时间机器 UI 未接入（Time Machine 后端随 Viewer sidecar 保留运行，UI 接回留待后续 seam，见 `docs/acceptance/D0-04-viewer-integration.md`）
 - 单项目单会话锁（M4.4）未实现
 - `next.json`/`decisions.json` 暂用 JSON；理解类的 Markdown 列表语法留待认真设计
 - 目标框架暂定 net7.0（本机 SDK），生产目标 .NET 8/9 LTS

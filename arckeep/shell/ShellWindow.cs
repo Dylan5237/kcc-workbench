@@ -20,6 +20,7 @@ internal sealed class ShellWindow : Form
     private readonly TableLayoutPanel _layout = new() { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
     private readonly WebView2 _agentView = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly WebView2 _uiView = new() { Dock = DockStyle.Fill };
+    private readonly WebView2 _viewerView = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly Panel _titleBar = new() { Dock = DockStyle.Top, Height = 36, BackColor = Color.FromArgb(0xF5, 0xF2, 0xEA) };
     private readonly Label _quotaChip = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleCenter };
 
@@ -27,11 +28,16 @@ internal sealed class ShellWindow : Form
     private AcpClient? _acp;
     private readonly KimiWebService _kimiWeb = new();
     private readonly QuotaService _quota = new();
+    private readonly ViewerService _viewer = new();
     private string? _selectedNextId;
     private Dictionary<string, (long Ticks, long Length)>? _fsSnapshot;
     private SessionRecord? _session;
     private bool _attached;
     private bool _agentReady;
+    private bool _viewerReady;
+    private bool _viewerActive;
+    private string? _viewerLoadedUrl;
+    private Button? _btnViewer;
 
     private static readonly JsonSerializerOptions SendOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -51,11 +57,13 @@ internal sealed class ShellWindow : Form
         _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));  // Arckeep UI
         _layout.Controls.Add(_agentView, 0, 0);
         _layout.Controls.Add(_uiView, 1, 0);
+        _layout.Controls.Add(_viewerView, 0, 0);   // 与 agent 同格但跨两列，激活时置顶覆盖
+        _layout.SetColumnSpan(_viewerView, 2);
         Controls.Add(_layout);
         Controls.Add(_titleBar);   // 后加入者先 dock：标题栏占顶部，内容铺满剩余
 
         Shown += async (_, _) => await OnShownAsync();
-        FormClosed += (_, _) => { _acp?.Dispose(); _kimiWeb.Dispose(); _quota.Dispose(); };
+        FormClosed += (_, _) => { _acp?.Dispose(); _kimiWeb.Dispose(); _quota.Dispose(); _viewer.Dispose(); };
     }
 
     private void BuildTitleBar()
@@ -87,6 +95,9 @@ internal sealed class ShellWindow : Form
         var btnMin = TitleButton("—", 40);
         btnMin.Click += (_, _) => WindowState = FormWindowState.Minimized;
 
+        _btnViewer = TitleButton("Viewer", 56);
+        _btnViewer.Click += async (_, _) => await ToggleViewerAsync();
+
         _quotaChip.Text = "额度 · 点这里同步";
         _quotaChip.Font = new Font("Consolas", 8.5f);
         _quotaChip.ForeColor = Color.FromArgb(0x66, 0x63, 0x5D);
@@ -103,6 +114,7 @@ internal sealed class ShellWindow : Form
         _titleBar.Controls.Add(icon);
         _titleBar.Controls.Add(title);
         _titleBar.Controls.Add(_quotaChip);
+        _titleBar.Controls.Add(_btnViewer);
         _titleBar.Controls.Add(btnMin);
         _titleBar.Controls.Add(btnMax);
         _titleBar.Controls.Add(btnClose);
@@ -111,8 +123,9 @@ internal sealed class ShellWindow : Form
             btnClose.Left = _titleBar.Width - 40;
             btnMax.Left = _titleBar.Width - 80;
             btnMin.Left = _titleBar.Width - 120;
+            _btnViewer.Left = _titleBar.Width - 182;
             _quotaChip.Width = Math.Max(60, _quotaChip.PreferredSize.Width == 0 ? 150 : _quotaChip.PreferredSize.Width + 16);
-            _quotaChip.Left = btnMin.Left - _quotaChip.Width - 10;
+            _quotaChip.Left = _btnViewer.Left - _quotaChip.Width - 10;
             _quotaChip.Top = 7;
         };
         // 拖动与双击
@@ -277,6 +290,87 @@ internal sealed class ShellWindow : Form
                 Environment.Exit(0);
             });
 
+        // 测试钩子：真实启动 Viewer sidecar 并装进 WebView2，回采 /api/tree 作证据
+        if (Environment.GetEnvironmentVariable("ARCKEEP_TEST_VIEWER") == "1")
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(2500);
+                    var projectDir = Environment.GetEnvironmentVariable("ARCKEEP_TEST_VIEWER_PROJECT") ?? "";
+                    if (!Directory.Exists(projectDir)) throw new Exception("ARCKEEP_TEST_VIEWER_PROJECT 无效");
+                    await this.InvokeAsync(() =>
+                    {
+                        _store = new ProjectStore(projectDir);
+                        _store.LoadOrCreate();
+                        SendState();
+                        return Task.CompletedTask;
+                    });
+                    await ToggleViewerAsync();
+                    // ExecuteScriptAsync 不 await Promise：先启动采集，再轮询 window._proof
+                    await this.InvokeAsync(async () =>
+                        await _viewerView.CoreWebView2.ExecuteScriptAsync(
+                            "fetch('/api/tree').then(r=>r.json()).then(j=>{window._proof=JSON.stringify({href:location.href,title:document.title,root:j.root,treeChildren:(j.tree&&j.tree.children||[]).length,treeJson:JSON.stringify(j.tree).slice(0,600)})}).catch(e=>{window._proof='ERR:'+e})"));
+                    string proof = "PENDING";
+                    var deadline = DateTime.UtcNow.AddSeconds(30);
+                    while (DateTime.UtcNow < deadline)
+                    {
+                        await Task.Delay(1500);
+                        proof = await this.InvokeAsync(async () =>
+                            await _viewerView.CoreWebView2.ExecuteScriptAsync("window._proof||'PENDING'"));
+                        proof = proof.Trim('"').Replace("\\\"", "\"");
+                        if (proof != "PENDING") break;
+                    }
+                    Program.Log("viewer-test: " + proof);
+                    var killMode = Environment.GetEnvironmentVariable("ARCKEEP_TEST_VIEWER_KILL") == "1";
+                    var finalProof = proof;
+                    var ok = proof.Contains("treeChildren") && !proof.Contains("\"treeChildren\":0");
+                    if (ok && killMode)
+                    {
+                        // V5：杀掉 sidecar，验证壳与工作面不崩、Viewer 可重启恢复
+                        var pid = _viewer.SidecarPid;
+                        if (pid is not null) try { System.Diagnostics.Process.GetProcessById(pid.Value).Kill(); } catch { }
+                        await Task.Delay(1500);
+                        await this.InvokeAsync(() =>
+                        {
+                            _viewerView.Visible = false;   // ToggleViewerAsync 的关闭半段（UI 线程）
+                            _viewerActive = false;
+                            UpdateViewerButton();
+                            return Task.CompletedTask;
+                        });
+                        await ToggleViewerAsync();   // 重新打开 = 重启 sidecar + 重新导航
+                        await this.InvokeAsync(async () =>
+                            await _viewerView.CoreWebView2.ExecuteScriptAsync(
+                                "fetch('/api/tree').then(r=>r.json()).then(j=>{window._proof2=JSON.stringify({href:location.href,treeChildren:(j.tree&&j.tree.children||[]).length})}).catch(e=>{window._proof2='ERR:'+e})"));
+                        string proof2 = "PENDING";
+                        deadline = DateTime.UtcNow.AddSeconds(30);
+                        while (DateTime.UtcNow < deadline)
+                        {
+                            await Task.Delay(1500);
+                            proof2 = await this.InvokeAsync(async () =>
+                                await _viewerView.CoreWebView2.ExecuteScriptAsync("window._proof2||'PENDING'"));
+                            proof2 = proof2.Trim('"').Replace("\\\"", "\"");
+                            if (proof2 != "PENDING") break;
+                        }
+                        // 主 UI 工作面探活
+                        var uiAlive = await this.InvokeAsync(async () =>
+                            await _uiView.CoreWebView2.ExecuteScriptAsync("document.getElementById('app')?'alive':'dead'"));
+                        Program.Log("viewer-test-kill: proof2=" + proof2 + " ui=" + uiAlive);
+                        var recovered = proof2.Contains("treeChildren") && !proof2.Contains("\"treeChildren\":0") && !proof2.StartsWith("ERR");
+                        ok = recovered && uiAlive.Contains("alive");
+                        finalProof = "{\"first\":" + proof + ",\"afterKill\":" + (proof2.StartsWith("{") ? proof2 : "\"" + proof2 + "\"") + ",\"uiAlive\":" + uiAlive + "}";
+                    }
+                    var outFile = Environment.GetEnvironmentVariable("ARCKEEP_TEST_VIEWER_OUT");
+                    if (!string.IsNullOrEmpty(outFile)) await File.WriteAllTextAsync(outFile, finalProof);
+                    Environment.Exit(ok ? 0 : 3);
+                }
+                catch (Exception ex)
+                {
+                    Program.Log("viewer-test 异常：" + ex);
+                    Environment.Exit(4);
+                }
+            });
+
         var shot = Environment.GetEnvironmentVariable("ARCKEEP_SHOT");
         if (!string.IsNullOrEmpty(shot))
         {
@@ -355,6 +449,7 @@ internal sealed class ShellWindow : Form
             case "start": _ = StartSessionAsync(); break;
             case "send-prompt": _ = SendFollowUpAsync(msg["text"]?.GetValue<string>() ?? ""); break;
             case "back": BackToProject(); break;
+            case "open-viewer": _ = ToggleViewerAsync(); break;
             case "quota-refresh": _ = _quota.RefreshAsync(); break;
             case "quota-login": _ = _quota.ShowLoginAndRefreshAsync(this); break;
         }
@@ -415,6 +510,7 @@ internal sealed class ShellWindow : Form
                 {
                     _store = new ProjectStore(last);
                     _store.LoadOrCreate();
+                    SyncViewerRoot();
                 }
             }
         }
@@ -431,6 +527,7 @@ internal sealed class ShellWindow : Form
         File.WriteAllText(
             Path.Combine(ProjectStore.ArckeepDataDir, "registry.json"),
             JsonSerializer.Serialize(new { lastProjectPath = _store.Root, lastProjectId = _store.Data.Project.ProjectId }, new JsonSerializerOptions { WriteIndented = true }));
+        SyncViewerRoot();
         SendState();
     }
 
@@ -616,6 +713,83 @@ internal sealed class ShellWindow : Form
         var env = await CoreWebView2Environment.CreateAsync(userDataFolder: udf);
         await _agentView.EnsureCoreWebView2Async(env);
         _agentReady = true;
+    }
+
+    // ---------- Viewer（KCC Viewer sidecar + WebView2，D0-04） ----------
+
+    private async Task EnsureViewerViewAsync()
+    {
+        if (_viewerReady) return;
+        var udf = Path.Combine(ProjectStore.ArckeepDataDir, "udfs", "viewer");
+        var env = await CoreWebView2Environment.CreateAsync(userDataFolder: udf);
+        await _viewerView.EnsureCoreWebView2Async(env);
+        _viewerReady = true;
+    }
+
+    /// <summary>Viewer 模式开关：只切可见性，不销毁任何工作面（agent/UI webview 保持运行）。</summary>
+    private async Task ToggleViewerAsync()
+    {
+        if (_viewerActive)
+        {
+            _viewerActive = false;
+            _viewerView.Visible = false;
+            UpdateViewerButton();
+            return;
+        }
+        if (_store is null) return;   // 未打开项目时没有可检查的根目录
+
+        string? url = null;
+        try
+        {
+            url = await _viewer.EnsureStartedAsync(_store.Root);   // V3：根目录确定性同步
+        }
+        catch (Exception ex)
+        {
+            Program.Log("viewer 启动失败：" + ex.Message);
+            _viewer.Failure = ex;
+        }
+        await this.InvokeAsync(async () =>
+        {
+            await EnsureViewerViewAsync();
+            if (url is not null)
+            {
+                // sidecar 重启后地址（端口/token）会变，需重新导航；根切换由 SSE 直播，不重载
+                if (_viewerLoadedUrl != url)
+                {
+                    _viewerView.CoreWebView2.Navigate(url);
+                    _viewerLoadedUrl = url;
+                }
+            }
+            else
+            {
+                _viewerView.CoreWebView2.NavigateToString(
+                    "<body style='background:#F5F2EA;color:#8E3C32;font:13px sans-serif;padding:32px'>Viewer 启动失败：" +
+                    System.Net.WebUtility.HtmlEncode(_viewer.Failure?.Message ?? "未知原因") +
+                    "（工作面不受影响；关闭本面板即可继续）</body>");
+            }
+            _viewerActive = true;
+            _viewerView.Visible = true;
+            _viewerView.BringToFront();
+            UpdateViewerButton();
+        });
+    }
+
+    private void UpdateViewerButton()
+    {
+        if (_btnViewer is null) return;
+        _btnViewer.Text = _viewerActive ? "← 返回" : "Viewer";
+    }
+
+    /// <summary>项目切换时若 sidecar 在运行则同步根目录；未运行则下次打开时按新项目启动。</summary>
+    private void SyncViewerRoot()
+    {
+        if (_store is null) return;
+        var root = _store.Root;
+        _ = Task.Run(async () =>
+        {
+            try { await _viewer.SyncRootAsync(root); }
+            catch (Exception ex) { Program.Log("viewer 根同步失败：" + ex.Message); }
+        });
     }
 
     private void SetAttachedLayout(bool attached)
