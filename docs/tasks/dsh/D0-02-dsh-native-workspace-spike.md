@@ -1,16 +1,16 @@
-# D0-02 — DSH Native Workspace Integration Spike
+# D0-02 — DSH Windows Workspace Integration Spike
 
-Agent Role: DSH Native Specialist
-Default Harness: DSH Creator Mode
+Agent Role: Backend / Integration Engineer
+Default Harness: Claude Code
 Status: **READY**
 Architecture / Product Lead: ChatGPT
 Parent: GitHub Issue `#5`
 
 ## 1. Goal
 
-Prove the narrowest supported way to integrate DSH as a real, persistent Daily Driver workspace surface inside Arckeep.
+Prove the narrowest supported way to integrate DSH as a real, persistent Daily Driver workspace surface inside the Arckeep Windows application.
 
-This DSH surface is for the user to directly work in a Harness workspace. It is **not** ATW Team Mode and must not add workflow authority to Arckeep.
+This is a **Windows host integration task against existing DSH capabilities**. It is not DSH plugin development, not Creator Mode work, and not ATW Team Mode.
 
 ## 2. Exact implementation baseline
 
@@ -40,7 +40,7 @@ Mismatch => STOP `BASELINE_MISMATCH`.
 
 ## 3. Must-read sources
 
-Read from exact baseline:
+Read from exact baseline / explicit taskbook refs:
 
 - `AGENTS.md`
 - `docs/project/GOVERNANCE.md`
@@ -49,36 +49,38 @@ Read from exact baseline:
 - `docs/design/DESIGN_STATUS.md`
 - `arckeep/README.md`
 
-Reuse evidence/patterns from the already proven DSH integrations in:
+Reuse already-proven DSH integration evidence/patterns from:
 
 - `Dylan5237/req-to-page`
 - `Dylan5237/agent-team-workbench`
 
-Inspect the installed/current DSH runtime using Creator Mode before inventing any host seam.
+Use normal repository/code/runtime inspection and the installed DSH application's documented/supported surfaces.
+
+**Do not invoke DSH Creator Mode by default.** Creator Mode is only for an explicitly authorized DSH plugin-development WorkPackage.
 
 ## 4. Required proof
 
-### D1 — Native start / attach seam
+### D1 — Existing DSH start / attach seam
 
-Identify the narrowest supported DSH local start or attach path for the installed DSH version.
+Identify the narrowest supported way for a Windows host application to start or attach to the user's existing DSH installation.
 
 Record:
-- exact DSH version;
-- command/process path;
-- host/port discovery;
-- whether Arckeep should start DSH or attach to an existing instance.
+- exact DSH version/build if discoverable through normal supported means;
+- executable / command / process path;
+- host/port or Web surface discovery;
+- whether Arckeep should start DSH or attach to an already-running instance.
 
-Prefer reuse of official/native behavior over custom process protocol.
+Prefer existing supported DSH behavior over any custom protocol.
 
 ### D2 — Health / readiness
 
 Identify a deterministic readiness signal suitable for Arckeep.
 
-Do not infer readiness from arbitrary sleep timers if a supported health/service signal exists.
+Do not infer readiness from arbitrary sleeps when an existing health/service/page signal is available.
 
 ### D3 — Real Web surface
 
-Prove the actual DSH Web workspace can be loaded in an Arckeep/WebView2-compatible localhost surface.
+Prove that the existing DSH Web workspace can be loaded in an Arckeep/WebView2-compatible localhost surface.
 
 Do not build a substitute DSH UI.
 
@@ -88,23 +90,24 @@ Prove normal Arckeep hide/show or workspace switching can keep the DSH surface a
 
 ### D5 — Failure isolation
 
-If DSH is unavailable or fails startup:
+If DSH is unavailable or startup fails:
 
-- Kimi/Claude/Viewer must remain conceptually usable;
-- return a controlled product-level status;
-- diagnostics may exist secondarily but must not dominate the user surface.
+- Kimi/Claude/Viewer remain usable;
+- Arckeep exposes a controlled product-level failure state;
+- diagnostics stay secondary.
 
 ### D6 — Process ownership
 
-If Arckeep starts DSH, define exact shutdown/attach/reuse semantics to avoid orphan processes and accidental termination of a user-owned existing DSH instance.
+If Arckeep starts DSH, define exact shutdown / attach / reuse semantics so Arckeep does not orphan its own process or kill a user-owned pre-existing DSH instance.
 
 ## 5. Architecture boundaries
 
-- DSH remains the Harness/runtime workspace owner.
-- Arckeep owns only shell/navigation/project context and process embedding/attachment as needed.
-- No DSH core patch.
+- DSH remains owner of its existing Harness/runtime workspace.
+- Arckeep owns shell/navigation/project context and the minimum Windows process/WebView2 integration seam.
+- No DSH core modification.
+- No DSH plugin development in this WorkPackage.
 - No second workflow/state truth.
-- No ATW collaboration semantics in D0-02.
+- No ATW collaboration semantics.
 
 ## 6. Authorized changes
 
@@ -112,22 +115,32 @@ Preferred outcome is evidence with minimal production change.
 
 Allowed:
 
-- narrow DSH probe/integration glue required to establish the seam;
-- minimal C# process/WebView2 host proof;
+- normal C# Windows process/service/WebView2 integration probe;
+- narrow DSH start/attach/readiness glue in Arckeep if needed to prove the seam;
 - D0-02 report/evidence under `docs/acceptance/` or `docs/reuse/`.
 
-## 7. Forbidden
+## 7. Forbidden / exception rule
 
-- DSH core modification
-- ATW Team Mode integration
-- generalized HarnessAdapter/Runtime Registry
-- Arckeep workflow controller
-- Kimi/Claude changes
-- Viewer migration
-- full visual redesign
-- changing D0 Product Contract
+Forbidden:
 
-Need for any above => STOP `ARCHITECTURE_EXCEPTION`.
+- DSH core modification;
+- DSH plugin creation/modification;
+- DSH Creator Mode as a default execution environment;
+- ATW Team Mode integration;
+- generalized HarnessAdapter / Runtime Registry;
+- Arckeep workflow controller;
+- Kimi/Claude changes;
+- Viewer migration;
+- full visual redesign;
+- changing D0 Product Contract.
+
+If the investigation demonstrates that **existing DSH capabilities cannot provide the required Windows integration seam and a new/changed DSH plugin is genuinely necessary**, STOP:
+
+`PLUGIN_REQUIRED`
+
+Report the exact missing capability and evidence. Architecture Lead will decide whether to create a separate plugin WorkPackage using DSH Creator Mode.
+
+Do not silently expand this task.
 
 ## 8. Verification
 
@@ -135,18 +148,19 @@ Report:
 
 - exact baseline / HEAD;
 - branch/worktree;
-- exact DSH version;
-- native seam inspected;
-- launch/attach/readiness evidence;
+- DSH version/build evidence available through normal means;
+- existing start/attach seam;
+- readiness evidence;
 - real WebView2 surface evidence;
 - persistence/switching evidence;
 - failure isolation behavior;
 - process ownership/shutdown semantics;
 - changed files;
 - tests/build if code changed;
-- limitations.
+- limitations;
+- `PLUGIN_REQUIRED` only if concrete evidence proves it.
 
-Screenshots are not required from the Harness. Ask the user if visual evidence is needed.
+Screenshots are not required from the coding Harness. Ask the user if visual evidence is needed.
 
 ## 9. Git / STOP
 
