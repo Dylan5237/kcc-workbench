@@ -1,10 +1,12 @@
 # D0-02 — DSH Windows Workspace Integration Spike
 
 Agent Role: Backend / Integration Engineer
-Default Harness: Claude Code
+Default Harness: KimiCode
 Status: **READY**
 Architecture / Product Lead: ChatGPT
 Parent: GitHub Issue `#5`
+
+Execution binding note: this WorkPackage is assigned to a **separate KimiCode session**. Role semantics and the Frozen Contract are unchanged; only the current Harness binding changed from Claude Code to KimiCode.
 
 ## 1. Goal
 
