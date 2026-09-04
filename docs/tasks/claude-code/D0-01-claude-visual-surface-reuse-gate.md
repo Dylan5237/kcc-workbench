@@ -32,15 +32,31 @@ Expected feature branch:
 
 `feat/d0-01-claude-surface`
 
+Dedicated sibling worktree convention:
+
+`../kcc-workbench-wt-d0-01`
+
+The user may start this Agent session by selecting the normal shared `kcc-workbench` folder. That selected folder is only the **entry/control repository**. The Agent must create/reuse its own dedicated sibling worktree and move execution cwd there before any implementation.
+
+Frozen worktree bootstrap rules:
+
+`f9eab08d0f3b019b411c4d0418b9122295860657:docs/project/WORKTREE_EXECUTION.md`
+
+Read them with exact-ref inspection, e.g. `git show f9eab08d0f3b019b411c4d0418b9122295860657:docs/project/WORKTREE_EXECUTION.md`.
+
 Before work:
 
 1. locate the actual GitHub remote;
 2. `git fetch <GH_REMOTE> --prune` — do not `git pull`;
-3. create/use a dedicated worktree from the exact baseline;
-4. verify worktree HEAD equals the baseline;
-5. do not switch or modify another Agent's worktree.
+3. inspect `git worktree list --porcelain`;
+4. create/reuse the dedicated sibling worktree for `feat/d0-01-claude-surface` at the exact baseline according to `WORKTREE_EXECUTION.md`;
+5. change cwd to that worktree;
+6. verify there: HEAD == baseline, branch == expected feature branch, and worktree is clean;
+7. do not switch/modify the shared entry repository or another Agent's worktree.
 
 Mismatch => STOP `BASELINE_MISMATCH`.
+Branch/path conflict => STOP with the corresponding worktree rule code.
+If the Harness cannot access/create a sibling directory => STOP `WORKTREE_ACCESS_BLOCKED`; do not silently edit the shared repository.
 
 ## 3. Must-read sources
 
@@ -130,7 +146,8 @@ Need for any above => STOP `ARCHITECTURE_EXCEPTION`.
 At minimum report:
 
 - exact baseline and HEAD;
-- branch/worktree;
+- dedicated worktree absolute path;
+- branch;
 - cdesktop exact version/ref or resolved npm version;
 - exact launch command/URL behavior;
 - real Claude session evidence;
@@ -145,6 +162,8 @@ At minimum report:
 Screenshots are not required from the coding Harness. If screenshots are needed for visual review, ask the user.
 
 ## 9. Git / STOP
+
+All implementation commits must be created inside the dedicated D0-01 worktree, never the shared entry repository.
 
 Do not merge.
 
