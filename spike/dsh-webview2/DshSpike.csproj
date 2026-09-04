@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net7.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>DshSpike</AssemblyName>
+    <RootNamespace>DshSpike</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <!-- 探针直接链接生产 glue 源码，验证的就是 Arckeep 真实接缝，不是副本 -->
+    <Compile Include="..\..\arckeep\shell\DshService.cs" Link="DshService.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,17 @@
+{
+  "mode_requested": "hang",
+  "dotnet": "7.0.2",
+  "webview2_runtime": "152.0.4191.53",
+  "dsh_default_authority": "127.0.0.1:3080",
+  "startup_failed": true,
+  "failure_recorded": true,
+  "failure_message": "dsh web \u542F\u52A8\u8D85\u65F6\uFF1A",
+  "owned_process_started": true,
+  "owned_process_alive_at_2s": true,
+  "owned_process_alive_at_5s": true,
+  "owned_process_gone_after_failure": true,
+  "mode_after_failure": "None",
+  "open_url_after_failure": null,
+  "owned_ref_after_failure": null,
+  "elapsed_ms": 12406
+}
