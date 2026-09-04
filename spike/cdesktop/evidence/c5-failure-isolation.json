@@ -1,0 +1,47 @@
+[
+  {
+    "phase": "A-startup",
+    "ok": true,
+    "binary": "C:\\Users\\howyo\\.cdesktop\\bin\\v0.2.3-20260519022845\\windows-x64\\cdesktop.exe",
+    "base": "http://127.0.0.1:10661",
+    "portFileBefore": "{\"main_port\":12741,\"preview_proxy_port\":2631}",
+    "portFileAfter": "{\"main_port\":10661,\"preview_proxy_port\":10662}",
+    "stdoutMainLine": "\u001b[2m2026-09-04T05:07:35.806760Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2mserver\u001b[0m\u001b[2m:\u001b[0m Main server on :10661, Preview proxy on :10662",
+    "health": true
+  },
+  {
+    "phase": "B-host-spawned",
+    "hostPid": 130692,
+    "report": "C:\\Users\\howyo\\AppData\\Local\\Temp\\c5-host-10661.jsonl"
+  },
+  {
+    "phase": "C-kill-surface",
+    "srvPid": 146112,
+    "ok": true,
+    "hostAliveAfterKill": true
+  },
+  {
+    "phase": "D-host-alive",
+    "hostAliveLater": true,
+    "hostLines": 13,
+    "surfaceDownObserved": false,
+    "hostWriteStillWorks": true,
+    "heartbeatSample": [
+      "{\"t\":7092,\"up\":false,\"heartbeat\":true}",
+      "{\"t\":7602,\"up\":false,\"heartbeat\":true}",
+      "{\"t\":8106,\"up\":false,\"heartbeat\":true}"
+    ]
+  },
+  {
+    "phase": "E-recovery",
+    "ok": true,
+    "base": "http://127.0.0.1:8543",
+    "health": true
+  },
+  {
+    "phase": "Z-cleanup",
+    "ok": true,
+    "portFileAfter": "{\"main_port\":8543,\"preview_proxy_port\":8544}",
+    "elapsedMs": 19220
+  }
+]

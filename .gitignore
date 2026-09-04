@@ -13,6 +13,13 @@ spike/host-webview2/obj/
 spike/host-webview2/udfs/
 spike/host-webview2/publish*/
 spike/sandbox-project/
+# D0-01 cdesktop 探针：上游源码 checkout(141M, 含嵌套 .git) 与 npm 解包产物不入库
+spike/cdesktop/cdesktop/
+spike/cdesktop/npm/package/
+spike/webview2-probe/bin/
+spike/webview2-probe/obj/
+spike/wv2-debug/bin/
+spike/wv2-debug/obj/
 # Arckeep 骨架构建产物
 arckeep/shell/bin/
 arckeep/shell/obj/
