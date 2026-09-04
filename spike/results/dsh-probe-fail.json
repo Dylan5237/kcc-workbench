@@ -1,0 +1,11 @@
+{
+  "mode_requested": "fail",
+  "dotnet": "7.0.2",
+  "webview2_runtime": "152.0.4191.53",
+  "dsh_default_authority": "127.0.0.1:3080",
+  "fail_start_returned_null": true,
+  "fail_failure_recorded": true,
+  "fail_failure_message": "dsh web \u542F\u52A8\u8D85\u65F6\uFF1A\u0027dsh\u0027 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\u06B2\uFFFD\uFFFD\uFFFD\uFFFD\u2CBF\uFFFD\uFFFD\uFFFD\uE8EC\u04B2\uFFFD\uFFFD\uFFFD\u01FF\uFFFD\uFFFD\uFFFD\uFFFD\u0435\u0133\uFFFD\uFFFD\uFFFD\r\n\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\u013C\uFFFD\uFFFD\uFFFD\r\n",
+  "fail_controlled_state_shown": true,
+  "shell_alive_in_failure": true
+}

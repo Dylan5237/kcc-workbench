@@ -1,0 +1,19 @@
+{
+  "mode_requested": "owned",
+  "dotnet": "7.0.2",
+  "webview2_runtime": "152.0.4191.53",
+  "dsh_default_authority": "127.0.0.1:3080",
+  "attach_authority": "127.0.0.1:1",
+  "dsh_url": "http://127.0.0.1:1572/",
+  "mode_actual": "Owned",
+  "start_ms": 8782,
+  "d3_nav_completed": true,
+  "d3_nav_ms_from_launch": 11551,
+  "d3_document_title": "\u0022DeepSeek Harness\u0022",
+  "d4_mark_survives_hide_show": true,
+  "d4_timeorigin_equal_after_hide_show": true,
+  "d4_mark_survives_switch": true,
+  "d4_timeorigin_equal_after_switch": true,
+  "total_elapsed_ms": 24792,
+  "owned_process_gone_after_exit": true
+}

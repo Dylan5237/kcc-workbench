@@ -12,6 +12,9 @@ spike/host-webview2/bin/
 spike/host-webview2/obj/
 spike/host-webview2/udfs/
 spike/host-webview2/publish*/
+spike/dsh-webview2/bin/
+spike/dsh-webview2/obj/
+spike/dsh-webview2/udfs/
 spike/sandbox-project/
 # Arckeep 骨架构建产物
 arckeep/shell/bin/
