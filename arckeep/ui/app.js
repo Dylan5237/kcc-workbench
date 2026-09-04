@@ -186,6 +186,7 @@ bridge?.addEventListener('message', e => {
 /* ---------- 动作 ---------- */
 $('btnPick').addEventListener('click', () => send({ type: 'pick-directory' }));
 $('btnStart').addEventListener('click', () => send({ type: 'start' }));
+$('btnViewer').addEventListener('click', () => send({ type: 'open-viewer' }));
 $('btnEditStatus').addEventListener('click', () => {
   if(!state || state.empty) return;
   const text = prompt('改写当前状态（写入 .arckeep/status.md）：', state.status.text);
