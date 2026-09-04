@@ -42,7 +42,7 @@ dotnet build -c Release
 ./bin/Release/net7.0-windows/Arckeep.exe
 ```
 
-Current prerequisites include Windows 10/11, WebView2 Runtime, .NET SDK 7+ and kimi CLI >= 0.39 on PATH unless a WorkPackage explicitly changes them.
+Current prerequisites include Windows 10/11, WebView2 Runtime, .NET SDK 7+, kimi CLI >= 0.39 on PATH, and Node.js on PATH (KCC Viewer sidecar, D0-04) unless a WorkPackage explicitly changes them.
 
 ## KCC v1 donor commands
 
