@@ -1,0 +1,51 @@
+[
+  {
+    "phase": "A-load",
+    "ok": true,
+    "url": "http://127.0.0.1:1274"
+  },
+  {
+    "phase": "A-spa",
+    "data": "\u0022{\\\u0022origin\\\u0022:\\\u0022http://127.0.0.1:1274\\\u0022,\\\u0022title\\\u0022:\\\u0022\u65B0\u4F1A\u8BDD | cdesktop\\\u0022,\\\u0022ready\\\u0022:\\\u0022complete\\\u0022,\\\u0022rootChildren\\\u0022:1,\\\u0022bodyLen\\\u0022:530}\u0022"
+  },
+  {
+    "phase": "A-health",
+    "data": "\u0022{\\\u0022ok\\\u0022:true,\\\u0022data\\\u0022:\\\u0022OK\\\u0022}\u0022"
+  },
+  {
+    "phase": "A-sse",
+    "data": "\u0022{\\\u0022gotOpen\\\u0022:true,\\\u0022gotEvent\\\u0022:true,\\\u0022sample\\\u0022:\\\u0022[{\\\\\\\u0022op\\\\\\\u0022:\\\\\\\u0022add\\\\\\\u0022,\\\\\\\u0022path\\\\\\\u0022:\\\\\\\u0022/scratch\\\\\\\u0022,\\\\\\\u0022value\\\\\\\u0022:{\\\\\\\u0022id\\\\\\\u0022:\\\\\\\u002200000000-0000-0000-0000-000000000001\\\\\\\u0022,\\\\\\\u0022payload\\\\\\\u0022:{\\\\\\\u0022type\\\\\\\u0022:\\\\\\\u0022DRAFT_WORKSPACE\\\\\\\u0022,\\\\\\\u0022data\\\\\\\u0022:{\\\\\\\u0022message\\\\\\\u0022:\\\\\\\u0022\\\\\\\u0022,\\\\\\\u0022repos\\\\\\\u0022:[],\\\\\\\u0022executor_config\\\\\\\u0022:{\\\\\\\u0022executor\\\\\\\u0022:\\\\\\\u0022CLAUDE_CODE\\\\\\\u0022},\\\\\\\u0022linked_issue\\\\\\\u0022:null,\\\\\\\u0022attachments\\\\\\\u0022:[]}},\\\\\\\u0022created_at\\\\\\\u0022:\\\\\\\u00222026-09-04T03:32:52.189Z\\\\\\\u0022,\\\\\\\u0022updated_at\\\\\\\u0022:\\\\\\\u00222026-09-04\\\u0022}\u0022"
+  },
+  {
+    "phase": "A-sse-trigger",
+    "data": "\u0022{\\\u0022triggered\\\u0022:true}\u0022"
+  },
+  {
+    "phase": "A-real-session",
+    "data": "\u0022{\\\u0022wsId\\\u0022:\\\u00229c58e8ca-0b3d-455c-9030-64810449cad2\\\u0022,\\\u0022sessId\\\u0022:\\\u0022f4fc416c-a73e-4246-a4e2-838c0f6f37cd\\\u0022,\\\u0022procId\\\u0022:\\\u0022233c5a89-c68b-4079-b019-61f29b292646\\\u0022,\\\u0022status\\\u0022:\\\u0022completed\\\u0022,\\\u0022tries\\\u0022:3}\u0022"
+  },
+  {
+    "phase": "B-navigate-away",
+    "ok": true
+  },
+  {
+    "phase": "B-navigate-back",
+    "ok": true
+  },
+  {
+    "phase": "B-session-persisted",
+    "data": "\u0022{\\\u0022found\\\u0022:true,\\\u0022sessionCount\\\u0022:1,\\\u0022session\\\u0022:{\\\u0022id\\\u0022:\\\u0022f4fc416c-a73e-4246-a4e2-838c0f6f37cd\\\u0022,\\\u0022workspace_id\\\u0022:\\\u00229c58e8ca-0b3d-455c-9030-64810449cad2\\\u0022,\\\u0022name\\\u0022:\\\u0022d0-01-wv2-session\\\u0022,\\\u0022executor\\\u0022:\\\u0022CLAUDE_CODE\\\u0022,\\\u0022agent_working_dir\\\u0022:null,\\\u0022created_at\\\u0022:\\\u00222026-09-04T04:13:29.820Z\\\u0022,\\\u0022updated_at\\\u0022:\\\u00222026-09-04T04:13:29.820Z\\\u0022},\\\u0022persistedViaLocalStorage\\\u0022:true}\u0022"
+  },
+  {
+    "phase": "B-resume-session",
+    "data": "\u0022{\\\u0022procId\\\u0022:\\\u00225d59f5e6-2863-4d69-b21a-14d80ba6f80d\\\u0022,\\\u0022status\\\u0022:\\\u0022completed\\\u0022,\\\u0022sameSession\\\u0022:\\\u0022f4fc416c-a73e-4246-a4e2-838c0f6f37cd\\\u0022,\\\u0022tries\\\u0022:4}\u0022"
+  },
+  {
+    "phase": "Y-cleanup",
+    "data": "\u0022{\\\u0022removedWs\\\u0022:true,\\\u0022removedRepo\\\u0022:false}\u0022"
+  },
+  {
+    "phase": "Z-webview2-version",
+    "version": "152.0.4191.53"
+  }
+]

@@ -1,0 +1,6 @@
+t1(trivial async 42): "42"
+t2(fetch health): "{\"ok\":true,\"data\":\"OK\"}"
+t3(top-level-async-inject): "done"
+t3(polled): "\"after-await:200\""
+t4(probe-structure fetch): "null"
+t5(no-outer-iife fetch): "null"
