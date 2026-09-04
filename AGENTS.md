@@ -1,52 +1,32 @@
-# Arckeep / KCC Repository Agent Guide
+# KCC Workbench / Arckeep Agent Guide
 
-## Active product
+## Project authority
 
-**Arckeep is the active product.**
+Arckeep is the active product direction in this repository. KCC Workbench v1 remains a proven capability donor, especially for Viewer and other already-validated assets.
 
-Current project control plane:
+For current project state, do not infer from chat history. Read GitHub Command Center / Phase / WorkPackage issues and the exact taskbook refs supplied there.
 
-- Command Center: GitHub Issue `#2`
-- Current Phase: GitHub Issue `#3` — D0 Daily Driver
-- D0 integration branch: `integration/arckeep-daily-driver`
-- D0 source baseline: `8e08efd8e35bd9d42466a0bda27631fc95b36d65`
-- Governance: `docs/project/GOVERNANCE.md`
-- Harness team: `docs/project/HARNESS_TEAM.md`
-- D0 product contract: `docs/product/DAILY_DRIVER_D0.md`
-- Visual authority status: `docs/design/DESIGN_STATUS.md`
+## Current D0 objective
 
-GitHub + exact refs are the cross-session project truth. Chat is interaction/orchestration only.
+`D0 — Daily Driver`
 
-## Product direction
+Make Arckeep a Windows application the user is willing to keep open all day as the primary AI engineering workspace.
 
-Long-term primary modes:
+Required D0 surfaces:
+
+- Project continuity
+- KimiCode
+- Claude Code visual workspace
+- DSH workspace
+- Arckeep-owned KCC Viewer reuse
+
+Long-term top-level product modes remain:
 
 `Project / Solo / Team`
 
-D0 goal: make Arckeep the user's always-open Daily Driver with real KimiCode + ClaudeCode + DSH workspaces and the KCC Viewer as a first-class cross-agent review surface.
+ATW Team Mode is deferred and does not block D0.
 
-ATW Team Mode is deferred until the Daily Driver and ATW First Usable paths are independently ready.
-
-## Repository generations and boundaries
-
-- `arckeep/`: **active Arckeep product implementation** — C# thin shell + WebView2 + project continuity / ACP seams.
-- `src/`: **KCC Workbench v1 legacy implementation and capability donor** — Electron Kimi/CloudCLI/Viewer/Quota/Time Machine code. Do not broadly migrate or reorganize it during D0 merely for cleanliness.
-- `src/viewer/`: approved KCC Viewer capability source. Viewer is required for Arckeep D0.
-- `docs/`: mixed historical and current design material. Current authority is determined by the project/governance files above, not file age or filename version alone.
-
-## Arckeep commands
-
-```bash
-cd arckeep/shell
-dotnet build -c Release
-./bin/Release/net7.0-windows/Arckeep.exe
-```
-
-Current prerequisites include Windows 10/11, WebView2 Runtime, .NET SDK 7+, kimi CLI >= 0.39 on PATH, and Node.js on PATH (KCC Viewer sidecar, D0-04) unless a WorkPackage explicitly changes them.
-
-## KCC v1 donor commands
-
-Use only when working on/reusing the legacy KCC capability tree:
+## Commands / legacy KCC v1
 
 - Install: `npm ci`
 - Test: `npm test`
@@ -55,87 +35,88 @@ Use only when working on/reusing the legacy KCC capability tree:
 - Build unpacked app: `npm run build`
 - Build portable app: `npm run pack`
 
-KCC v1 development/packaging expects Node.js 22. Existing CloudCLI integration is a proven fallback for Claude/Codex visual access, but D0 first evaluates cdesktop reuse before inventing a new Claude UI.
+Use Node.js 22 for KCC v1 development and packaging. Legacy CloudCLI currently starts through a compatible system Node runtime.
 
-## Current visual authority
+## Active Arckeep implementation
 
-**DESIGN RESET.**
+- `arckeep/` is the active Windows product implementation.
+- Host stack remains C# thin shell + WebView2 for the current walking skeleton.
+- Existing Kimi Web + ACP behavior is proven and should not be casually rewritten.
+- Runtime prerequisites: Windows 10/11, WebView2 Runtime, .NET SDK 7+, kimi CLI >= 0.39 on PATH, and Node.js on PATH (KCC Viewer sidecar, D0-04).
+- `src/` is KCC v1 legacy/product code and a capability donor during D0; do not perform broad migration/restructure unless explicitly authorized.
+- `src/viewer/**` is a high-value reuse source for the Arckeep Viewer WorkPackage.
 
-The user explicitly rejected the previous Arckeep design system as the forward visual authority.
+## Project-management rules
 
-Historical references remain in the repository, including:
+Canonical workflow:
 
-- `docs/brand/**`
-- `docs/prototypes/arckeep-visual-v0.4.html`
-- visual styling currently embedded in `arckeep/ui/`
+`Contract Freeze → Implementation → Independent Verification → Architecture Lead Acceptance → CLOSED`
 
-Do not delete them, but do **not** treat them as mandatory D0 styling authority.
-
-No comprehensive replacement design system is frozen yet. D0 first integrates real Daily Driver surfaces, then visual/product convergence is driven by real screenshots and user feedback. See `docs/design/DESIGN_STATUS.md`.
+- ChatGPT = Chief Architect / PM / Orchestrator.
+- Agent self-report ≠ acceptance.
+- PR merge ≠ Phase PASS.
+- One significant WorkPackage = one dedicated branch/worktree/PR.
+- Fetch the actual GitHub remote; do not blindly `git pull`.
+- Exact baseline / exact HEAD / diff / tests / evidence must be traceable.
+- Implementation Harnesses do not self-authorize architecture expansion.
+- Preserve unrelated dirty files.
+- Coding Agents do not own screenshot reading or final visual judgment. User supplies screenshots; ChatGPT performs visual/product acceptance.
 
 ## Harness team
 
-Default role bindings are defined in `docs/project/HARNESS_TEAM.md`.
+Read `docs/project/HARNESS_TEAM.md` for current role bindings.
 
-Key rule:
+Core principle:
 
-`Role != Harness Identity`
+`Role ≠ Harness Identity`
 
-Typical bindings:
+Important DSH rule:
 
-- ChatGPT — Chief Architect / PM / Orchestrator / final architecture-product review
-- KimiCode — Global / Runtime Engineer
-- Claude Code — Backend / Integration Engineer
-- Cursor — Product UI Engineer
-- Codex — Independent Verifier
-- DSH Creator Mode — DSH Native Specialist
-- User + ChatGPT — real-machine Visual / Product Acceptance
+**DSH Creator Mode is only for explicitly authorized DSH plugin development or plugin-internal implementation work. It is not the default tool for integrating the existing DSH application into the Arckeep Windows host.**
 
-Do not hard-code implementation contracts to a named Harness unless the WorkPackage specifically concerns that Harness.
+Normal Windows process / localhost / WebView2 / lifecycle integration with existing DSH capabilities belongs to the regular Backend / Integration or Global / Runtime engineering role.
 
-## D0 active WorkPackages
+If existing DSH capabilities prove insufficient and a plugin change is actually required, STOP `PLUGIN_REQUIRED` and request an Architecture Exception before using Creator Mode.
 
-- `#4` D0-01 Claude visual surface reuse gate — cdesktop first, CloudCLI fallback
-- `#5` D0-02 DSH native workspace integration spike
-- `#6` D0-03 Persistent Solo Shell — KimiCode + ClaudeCode + DSH
-- `#7` D0-04 KCC Viewer integration
-- `#8` D0-05 Product visual reset on real surfaces
-- `#9` D0-V Independent Daily Driver verification
-- `#10` D0-00 Project control reset
+## Design authority
 
-Do not start downstream WorkPackages before their dependency/review gates are satisfied.
+Current state:
 
-## Project / Git rules
+`DESIGN RESET`
 
-Arckeep follows:
+The user rejected the previous Arckeep visual/design system as the forward authority.
 
-`Contract Freeze -> Implementation -> Independent Verification -> Architecture Lead Acceptance -> CLOSED`
+Therefore:
 
-- Agent self-report != acceptance.
-- PR merge != phase PASS.
-- One WorkPackage normally uses one dedicated branch/worktree/PR.
-- Start from an exact recorded SHA.
-- `git fetch <actual GitHub remote> --prune`; do not use blind `git pull` as synchronization.
-- Do not switch or overwrite another Agent's worktree.
-- Baseline mismatch => STOP `BASELINE_MISMATCH`.
-- Architecture violation / required scope expansion => STOP `ARCHITECTURE_EXCEPTION`.
-- Coding Agents do not perform screenshot reading or final visual review. User provides screenshots; ChatGPT reviews and issues text repair instructions.
-- Preserve unrelated dirty files and historical evidence.
+- `docs/brand/**` and old Arckeep visual prototypes are historical references only;
+- do not treat them as mandatory visual authority for new D0 UI;
+- no replacement comprehensive Design System is frozen yet;
+- first integrate the real Daily Driver surfaces, then use real user screenshots and operation feedback to converge information architecture, density, hierarchy, navigation and visual language.
 
-## Existing proven Arckeep facts
+See `docs/design/DESIGN_STATUS.md`.
 
-The current `arckeep/` walking skeleton already includes real project-folder state, `.arckeep/` read/write, Kimi Web embedding, ACP session/prompt flow, persistent WebView2 concepts, quota migration work, and a C# process/window host. Preserve working behavior unless the current WorkPackage requires a narrow compatibility repair.
+## D0 scope discipline
 
-See `arckeep/README.md` for implementation notes and known WebView2/Windows pitfalls.
+Before Daily Driver is accepted, do not introduce without a proven blocker:
 
-## D0 STOP discipline
+- generalized AgentAdapter / Runtime Registry;
+- new Domain Core rewrite;
+- full new Design System framework;
+- deep ATW integration;
+- broad KCC v1 migration;
+- custom replacement UI for an existing reusable Agent/Harness surface.
 
-Before Daily Driver acceptance, do not introduce without a demonstrated blocker:
+Reuse mature existing surfaces first.
 
-- generalized AgentAdapter / Runtime Registry
-- complete Domain/Core rewrite
-- deep ATW Team Mode integration
-- replacement Claude UI built from scratch
-- broad KCC v1 migration
-- comprehensive new Design System framework
-- speculative infrastructure for later Team Mode
+## Legacy KCC v1 architecture notes
+
+These remain relevant when reusing capability:
+
+- `src/main/`: Electron main process, Kimi/CloudCLI services, settings, quota, Viewer context synchronization.
+- `src/renderer/`: legacy KCC renderer.
+- `src/viewer/`: local authenticated Viewer server/frontend.
+- `test/`: Node test suite; tests must use isolated temporary data.
+- Kimi and CloudCLI used separate persistent `WebContentsView` instances; normal engine switching did not reload either surface.
+- Viewer diagnostics must never log auth tokens or cookies.
+
+Legacy KCC v1 was released and has proven real signed-in Kimi / Claude Code / Codex sessions and Viewer behavior. Reuse those facts as capability evidence, not as a requirement to retain the Electron product architecture.
