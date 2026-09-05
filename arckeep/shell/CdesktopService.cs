@@ -22,8 +22,11 @@ internal sealed class CdesktopService : IDisposable
 
     private static readonly Regex MainServerLine = new(@"Main server on :(\d+)", RegexOptions.Compiled);
 
+    private readonly SemaphoreSlim _gate = new(1, 1);   // StartAsync 串行化（rebind 与 Open 并发安全）
     private Process? _proc;
-    private string? _ensuredWorkspaceRoot;
+
+    /// <summary>显式 workspace 绑定结果：只有 ensure 成功才存在（R2-3）。</summary>
+    public sealed record CdesktopWorkspaceBinding(string Root, string WorkspaceId, string WorkspaceUrl, string TargetBranch);
 
     public enum Ownership { None, Attached, Owned }
 
@@ -31,17 +34,19 @@ internal sealed class CdesktopService : IDisposable
     public Ownership Mode { get; private set; } = Ownership.None;
     public Exception? Failure { get; private set; }
 
-    /// <summary>当前项目根对应的 cdesktop workspace id（EnsureWorkspace 成功后记录）。</summary>
-    public string? WorkspaceId { get; private set; }
+    /// <summary>当前项目根的 workspace 绑定；null = 未绑定（服务健康 ≠ 绑定成功）。</summary>
+    public CdesktopWorkspaceBinding? Binding { get; private set; }
 
-    /// <summary>当前项目根的 workspace 页面路由（cdesktop 0.2.3 既有 /workspaces/{id} seam）。</summary>
-    public string? WorkspaceUrl =>
-        OpenUrl is not null && WorkspaceId is not null ? OpenUrl + "workspaces/" + WorkspaceId : null;
+    /// <summary>兼容读取：绑定中的 workspace id。</summary>
+    public string? WorkspaceId => Binding?.WorkspaceId;
 
-    /// <summary>最近一次 workspace 挂载使用的 target_branch（非 main 分支证据用）。</summary>
-    public string? LastTargetBranch { get; private set; }
+    /// <summary>兼容读取：绑定中的 workspace 页面路由。</summary>
+    public string? WorkspaceUrl => Binding?.WorkspaceUrl;
 
-    /// <summary>workspace 确保失败的诊断（服务本身仍可用，不升级为 Failure）。</summary>
+    /// <summary>兼容读取：绑定使用的 target_branch。</summary>
+    public string? LastTargetBranch => Binding?.TargetBranch;
+
+    /// <summary>workspace 绑定失败的诊断（服务本身可能仍健康；两状态不混）。</summary>
     public string? WorkspaceError { get; private set; }
 
     /// <summary>自有模式下的子进程 PID（诊断/看门狗用；attached 模式恒为 null）。</summary>
@@ -50,46 +55,50 @@ internal sealed class CdesktopService : IDisposable
     /// <summary>
     /// attach 优先：读 %TEMP%/cdesktop/cdesktop.port 拿 main_port，/api/health 验明正身后复用；
     /// 没有再启动 Arckeep 自有实例（PORT=0 由 OS 分配，不与用户实例争端口）。
-    /// 失败不抛出到壳层：写入 Failure，返回 null。
-    /// 每次成功进入都会对当前项目根做幂等的 workspace 确保（repo + workspace，use_worktree=false）。
+    /// 服务失败不抛出到壳层：写入 Failure，返回 null。
+    /// 服务就绪后对 cwd 做显式 workspace 绑定（BindWorkspaceSafeAsync）；
+    /// 绑定失败只置 WorkspaceError + Binding=null，绝不让旧 root 的 WorkspaceId 被解释成新 root 的（R2-3）。
     /// </summary>
     public async Task<string?> StartAsync(string cwd, TimeSpan? timeout = null)
     {
-        if (OpenUrl is not null && Mode == Ownership.Attached)
-        {
-            await EnsureWorkspaceSafeAsync(cwd);
-            return OpenUrl;
-        }
-        if (OpenUrl is not null && _proc is { HasExited: false })
-        {
-            await EnsureWorkspaceSafeAsync(cwd);
-            return OpenUrl;
-        }
-
-        var attached = await TryAttachAsync();
-        if (attached is not null)
-        {
-            Mode = Ownership.Attached;
-            OpenUrl = attached;
-            Program.Log($"cdesktop 复用用户已有实例 {attached}");
-            await EnsureWorkspaceSafeAsync(cwd);
-            return OpenUrl;
-        }
-
+        await _gate.WaitAsync();
         try
         {
-            await SpawnAndWaitReadyAsync(cwd, timeout ?? TimeSpan.FromSeconds(60));
-            await EnsureWorkspaceSafeAsync(cwd);
+            if (OpenUrl is not null && (Mode == Ownership.Attached || _proc is { HasExited: false }))
+            {
+                await BindWorkspaceSafeAsync(cwd);
+                return OpenUrl;
+            }
+
+            var attached = await TryAttachAsync();
+            if (attached is not null)
+            {
+                Mode = Ownership.Attached;
+                OpenUrl = attached;
+                Program.Log($"cdesktop 复用用户已有实例 {attached}");
+                await BindWorkspaceSafeAsync(cwd);
+                return OpenUrl;
+            }
+
+            try
+            {
+                await SpawnAndWaitReadyAsync(cwd, timeout ?? TimeSpan.FromSeconds(60));
+            }
+            catch (Exception ex)
+            {
+                // spawned-but-not-ready 也必须清理：任何 post-spawn 失败返回前，
+                // 先机械终止 Arckeep 已创建的进程树（不依赖调用方再 Dispose）
+                TerminateOwned();
+                Failure = ex;
+                Program.Log("cdesktop 启动失败：" + ex.Message);
+                return null;
+            }
+            await BindWorkspaceSafeAsync(cwd);
             return OpenUrl;
         }
-        catch (Exception ex)
+        finally
         {
-            // spawned-but-not-ready 也必须清理：任何 post-spawn 失败返回前，
-            // 先机械终止 Arckeep 已创建的进程树（不依赖调用方再 Dispose）
-            TerminateOwned();
-            Failure = ex;
-            Program.Log("cdesktop 启动失败：" + ex.Message);
-            return null;
+            _gate.Release();
         }
     }
 
@@ -254,31 +263,36 @@ internal sealed class CdesktopService : IDisposable
         return null;
     }
 
-    /// <summary>workspace 确保失败不拖垮服务本身：记录 WorkspaceError 并继续。</summary>
-    private async Task EnsureWorkspaceSafeAsync(string projectRoot)
+    /// <summary>
+    /// workspace 绑定（fail-closed）：先清空旧 Binding（旧 root 的 id 不得再被解释成新 root 的），
+    /// ensure 成功才产生新 Binding；失败只置 WorkspaceError。绑定失败 ≠ 服务失败。
+    /// </summary>
+    private async Task BindWorkspaceSafeAsync(string projectRoot)
     {
-        if (_ensuredWorkspaceRoot is not null && SamePath(_ensuredWorkspaceRoot, projectRoot)) return;
+        if (Binding is not null && SamePath(Binding.Root, projectRoot)) return;
+        Binding = null;
+        WorkspaceError = null;
         try
         {
-            await EnsureWorkspaceAsync(projectRoot);
-            _ensuredWorkspaceRoot = projectRoot;
+            Binding = await EnsureWorkspaceAsync(projectRoot);
             WorkspaceError = null;
         }
         catch (Exception ex)
         {
+            Binding = null;
             WorkspaceError = ex.Message;
-            Program.Log("cdesktop workspace 确保失败（服务仍可用）：" + ex.Message);
+            Program.Log("cdesktop workspace 绑定失败（服务仍健康）：" + ex.Message);
         }
     }
 
     /// <summary>
-    /// 用 cdesktop 既有概念把当前项目根打开/创建为一个 workspace（普通目录模式，
+    /// 用 cdesktop 既有概念把项目根打开/创建为一个 workspace（普通目录模式，
     /// use_worktree=false，不引入 Team/Worktree 域）。幂等：repo 按路径复用，
-    /// workspace 按 arckeep 命名约定复用。
+    /// workspace 按 arckeep 命名约定复用。成功返回显式 Binding。
     /// </summary>
-    private async Task EnsureWorkspaceAsync(string projectRoot)
+    private async Task<CdesktopWorkspaceBinding> EnsureWorkspaceAsync(string projectRoot)
     {
-        if (OpenUrl is null) return;
+        if (OpenUrl is null) throw new InvalidOperationException("cdesktop 未就绪");
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         var baseUrl = OpenUrl.TrimEnd('/');
         var projectName = new DirectoryInfo(projectRoot.TrimEnd(Path.DirectorySeparatorChar)).Name;
@@ -313,7 +327,6 @@ internal sealed class CdesktopService : IDisposable
         // 否则用项目当前 git 分支（不假定 main），非 git 项目回退 main（is_git=false 时该值不被使用）。
         var targetBranch = !string.IsNullOrEmpty(defaultTargetBranch) ? defaultTargetBranch!
             : TryCurrentGitBranch(projectRoot) ?? "main";
-        LastTargetBranch = targetBranch;
 
         // workspace：按命名约定复用，否则创建并挂载 repo
         string? workspaceId = null;
@@ -333,8 +346,10 @@ internal sealed class CdesktopService : IDisposable
             await PostJsonAsync(http, baseUrl + $"/api/workspaces/{workspaceId}/repos",
                 new { repo_id = repoId, target_branch = targetBranch });
         }
-        WorkspaceId = workspaceId;
-        Program.Log($"cdesktop workspace 就绪：{workspaceName} ({workspaceId}) target_branch={targetBranch}");
+        var binding = new CdesktopWorkspaceBinding(
+            projectRoot, workspaceId!, $"{baseUrl}/workspaces/{workspaceId}", targetBranch);
+        Program.Log($"cdesktop workspace 绑定：{workspaceName} ({workspaceId}) target_branch={targetBranch}");
+        return binding;
     }
 
     /// <summary>读项目当前 git 分支；非 git 仓库/失败返回 null（不引入 git workflow，只读事实）。</summary>
@@ -411,7 +426,8 @@ internal sealed class CdesktopService : IDisposable
         _proc = null;
         OpenUrl = null;
         Mode = Ownership.None;
-        _ensuredWorkspaceRoot = null;
+        Binding = null;
+        WorkspaceError = null;
     }
 
     /// <summary>只清理 Arckeep 明确创建并拥有的进程树；attach 的用户实例绝不动。</summary>

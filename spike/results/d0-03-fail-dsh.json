@@ -1,6 +1,6 @@
 {
   "scenario": "fail-dsh",
-  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-S4ODO0",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-roeBpd",
   "exitCode": 0,
   "timedOut": false,
   "proof": {
@@ -10,23 +10,23 @@
     "projectAlive": true,
     "survivors": {
       "claude": {
-        "mark": "0d019675",
-        "t0": 1788568313679,
-        "href": "http://127.0.0.1:7137/",
+        "mark": "81e4aeb7",
+        "t0": 1788574115919,
+        "href": "http://127.0.0.1:3262/workspaces/eced7ff1-c263-4ffd-9244-c4ccb9af0fde",
         "title": "cdesktop",
         "ready": "interactive"
       },
       "kimi": {
-        "mark": "496eeb2c",
-        "t0": 1788568314746,
-        "href": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
-        "title": "",
-        "ready": "loading"
+        "mark": "cd62b03f",
+        "t0": 1788574134490,
+        "href": "http://127.0.0.1:12480/sessions/session_f27ece97-45a4-406f-81ba-8f4311167b86#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "title": "Kimi Code Web",
+        "ready": "interactive"
       },
       "viewer": {
-        "mark": "43db4dbf",
-        "t0": 1788568315982,
-        "href": "http://127.0.0.1:9589/",
+        "mark": "fdbf3bfa",
+        "t0": 1788574135577,
+        "href": "http://127.0.0.1:2958/",
         "title": "文件查看器与任务时间机",
         "ready": "loading"
       }
@@ -38,8 +38,8 @@
       },
       "claude": {
         "mode": "Owned",
-        "url": "http://127.0.0.1:7137/",
-        "ownedPid": 100384
+        "url": "http://127.0.0.1:3262/",
+        "ownedPid": 131516
       },
       "dsh": {
         "mode": "None",
@@ -47,8 +47,8 @@
         "ownedPid": null
       },
       "viewer": {
-        "url": "http://127.0.0.1:9589/?token=1c8a989f271b9ebc01cac078cff29ca1d3261c2bcaf3a1562d77bf8a36c3bb54",
-        "ownedPid": 78084
+        "url": "http://127.0.0.1:2958/?token=9e838fdde978e9d4376d88f17998814a8f130866e408e6a9cdee0298ce16fd1e",
+        "ownedPid": 146176
       }
     }
   },
@@ -56,12 +56,12 @@
     "checks": [
       {
         "surface": "claude",
-        "pid": 100384,
+        "pid": 131516,
         "ownedGone": true
       },
       {
         "surface": "viewer",
-        "pid": 78084,
+        "pid": 146176,
         "ownedGone": true
       }
     ],

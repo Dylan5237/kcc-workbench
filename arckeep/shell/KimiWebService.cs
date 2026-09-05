@@ -14,6 +14,7 @@ namespace Arckeep.Shell;
 internal sealed class KimiWebService : IDisposable
 {
     private Process? _proc;
+    private readonly SemaphoreSlim _gate = new(1, 1);   // StartAsync/BindSessionAsync 串行化
 
     public string? OpenUrl { get; private set; }
     public Exception? Failure { get; set; }
@@ -34,12 +35,14 @@ internal sealed class KimiWebService : IDisposable
     public async Task<KimiBinding?> BindSessionAsync(string projectRoot)
     {
         if (OpenUrl is null) return null;
+        await _gate.WaitAsync();
         try
         {
             var origin = new Uri(OpenUrl).GetLeftPart(UriPartial.Authority);
             var token = ExtractToken(OpenUrl) ?? await ReadServerTokenAsync();
             if (token is null) return null;
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            // session 列表可能很大（本机实测 ~300 条时首次拉取 >10s），给足余量
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
             http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             // 复用已有 cwd 匹配的 session（取最近更新；列表项携带 metadata.cwd，spike 实证）
@@ -82,6 +85,10 @@ internal sealed class KimiWebService : IDisposable
             Program.Log("kimi session 绑定失败：" + ex.Message);
             return null;
         }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private static string? ExtractToken(string openUrl)
@@ -99,6 +106,20 @@ internal sealed class KimiWebService : IDisposable
             StringComparison.OrdinalIgnoreCase);
 
     public async Task<string> StartAsync(string cwd, TimeSpan? timeout = null)
+    {
+        if (OpenUrl is not null && _proc is { HasExited: false }) return OpenUrl;
+        await _gate.WaitAsync();
+        try
+        {
+            return await StartCoreAsync(cwd, timeout);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<string> StartCoreAsync(string cwd, TimeSpan? timeout)
     {
         if (OpenUrl is not null && _proc is { HasExited: false }) return OpenUrl;
 

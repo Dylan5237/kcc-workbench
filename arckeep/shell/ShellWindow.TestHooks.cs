@@ -544,4 +544,225 @@ internal sealed partial class ShellWindow
         try { using var p = System.Diagnostics.Process.GetProcessById(pid); return !p.HasExited; }
         catch { return false; }
     }
+
+    private async Task<string> HrefAsync(WebView2 view) =>
+        await this.InvokeAsync(async () =>
+            JsonSerializer.Deserialize<string>(await view.CoreWebView2.ExecuteScriptAsync("location.href")) ?? "");
+
+    private async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition()) return true;
+            await Task.Delay(400);
+        }
+        return false;
+    }
+
+    // ---------- R2-5：A→B→C 快速项目切换（旧 generation 的绑定结果必须被丢弃） ----------
+
+    private async Task RunRapidSwitchTestAsync()
+    {
+        var proof = new JsonObject();
+        var ok = true;
+        try
+        {
+            await Task.Delay(2500);
+            var dirA = Environment.GetEnvironmentVariable("ARCKEEP_TEST_PROJECT_A") ?? "";
+            var dirB = Environment.GetEnvironmentVariable("ARCKEEP_TEST_PROJECT_B") ?? "";
+            var dirC = Environment.GetEnvironmentVariable("ARCKEEP_TEST_PROJECT_C") ?? "";
+            if (!Directory.Exists(dirA) || !Directory.Exists(dirB) || !Directory.Exists(dirC))
+                throw new Exception("ARCKEEP_TEST_PROJECT_A/B/C 无效");
+
+            // Phase A：完整绑定
+            await this.InvokeAsync(() => { SetProject(dirA); return Task.CompletedTask; });
+            var a = await OpenAllAndCaptureAsync(dirA);
+            proof["A"] = a;
+            ok &= a["ok"]!.GetValue<bool>();
+
+            // A→B→C：B 的绑定被人为延迟（测试缝），B 完成前切到 C
+            Environment.SetEnvironmentVariable("ARCKEEP_TEST_REBIND_DELAY_MS", "8000");
+            var staleBefore = _staleApplyCount;
+            await this.InvokeAsync(() => { SetProject(dirB); return Task.CompletedTask; });
+            await Task.Delay(1200);   // B 仍在延迟窗口内
+            await this.InvokeAsync(() => { SetProject(dirC); return Task.CompletedTask; });
+            Environment.SetEnvironmentVariable("ARCKEEP_TEST_REBIND_DELAY_MS", null);
+            await _rebindTask;        // B（将被丢弃）→ C 串行完成
+            await Task.Delay(1000);
+
+            // Phase C：全部工作面必须落在 C
+            var c = await OpenAllAndCaptureAsync(dirC);
+            proof["C"] = c;
+            ok &= c["ok"]!.GetValue<bool>();
+
+            var asserts = new JsonObject
+            {
+                ["currentRootIsC"] = SamePath(_store!.Root, dirC),
+                ["viewerRootIsC"] = SamePath(_viewer.CurrentRoot, dirC),
+                ["kimiBoundRootIsC"] = SamePath(_kimiBoundRoot, dirC),
+                ["kimiSessionDiffersFromA"] = _kimiBoundSessionId is not null
+                    && _kimiBoundSessionId != a["kimiSessionId"]?.GetValue<string>(),
+                ["claudeBoundRootIsC"] = SamePath(_claudeBoundRoot, dirC),
+                ["claudeWorkspaceDiffersFromA"] = _cdesktop.WorkspaceId is not null
+                    && _cdesktop.WorkspaceId != a["claudeWorkspaceId"]?.GetValue<string>(),
+                ["viewerRootC"] = SamePath(_viewer.CurrentRoot, dirC),
+                ["staleCompletionIgnored"] = _staleApplyCount > staleBefore,
+                ["staleApplyCount"] = _staleApplyCount,
+            };
+            if (_dsh.Mode == DshService.Ownership.Owned)
+                asserts["dshBoundCwdIsC"] = SamePath(_dsh.BoundCwd, dirC);
+            else
+                asserts["dshBoundCwdIsC"] = SamePath(_dsh.BoundCwd, dirC);   // attached 也只可能 cwd 匹配（R2-4）
+            proof["asserts"] = asserts;
+            foreach (var kv in asserts)
+                if (kv.Value is JsonValue v && v.TryGetValue<bool>(out var flag)) ok &= flag;
+
+            // C 内普通切换仍 no-reload
+            await SwitchToAsync(Workspace.Claude);
+            var claudeAgain = await ProbeSurfaceAsync(_claudeView);
+            await SwitchToAsync(Workspace.Kimi);
+            var kimiAgain = await ProbeSurfaceAsync(_agentView);
+            var cycleOk = SameSurface(c["claudeProbe"] as JsonObject, claudeAgain)
+                       && SameSurface(c["kimiProbe"] as JsonObject, kimiAgain);
+            proof["ordinarySwitchNoReloadInC"] = cycleOk;
+            ok &= cycleOk;
+
+            proof["matrix"] = MatrixJson();
+        }
+        catch (Exception ex)
+        {
+            Program.Log("d0-03 abc-test 异常：" + ex);
+            proof["error"] = ex.ToString();
+            ok = false;
+            Environment.ExitCode = 4;
+        }
+        await FinishProofAsync(proof, ok && Environment.ExitCode != 4);
+    }
+
+    // ---------- R2-3/R2-6（Claude/Kimi 侧）：服务健康但项目绑定失败 → fail-closed + retry ----------
+
+    private async Task RunBindFailureTestAsync()
+    {
+        var proof = new JsonObject();
+        var ok = true;
+        try
+        {
+            await Task.Delay(2500);
+            var dirA = Environment.GetEnvironmentVariable("ARCKEEP_TEST_PROJECT_A") ?? "";
+            var dirB = Environment.GetEnvironmentVariable("ARCKEEP_TEST_PROJECT_B") ?? "";
+            if (!Directory.Exists(dirA) || !Directory.Exists(dirB))
+                throw new Exception("ARCKEEP_TEST_PROJECT_A/B 无效");
+
+            // Phase A：Claude + Kimi 成功绑定 A
+            await this.InvokeAsync(() => { SetProject(dirA); return Task.CompletedTask; });
+            await SwitchToAsync(Workspace.Claude);
+            ok &= await WaitSurfaceHrefAsync(_claudeView, "/workspaces/", () => _cdesktop.Failure, TimeSpan.FromSeconds(120));
+            await SwitchToAsync(Workspace.Kimi);
+            ok &= await WaitSurfaceHrefAsync(_agentView, "/sessions/", () => _kimiWeb.Failure, TimeSpan.FromSeconds(90));
+            var wsA = _cdesktop.WorkspaceId;
+            var sessA = _kimiBoundSessionId;
+            proof["A"] = new JsonObject
+            {
+                ["claudeWorkspaceId"] = wsA, ["kimiSessionId"] = sessA,
+                ["claudeBoundA"] = SamePath(_claudeBoundRoot, dirA), ["kimiBoundA"] = SamePath(_kimiBoundRoot, dirA),
+            };
+            ok &= SamePath(_claudeBoundRoot, dirA) && SamePath(_kimiBoundRoot, dirA);
+
+            // Phase B-fail：SetProject(B) 后在绑定延迟窗口内删掉 B 目录
+            // → cdesktop 服务仍健康但 POST /api/repos 400；kimi POST sessions 被拒（root 不存在）
+            Environment.SetEnvironmentVariable("ARCKEEP_TEST_REBIND_DELAY_MS", "6000");
+            await this.InvokeAsync(() => { SetProject(dirB); return Task.CompletedTask; });
+            await Task.Delay(800);
+            Directory.Delete(dirB, recursive: true);
+            await _rebindTask;
+            Environment.SetEnvironmentVariable("ARCKEEP_TEST_REBIND_DELAY_MS", null);
+            await Task.Delay(500);
+
+            var claudeHref = await HrefAsync(_claudeView);
+            var kimiHref = await HrefAsync(_agentView);
+            var serviceHealthy = _cdesktop.OpenUrl is not null
+                && await CdesktopService.HealthOkAsync(_cdesktop.OpenUrl.TrimEnd('/'), TimeSpan.FromSeconds(5));
+            var fail = new JsonObject
+            {
+                ["currentRootIsB"] = SamePath(_store!.Root, dirB),
+                ["claudeServiceHealthy"] = serviceHealthy,
+                ["claudeBindingNull"] = _cdesktop.Binding is null,
+                ["claudeWorkspaceError"] = _cdesktop.WorkspaceError,
+                ["claudeBoundRootIsNotB"] = !SamePath(_claudeBoundRoot, dirB),
+                ["claudeHrefNotAWorkspace"] = wsA is null || !claudeHref.Contains("/workspaces/" + wsA),
+                ["claudeHref"] = claudeHref,
+                ["kimiBoundRootIsNotB"] = !SamePath(_kimiBoundRoot, dirB),
+                ["kimiHrefNotASession"] = sessA is null || !kimiHref.Contains(sessA),
+                ["kimiHref"] = kimiHref,
+                ["kimiServerAlive"] = _kimiWeb.OpenUrl is not null,
+            };
+            proof["failState"] = fail;
+            foreach (var kv in fail)
+                if (kv.Value is JsonValue v && v.TryGetValue<bool>(out var flag)) ok &= flag;
+            ok &= fail["claudeWorkspaceError"]!.GetValue<string?>() is not null;
+
+            // 恢复条件后 Retry：重建 B 目录 → 重新打开 → 必须正常绑定 B
+            Directory.CreateDirectory(dirB);
+            await File.WriteAllTextAsync(Path.Combine(dirB, ".arckeep-test-project-b"), "marker\n");
+            await SwitchToAsync(Workspace.Claude);
+            ok &= await WaitUntilAsync(() => SamePath(_claudeBoundRoot, dirB), TimeSpan.FromSeconds(90));
+            if (_cdesktop.WorkspaceId is not null)
+                ok &= await WaitSurfaceHrefAsync(_claudeView, "/workspaces/" + _cdesktop.WorkspaceId, () => null, TimeSpan.FromSeconds(30));
+            await SwitchToAsync(Workspace.Kimi);
+            ok &= await WaitUntilAsync(() => SamePath(_kimiBoundRoot, dirB), TimeSpan.FromSeconds(60));
+            ok &= await WaitSurfaceHrefAsync(_agentView, "/sessions/", () => null, TimeSpan.FromSeconds(30));
+            proof["retry"] = new JsonObject
+            {
+                ["claudeBoundRootIsB"] = SamePath(_claudeBoundRoot, dirB),
+                ["claudeWorkspaceId"] = _cdesktop.WorkspaceId,
+                ["claudeWorkspaceDiffersFromA"] = _cdesktop.WorkspaceId != wsA,
+                ["kimiBoundRootIsB"] = SamePath(_kimiBoundRoot, dirB),
+                ["kimiSessionId"] = _kimiBoundSessionId,
+                ["kimiSessionDiffersFromA"] = _kimiBoundSessionId != sessA,
+            };
+            foreach (var kv in (JsonObject)proof["retry"]!)
+                if (kv.Value is JsonValue v && v.TryGetValue<bool>(out var flag)) ok &= flag;
+
+            // 恢复后普通切换仍 no-reload
+            var claudeProbe = await ProbeSurfaceAsync(_claudeView);
+            await SwitchToAsync(Workspace.Kimi);
+            var kimiProbe = await ProbeSurfaceAsync(_agentView);
+            await SwitchToAsync(Workspace.Claude);
+            var claudeAgain = await ProbeSurfaceAsync(_claudeView);
+            await SwitchToAsync(Workspace.Kimi);
+            var kimiAgain = await ProbeSurfaceAsync(_agentView);
+            var cycleOk = SameSurface(claudeProbe, claudeAgain) && SameSurface(kimiProbe, kimiAgain);
+            proof["ordinarySwitchNoReloadAfterRetry"] = cycleOk;
+            ok &= cycleOk;
+
+            proof["matrix"] = MatrixJson();
+        }
+        catch (Exception ex)
+        {
+            Program.Log("d0-03 bindfail-test 异常：" + ex);
+            proof["error"] = ex.ToString();
+            ok = false;
+            Environment.ExitCode = 4;
+        }
+        await FinishProofAsync(proof, ok && Environment.ExitCode != 4);
+    }
+
+    private JsonObject MatrixJson() => new()
+    {
+        ["kimi"] = new JsonObject { ["url"] = _kimiWeb.OpenUrl, ["ownedPid"] = _kimiWeb.OwnedPid, ["boundSession"] = _kimiBoundSessionId, ["boundRoot"] = _kimiBoundRoot },
+        ["claude"] = new JsonObject
+        {
+            ["mode"] = _cdesktop.Mode.ToString(), ["url"] = _cdesktop.OpenUrl,
+            ["ownedPid"] = _cdesktop.OwnedProcessId,
+            ["workspaceId"] = _cdesktop.WorkspaceId, ["workspaceError"] = _cdesktop.WorkspaceError,
+            ["targetBranch"] = _cdesktop.LastTargetBranch, ["boundRoot"] = _claudeBoundRoot,
+        },
+        ["dsh"] = new JsonObject
+        {
+            ["mode"] = _dsh.Mode.ToString(), ["url"] = _dsh.OpenUrl,
+            ["ownedPid"] = _dsh.OwnedProcessId, ["boundCwd"] = _dsh.BoundCwd, ["boundRoot"] = _dshBoundRoot,
+        },
+        ["viewer"] = new JsonObject { ["url"] = _viewer.ViewerUrl, ["ownedPid"] = _viewer.SidecarPid, ["root"] = _viewer.CurrentRoot },
+    };
 }

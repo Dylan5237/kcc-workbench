@@ -181,6 +181,66 @@ Finding：workspace switching 与 project switching 混淆；A→B 后 Kimi/Clau
 
 ## R1 新增 limitation
 
-- Kimi 绑定依赖 kimi web `metadata.cwd` seam（0.39 实测）；session 列表较大时线性扫描（本机 292 条，毫秒级）。
+- Kimi 绑定依赖 kimi web `metadata.cwd` seam（0.39 实测）；session 列表较大时线性扫描（本机 ~300 条，首次拉取 >10s，超时余量已放宽到 45s）。
 - Attached DSH 是用户实例，其内容上下文由用户实例自身决定；Arckeep 只做事实记录，不做项目绑定伪造。
 - Kimi 绑定失败时回退到 kimi web base URL 且 `_kimiBoundRoot` 保持空（证据中可判，不冒充绑定）。
+
+---
+
+# R2 — Fail-Closed Project Binding（第二次 REQUEST_CHANGES 后）
+
+Reviewed R1 HEAD：`fd57c4e44cb6e4345fc2197df2d2355de8ac2d2b`
+Findings：B1 项目切换非 fail-closed（异步重绑期间旧 A surface 可被当 B 暴露；A→B→C 无 generation 防写回）；
+B2 cdesktop 服务健康 ≠ workspace 绑定（旧 A WorkspaceId 可能被解释成 B）；B3 Kimi 绑定失败同样混入；
+B4 attached DSH cwd 不匹配时不许冒充当前项目工作面。
+
+## R2.1 Project generation / serialization（BLOCKER 1）
+
+- `_projectGeneration`：每次显式项目切换 +1；`SetProject` 内同步执行。
+- 所有异步绑定结果经 `ApplyIfCurrentAsync(generation, root, apply)` 落地：只有
+  `generation == _projectGeneration && SamePath(requestedRoot, _store.Root)` 才允许
+  导航/写 BoundRoot/session id/loaded URL；否则丢弃并 `_staleApplyCount++`（证据计数）。
+- 重绑串行：`RebindSurfaces` 把新重绑链到 `_rebindTask` 上（A→B→C 不并发冲服务）。
+- 服务层各自 `SemaphoreSlim` 串行化 StartAsync/BindSessionAsync（Open 与 Rebind 并发安全）。
+- `Open*Async`：守卫未命中时先 `await _rebindTask`（项目级重绑优先），再按需自绑。
+
+## R2.2 旧项目 surface 不得冒充新项目（BLOCKER 1 续）
+
+`SetProject(B)` 同步段（UI 线程）：对「已加载且绑定根 ≠ B」的面立即
+清 `_*LoadedUrl/_*BoundRoot` 并落「正在绑定到当前项目…」页——此后任何时刻
+A 的内容都不会以 B 的名义出现；重绑完成才导航到 B surface。
+普通工作面切换在绑定完成后仍然 no-reload（守卫命中即 return）。
+
+## R2.3 Claude 显式绑定结果（BLOCKER 2）
+
+`CdesktopService.Binding`（record：Root/WorkspaceId/WorkspaceUrl/TargetBranch）：
+新 root 绑定开始前先清 `Binding=null`（旧 A id 不再可解释为 B）；ensure 成功才产生 Binding；
+失败只置 `WorkspaceError`。**服务失败**（Failure/url=null）与**绑定失败**（Binding=null + WorkspaceError）
+是两个明确分流的状态，壳层分别渲染「Claude 工作面不可用」与「Claude 项目绑定失败」受控页。
+
+## R2.4 DSH attached cwd 纪律（BLOCKER 3）
+
+`DshService.StartAsync`：attach 仅在 `SamePath(attachedCwd, cwd)` 时成立；
+cwd 不匹配的用户实例 → 日志记录 + `Detach()`（纯状态复位，零进程操作）→ `dsh web --port 0` 起 Owned。
+不 kill 用户实例；不加 Plugin/Core；不引入 forceOwned 之外的机制（实际连该参数也不需要——规则内建）。
+
+## R2 探针证据（全部真实运行）
+
+| 探针 | 结果 | 关键证据（spike/results/） |
+| --- | --- | --- |
+| `bindfail`（R2-3） | ✅ exit 0 | `d0-03-bindfail.json`：A 绑定成功（wsA/sessionA）→ SetProject(B) 后删 B 目录 → cdesktop 服务健康 `claudeServiceHealthy=true` 但 `Binding=null`、`WorkspaceError=400 Path does not exist`、`claudeBoundRootIsNotB=true`、href 不再含 wsA（about:blank 受控页）；Kimi 同样 fail-closed 且 `kimiServerAlive=true`（用户实例未被碰）；恢复 B 目录后 Retry：两面均绑定 B（新 ws `d3670404…`/新 session），retry 后普通切换 no-reload |
+| `abc`（R2-5） | ✅ exit 0 | `d0-03-abc.json`：A 全绑定 → 8s 人为延迟内 A→B→C → 终态全部 == C（kimi/claude/dsh/viewer），`staleCompletionIgnored=true`（`_staleApplyCount`=3，B 的三面 apply 全被 generation guard 丢弃）；C 内普通切换 no-reload |
+| `dsh-mismatch`（R2-6） | ✅ exit 0 | `d0-03-dsh-mismatch.json`：用户 DSH（3080，cwd=agent-team-workbench，≠项目）全程存活且退出后仍活；Arckeep DSH 走 Owned：A 期 cwd=A、B 期 cwd=B（`dshAPidGone=true`）；owned B 退出后消失 |
+
+## R2 回归
+
+- `dotnet build -c Release`：0 错误。`npm test`：124/124。
+- 重跑：`rebind`（R1 主场景）、`switch`（V1-V4/V8）、`fail-claude`、`fail-dsh`（V7）、Kimi ACP AUTO smoke（V5）。
+- Claude session continuation 代码未改，未重复产生付费证据（R1 证据仍有效）。
+- 修复中发现并修复：kimi session 列表 ~300 条时首次拉取 >10s，`BindSessionAsync` 超时放宽到 45s。
+
+## R2 新增 limitation
+
+- 项目切换标记/重绑以「已加载」面为范围；A→B→C 中 B 的绑定副作用（kimi 空 session、cdesktop workspace）
+  会发生但被 generation guard 丢弃不展示——空 session/空 workspace 属无害残留（均可复用）。
+- fail-closed 的「正在绑定到当前项目…」是 intentional navigation（项目切换允许），非普通切换。

@@ -235,6 +235,95 @@ async function main() {
     process.exit(ok ? 0 : 1);
   }
 
+  if (which === 'abc') {
+    const dirA = makeFixtureProject('.arckeep-test-project-a');
+    const dirB = makeGitFixtureProject('.arckeep-test-project-b', 'feature-x');
+    const dirC = makeFixtureProject('.arckeep-test-project-c');
+    console.log(`[${stamp()}] abc projects: A=${dirA} B=${dirB} C=${dirC}`);
+    const r = await runScenario('abc', {
+      ARCKEEP_TEST_ABC: '1',
+      ARCKEEP_TEST_PROJECT_A: dirA,
+      ARCKEEP_TEST_PROJECT_B: dirB,
+      ARCKEEP_TEST_PROJECT_C: dirC,
+    }, 15);
+    results.push(r);
+    const ok = results.every((x) => x.exitCode === 0 && !x.timedOut && x.shutdown?.ok !== false);
+    console.log(`[${stamp()}] OVERALL ${ok ? 'PASS' : 'FAIL'}`);
+    process.exit(ok ? 0 : 1);
+  }
+
+  if (which === 'bindfail') {
+    const dirA = makeFixtureProject('.arckeep-test-project-a');
+    const dirB = makeFixtureProject('.arckeep-test-project-b');
+    console.log(`[${stamp()}] bindfail projects: A=${dirA} B=${dirB}（B 将被钩子删除以制造绑定失败）`);
+    const r = await runScenario('bindfail', {
+      ARCKEEP_TEST_BINDFAIL: '1',
+      ARCKEEP_TEST_PROJECT_A: dirA,
+      ARCKEEP_TEST_PROJECT_B: dirB,
+    }, 10);
+    results.push(r);
+    const ok = results.every((x) => x.exitCode === 0 && !x.timedOut && x.shutdown?.ok !== false);
+    console.log(`[${stamp()}] OVERALL ${ok ? 'PASS' : 'FAIL'}`);
+    process.exit(ok ? 0 : 1);
+  }
+
+  // R2-6：user-owned DSH（cwd != 项目根）必须存活且不被当作项目工作面；
+  // Arckeep 必须另起 Owned DSH(B)。若 3080 无健康实例则由探针自起「用户实例」并在事后自清。
+  if (which === 'dsh-mismatch') {
+    let userDsh = null;
+    let preExisting = false;
+    if (await dshAttachable()) {
+      preExisting = true;
+    } else {
+      const dirU = makeFixtureProject('.arckeep-test-user-dsh');
+      const child = spawn('cmd.exe', ['/c', 'dsh', 'web', '--host', '127.0.0.1', '--port', '3080', '--no-open'],
+        { cwd: dirU, windowsHide: true });
+      const dl = Date.now() + 60000;
+      let up = false;
+      while (Date.now() < dl) {
+        if (await dshAttachable()) { up = true; break; }
+        if (child.exitCode !== null) break;
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      if (!up) { console.log(`[${stamp()}] user dsh 启动失败`); process.exit(2); }
+      userDsh = { child, cwd: dirU };
+    }
+    const userCwd = await (async () => {
+      const r = await fetch('http://127.0.0.1:3080/api/host.describe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'client-request', rpcId: 'probe', method: 'host.describe', payload: {} }),
+      });
+      return (await r.json())?.result?.value?.cwd ?? null;
+    })();
+    console.log(`[${stamp()}] user DSH at 3080 cwd=${userCwd} preExisting=${preExisting}`);
+    try {
+      const dirA = makeFixtureProject('.arckeep-test-project-a');
+      const dirB = makeGitFixtureProject('.arckeep-test-project-b', 'feature-x');
+      const r = await runScenario('dsh-mismatch', {
+        ARCKEEP_TEST_REBIND: '1',
+        ARCKEEP_TEST_PROJECT_A: dirA,
+        ARCKEEP_TEST_PROJECT_B: dirB,
+      }, 15);
+      r.userDsh = {
+        cwd: userCwd, preExisting,
+        aliveAfterExit: await dshAttachable(),
+      };
+      // R2-4：用户实例 cwd 与项目不符 → Arckeep DSH 必须 Owned 且 cwd 匹配项目
+      r.userDsh.arckeepDshOwnedWithProjectCwd =
+        r.proof?.matrix?.dsh?.mode === 'Owned'
+        && !!r.proof?.asserts && r.proof.asserts.dshMode === 'Owned';
+      r.ok = r.exitCode === 0 && r.userDsh.aliveAfterExit && r.userDsh.arckeepDshOwnedWithProjectCwd;
+      fs.writeFileSync(path.join(RESULTS, 'd0-03-dsh-mismatch.json'), JSON.stringify(r, null, 2));
+      console.log(`[${stamp()}] scenario=dsh-mismatch ok=${r.ok} userDsh=${JSON.stringify(r.userDsh)}`);
+      results.push(r);
+    } finally {
+      if (userDsh && !preExisting) killTree(userDsh.child);
+    }
+    const ok = results.every((x) => x.ok !== false && x.exitCode === 0);
+    console.log(`[${stamp()}] OVERALL ${ok ? 'PASS' : 'FAIL'}`);
+    process.exit(ok ? 0 : 1);
+  }
+
   if (which === 'switch' || which === 'all') {
     results.push(await runScenario('shell-switch', {
       ARCKEEP_TEST_SWITCH: '1',
