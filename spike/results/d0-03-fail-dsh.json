@@ -1,0 +1,70 @@
+{
+  "scenario": "fail-dsh",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-roeBpd",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "failTarget": "dsh",
+    "dshFailed": true,
+    "failureMessage": "dsh web 启动超时：",
+    "projectAlive": true,
+    "survivors": {
+      "claude": {
+        "mark": "81e4aeb7",
+        "t0": 1788574115919,
+        "href": "http://127.0.0.1:3262/workspaces/eced7ff1-c263-4ffd-9244-c4ccb9af0fde",
+        "title": "cdesktop",
+        "ready": "interactive"
+      },
+      "kimi": {
+        "mark": "cd62b03f",
+        "t0": 1788574134490,
+        "href": "http://127.0.0.1:12480/sessions/session_f27ece97-45a4-406f-81ba-8f4311167b86#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "title": "Kimi Code Web",
+        "ready": "interactive"
+      },
+      "viewer": {
+        "mark": "fdbf3bfa",
+        "t0": 1788574135577,
+        "href": "http://127.0.0.1:2958/",
+        "title": "文件查看器与任务时间机",
+        "ready": "loading"
+      }
+    },
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:3262/",
+        "ownedPid": 131516
+      },
+      "dsh": {
+        "mode": "None",
+        "url": null,
+        "ownedPid": null
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:2958/?token=9e838fdde978e9d4376d88f17998814a8f130866e408e6a9cdee0298ce16fd1e",
+        "ownedPid": 146176
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 131516,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 146176,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

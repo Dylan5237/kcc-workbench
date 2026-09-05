@@ -1,0 +1,70 @@
+{
+  "scenario": "fail-claude",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-X1jp7U",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "failTarget": "claude",
+    "claudeFailed": true,
+    "failureMessage": "CDESKTOP_BIN 指向的 cdesktop 不存在：C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-no-such-cdesktop.exe",
+    "projectAlive": true,
+    "survivors": {
+      "dsh": {
+        "mark": "f1e54dd1",
+        "t0": 1788574085315,
+        "href": "http://127.0.0.1:13054/",
+        "title": "DeepSeek Harness",
+        "ready": "interactive"
+      },
+      "kimi": {
+        "mark": "9be993c2",
+        "t0": 1788574093786,
+        "href": "http://127.0.0.1:12480/sessions/session_cc4ca231-fced-4b3b-acad-9985b147e93a",
+        "title": "Kimi Code",
+        "ready": "interactive"
+      },
+      "viewer": {
+        "mark": "80ce3ddb",
+        "t0": 1788574095366,
+        "href": "http://127.0.0.1:3363/",
+        "title": "文件查看器与任务时间机",
+        "ready": "loading"
+      }
+    },
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null
+      },
+      "claude": {
+        "mode": "None",
+        "url": null,
+        "ownedPid": null
+      },
+      "dsh": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:13054/",
+        "ownedPid": 71276
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:3363/?token=100e22a6c2363ee8be1f6a6cb3b07701c024e17df60d916a027cfe16a165671b",
+        "ownedPid": 115068
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "dsh",
+        "pid": 71276,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 115068,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

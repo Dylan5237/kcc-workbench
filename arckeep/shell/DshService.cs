@@ -19,6 +19,11 @@ internal sealed class DshService : IDisposable
 
     private static readonly Regex ReadyLine = new(@"dsh web: (http://\S+)", RegexOptions.Compiled);
 
+    private readonly SemaphoreSlim _gate = new(1, 1);   // StartAsync 串行化（rebind 与 Open 并发安全）
+
+    /// <summary>attach 探测结果：URL + 该实例的真实 cwd（host.describe 事实，不伪造绑定）。</summary>
+    public sealed record AttachInfo(string Url, string? Cwd);
+
     private Process? _proc;
 
     public enum Ownership { None, Attached, Owned }
@@ -26,6 +31,12 @@ internal sealed class DshService : IDisposable
     public string? OpenUrl { get; private set; }
     public Ownership Mode { get; private set; } = Ownership.None;
     public Exception? Failure { get; private set; }
+
+    /// <summary>
+    /// 本实例的项目绑定事实：Owned = 启动 cwd；Attached = host.describe 报告的 cwd
+    /// （用户实例不随 Arckeep 项目切换，仅供壳层诚实记录）。
+    /// </summary>
+    public string? BoundCwd { get; private set; }
 
     /// <summary>自有模式下的子进程 PID（诊断/看门狗用；attached 模式恒为 null）。</summary>
     public int? OwnedProcessId => Mode == Ownership.Owned ? _proc?.Id : null;
@@ -36,43 +47,81 @@ internal sealed class DshService : IDisposable
     /// （--port 0 由 OS 分配，不与用户实例争端口）。
     /// 失败不抛出到壳层：写入 Failure，返回 null。
     /// </summary>
+    /// <summary>
+    /// attach 优先但有项目纪律（R2-4）：只有 attach 目标的 cwd == 请求的项目根才复用；
+    /// cwd 不匹配的用户实例绝不被当作当前项目工作面（也不被 kill）——落 owned 启动（--port 0）。
+    /// 失败不抛出到壳层：写入 Failure，返回 null。
+    /// </summary>
     public async Task<string?> StartAsync(string cwd, TimeSpan? timeout = null, string? attachAuthority = null)
     {
-        if (OpenUrl is not null && Mode == Ownership.Attached) return OpenUrl;
-        if (OpenUrl is not null && _proc is { HasExited: false }) return OpenUrl;
-
-        var attached = await TryAttachAsync(attachAuthority ?? DefaultAuthority);
-        if (attached is not null)
-        {
-            Mode = Ownership.Attached;
-            OpenUrl = attached;
-            Program.Log($"dsh 复用用户已有实例 {attached}");
-            return OpenUrl;
-        }
-
+        await _gate.WaitAsync();
         try
         {
-            // --port 0：OS 分配空闲端口，stdout 打印 "dsh web: http://127.0.0.1:<port>"
-            await SpawnAndWaitReadyAsync(cwd, timeout ?? TimeSpan.FromSeconds(60));
-            return OpenUrl;
+            if (OpenUrl is not null && Mode == Ownership.Attached && SamePath(BoundCwd, cwd)) return OpenUrl;
+            if (OpenUrl is not null && Mode == Ownership.Attached)
+            {
+                // 已 attach 的实例 cwd 与请求项目不符：断开引用（绝不杀用户实例），落 owned
+                Program.Log($"dsh attached 实例 cwd={BoundCwd} 与当前项目 {cwd} 不符，断开引用转 owned");
+                Detach();
+            }
+            if (OpenUrl is not null && _proc is { HasExited: false }) return OpenUrl;
+
+            var attached = await TryAttachAsync(attachAuthority ?? DefaultAuthority);
+            if (attached is not null && SamePath(attached.Cwd, cwd))
+            {
+                Mode = Ownership.Attached;
+                OpenUrl = attached.Url;
+                BoundCwd = attached.Cwd;
+                Program.Log($"dsh 复用用户已有实例 {attached.Url}（cwd 匹配当前项目）");
+                return OpenUrl;
+            }
+            if (attached is not null)
+                Program.Log($"dsh 3080 实例 cwd={attached.Cwd ?? "未知"} 与当前项目不符，启动 Arckeep 自有实例");
+
+            try
+            {
+                // --port 0：OS 分配空闲端口，stdout 打印 "dsh web: http://127.0.0.1:<port>"
+                await SpawnAndWaitReadyAsync(cwd, timeout ?? TimeSpan.FromSeconds(60));
+                return OpenUrl;
+            }
+            catch (Exception ex)
+            {
+                // spawned-but-not-ready 也必须清理：任何 post-spawn 失败返回前，
+                // 先机械终止 Arckeep 已创建的进程树（不依赖调用方再 Dispose）
+                TerminateOwned();
+                Failure = ex;
+                Program.Log("dsh 启动失败：" + ex.Message);
+                return null;
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            // spawned-but-not-ready 也必须清理：任何 post-spawn 失败返回前，
-            // 先机械终止 Arckeep 已创建的进程树（不依赖调用方再 Dispose）
-            TerminateOwned();
-            Failure = ex;
-            Program.Log("dsh 启动失败：" + ex.Message);
-            return null;
+            _gate.Release();
         }
     }
+
+    /// <summary>断开对 Attached 用户实例的引用（纯状态复位，绝不做任何进程操作）。</summary>
+    public void Detach()
+    {
+        if (Mode != Ownership.Attached) return;
+        _proc = null;
+        OpenUrl = null;
+        Mode = Ownership.None;
+        BoundCwd = null;
+    }
+
+    private static bool SamePath(string? left, string? right) =>
+        string.Equals(
+            left is null ? null : Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
+            right is null ? null : Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 用 DSH 专有 RPC 形状验明一个 authority 是不是 DSH web：
     /// POST /api/host.describe → server-response 且 result.ok=true 且带 cwd/home。
     /// loopback Host 通过 DSH 的 browser-trust fence（dsh-client-connection）。
     /// </summary>
-    public static async Task<string?> TryAttachAsync(string authority)
+    public static async Task<AttachInfo?> TryAttachAsync(string authority)
     {
         var origin = $"http://{authority}";
         try
@@ -91,8 +140,8 @@ internal sealed class DshService : IDisposable
             if (root.GetProperty("type").GetString() != "server-response") return null;
             if (!root.GetProperty("result").GetProperty("ok").GetBoolean()) return null;
             var value = root.GetProperty("result").GetProperty("value");
-            if (!value.TryGetProperty("cwd", out _) || !value.TryGetProperty("home", out _)) return null;
-            return origin + "/";
+            if (!value.TryGetProperty("cwd", out var cwdEl) || !value.TryGetProperty("home", out _)) return null;
+            return new AttachInfo(origin + "/", cwdEl.GetString());
         }
         catch
         {
@@ -163,7 +212,8 @@ internal sealed class DshService : IDisposable
         if (!await WaitReadyAsync(origin, deadline - DateTime.UtcNow))
             throw new TimeoutException("dsh web readiness 超时：" + origin);
         OpenUrl = origin + "/";
-        Program.Log($"dsh 已启动（Arckeep 自有）{OpenUrl}");
+        BoundCwd = cwd;   // owned 实例的项目绑定 = 启动 cwd
+        Program.Log($"dsh 已启动（Arckeep 自有）{OpenUrl} cwd={cwd}");
     }
 
     /// <summary>
@@ -186,12 +236,13 @@ internal sealed class DshService : IDisposable
         _proc = null;
         OpenUrl = null;
         Mode = Ownership.None;
+        BoundCwd = null;
     }
 
     /// <summary>只清理 Arckeep 明确创建并拥有的进程树；attach 的用户实例绝不动。</summary>
     public void Dispose()
     {
         if (Mode == Ownership.Owned) TerminateOwned();
-        else { _proc = null; OpenUrl = null; Mode = Ownership.None; }
+        else { _proc = null; OpenUrl = null; Mode = Ownership.None; BoundCwd = null; }
     }
 }

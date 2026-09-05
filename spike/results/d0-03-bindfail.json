@@ -1,0 +1,75 @@
+{
+  "scenario": "bindfail",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-lYZcFD",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "A": {
+      "claudeWorkspaceId": "b62f1c5f-cd76-458a-a25d-a727af1ee644",
+      "kimiSessionId": "session_9f7a69b5-755f-4c4a-b7f6-01de9875f47f",
+      "claudeBoundA": true,
+      "kimiBoundA": true
+    },
+    "failState": {
+      "currentRootIsB": true,
+      "claudeServiceHealthy": true,
+      "claudeBindingNull": true,
+      "claudeWorkspaceError": "POST http://127.0.0.1:7913/api/repos → 400: {\"success\":false,\"data\":null,\"error_data\":null,\"message\":\"Path does not exist: C:\\\\Users\\\\howyo\\\\AppData\\\\Local\\\\Temp\\\\d0-03-proj-HfJKoi\"}",
+      "claudeBoundRootIsNotB": true,
+      "claudeHrefNotAWorkspace": true,
+      "claudeHref": "about:blank",
+      "kimiBoundRootIsNotB": true,
+      "kimiHrefNotASession": true,
+      "kimiHref": "about:blank",
+      "kimiServerAlive": true
+    },
+    "retry": {
+      "claudeBoundRootIsB": true,
+      "claudeWorkspaceId": "d3670404-b5c0-46de-9ed0-c876b4e75f66",
+      "claudeWorkspaceDiffersFromA": true,
+      "kimiBoundRootIsB": true,
+      "kimiSessionId": "session_3202c5cd-b179-4074-a25a-05213b0b1367",
+      "kimiSessionDiffersFromA": true
+    },
+    "ordinarySwitchNoReloadAfterRetry": true,
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null,
+        "boundSession": "session_3202c5cd-b179-4074-a25a-05213b0b1367",
+        "boundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-HfJKoi"
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:7913/",
+        "ownedPid": 102656,
+        "workspaceId": "d3670404-b5c0-46de-9ed0-c876b4e75f66",
+        "workspaceError": null,
+        "targetBranch": "main",
+        "boundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-HfJKoi"
+      },
+      "dsh": {
+        "mode": "None",
+        "url": null,
+        "ownedPid": null,
+        "boundCwd": null,
+        "boundRoot": null
+      },
+      "viewer": {
+        "url": null,
+        "ownedPid": null,
+        "root": null
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 102656,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

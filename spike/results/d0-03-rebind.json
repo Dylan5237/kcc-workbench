@@ -1,0 +1,182 @@
+{
+  "scenario": "rebind",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-aWThvO",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "A": {
+      "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Kf8j14",
+      "kimiProbe": {
+        "mark": "ee8db66a",
+        "t0": 1788573910791,
+        "href": "http://127.0.0.1:12480/sessions/session_46fd924e-e3f8-4f22-a8f3-0c210ecc3eba#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "title": "",
+        "ready": "loading"
+      },
+      "kimiBoundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Kf8j14",
+      "kimiSessionId": "session_46fd924e-e3f8-4f22-a8f3-0c210ecc3eba",
+      "claudeProbe": {
+        "mark": "155def4d",
+        "t0": 1788573916016,
+        "href": "http://127.0.0.1:3892/workspaces/4d2fa7f1-daa9-441f-9d8c-4e50232d6d04",
+        "title": "cdesktop",
+        "ready": "interactive"
+      },
+      "claudeWorkspaceId": "4d2fa7f1-daa9-441f-9d8c-4e50232d6d04",
+      "claudeTargetBranch": "main",
+      "dshProbe": {
+        "mark": "5b16e958",
+        "t0": 1788573936465,
+        "href": "http://127.0.0.1:7990/",
+        "title": "DeepSeek Harness",
+        "ready": "interactive"
+      },
+      "dshMode": "Owned",
+      "dshBoundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Kf8j14",
+      "viewerProbe": {
+        "mark": "16e1b778",
+        "t0": 1788573937981,
+        "href": "http://127.0.0.1:5218/",
+        "title": "文件查看器与任务时间机",
+        "ready": "loading"
+      },
+      "viewerRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Kf8j14",
+      "ok": true
+    },
+    "B": {
+      "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-qhBDJm",
+      "kimiProbe": {
+        "mark": "12bb3b32",
+        "t0": 1788573944008,
+        "href": "http://127.0.0.1:12480/sessions/session_743ed5d7-b46a-4b8a-b4e2-1342b1b25ff2",
+        "title": "d0-03-proj-qhBDJm | Kimi Code",
+        "ready": "complete"
+      },
+      "kimiBoundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-qhBDJm",
+      "kimiSessionId": "session_743ed5d7-b46a-4b8a-b4e2-1342b1b25ff2",
+      "claudeProbe": {
+        "mark": "f3bcfeff",
+        "t0": 1788573944197,
+        "href": "http://127.0.0.1:3892/workspaces/66af7e05-ce3c-4c42-ad9e-07122180d32c",
+        "title": "arckeep-d0-03-proj-qhBDJm-dca96ece | cdesktop",
+        "ready": "complete"
+      },
+      "claudeWorkspaceId": "66af7e05-ce3c-4c42-ad9e-07122180d32c",
+      "claudeTargetBranch": "feature-x",
+      "dshProbe": {
+        "mark": "a97cc556",
+        "t0": 1788573950123,
+        "href": "http://127.0.0.1:13476/",
+        "title": "DeepSeek Harness",
+        "ready": "complete"
+      },
+      "dshMode": "Owned",
+      "dshBoundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-qhBDJm",
+      "viewerProbe": {
+        "mark": "16e1b778",
+        "t0": 1788573937981,
+        "href": "http://127.0.0.1:5218/",
+        "title": "文件查看器与任务时间机",
+        "ready": "complete"
+      },
+      "viewerRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-qhBDJm",
+      "ok": true
+    },
+    "asserts": {
+      "currentRootIsB": true,
+      "viewerRootIsB": true,
+      "claudeWorkspaceChanged": true,
+      "claudeWorkspaceErrorNull": true,
+      "claudeTargetBranch": "feature-x",
+      "kimiBoundRootIsB": true,
+      "kimiSessionChanged": true,
+      "dshMode": "Owned",
+      "dshBoundCwdIsB": true,
+      "dshOwnedPidChanged": true,
+      "dshAPidGone": true
+    },
+    "claude_session_in_B": {
+      "workspaceId": "66af7e05-ce3c-4c42-ad9e-07122180d32c",
+      "sessionId": "77e53365-cda8-40b2-9d63-15f3fbcbe552",
+      "processId": "115e22d2-a7e0-4fd4-8064-66e37d5cdf8d",
+      "status": "completed"
+    },
+    "cycleInB": {
+      "kimi": {
+        "mark": "12bb3b32",
+        "t0": 1788573944008,
+        "href": "http://127.0.0.1:12480/sessions/session_743ed5d7-b46a-4b8a-b4e2-1342b1b25ff2",
+        "title": "d0-03-proj-qhBDJm | Kimi Code",
+        "ready": "complete"
+      },
+      "claude": {
+        "mark": "f3bcfeff",
+        "t0": 1788573944197,
+        "href": "http://127.0.0.1:3892/workspaces/66af7e05-ce3c-4c42-ad9e-07122180d32c",
+        "title": "arckeep-d0-03-proj-qhBDJm-dca96ece | cdesktop",
+        "ready": "complete"
+      },
+      "dsh": {
+        "mark": "a97cc556",
+        "t0": 1788573950123,
+        "href": "http://127.0.0.1:13476/",
+        "title": "DeepSeek Harness",
+        "ready": "complete"
+      },
+      "viewer": {
+        "mark": "16e1b778",
+        "t0": 1788573937981,
+        "href": "http://127.0.0.1:5218/",
+        "title": "文件查看器与任务时间机",
+        "ready": "complete"
+      }
+    },
+    "ordinarySwitchNoReloadInB": true,
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null,
+        "boundSession": "session_743ed5d7-b46a-4b8a-b4e2-1342b1b25ff2"
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:3892/",
+        "ownedPid": 142024,
+        "workspaceId": "66af7e05-ce3c-4c42-ad9e-07122180d32c",
+        "workspaceError": null,
+        "targetBranch": "feature-x"
+      },
+      "dsh": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:13476/",
+        "ownedPid": 139288,
+        "boundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-qhBDJm"
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:5218/?token=f9a24e6ae5b01816e9c085c725bd5d9ac2da3237f16f5f02eaba48fac4e0a8ea",
+        "ownedPid": 129168,
+        "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-qhBDJm"
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 142024,
+        "ownedGone": true
+      },
+      {
+        "surface": "dsh",
+        "pid": 139288,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 129168,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

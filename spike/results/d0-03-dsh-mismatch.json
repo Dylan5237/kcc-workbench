@@ -1,0 +1,189 @@
+{
+  "scenario": "dsh-mismatch",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-IQxqnU",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "A": {
+      "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-ZX2N0C",
+      "kimiProbe": {
+        "mark": "4b684339",
+        "t0": 1788573763502,
+        "href": "http://127.0.0.1:12480/sessions/session_a48219ad-965a-45e8-9cbf-b8c3a9f93808",
+        "title": "Kimi Code",
+        "ready": "complete"
+      },
+      "kimiBoundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-ZX2N0C",
+      "kimiSessionId": "session_a48219ad-965a-45e8-9cbf-b8c3a9f93808",
+      "claudeProbe": {
+        "mark": "d0740b34",
+        "t0": 1788573769185,
+        "href": "http://127.0.0.1:8211/workspaces/17db22cf-a649-479c-bc23-966e5294606f",
+        "title": "cdesktop",
+        "ready": "interactive"
+      },
+      "claudeWorkspaceId": "17db22cf-a649-479c-bc23-966e5294606f",
+      "claudeTargetBranch": "main",
+      "dshProbe": {
+        "mark": "77feca72",
+        "t0": 1788573785565,
+        "href": "http://127.0.0.1:6281/",
+        "title": "",
+        "ready": "loading"
+      },
+      "dshMode": "Owned",
+      "dshBoundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-ZX2N0C",
+      "viewerProbe": {
+        "mark": "d4c3525f",
+        "t0": 1788573786543,
+        "href": "http://127.0.0.1:1405/",
+        "title": "文件查看器与任务时间机",
+        "ready": "loading"
+      },
+      "viewerRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-ZX2N0C",
+      "ok": true
+    },
+    "B": {
+      "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Piy9dl",
+      "kimiProbe": {
+        "mark": "ead9b16e",
+        "t0": 1788573791332,
+        "href": "http://127.0.0.1:12480/sessions/session_03a17988-cd5b-4f2e-a960-440f351e303f",
+        "title": "d0-03-proj-Piy9dl | Kimi Code",
+        "ready": "complete"
+      },
+      "kimiBoundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Piy9dl",
+      "kimiSessionId": "session_03a17988-cd5b-4f2e-a960-440f351e303f",
+      "claudeProbe": {
+        "mark": "317f6614",
+        "t0": 1788573791581,
+        "href": "http://127.0.0.1:8211/workspaces/681d6f42-36f3-4f51-bbdd-99da6495845a",
+        "title": "arckeep-d0-03-proj-Piy9dl-1b06abf2 | cdesktop",
+        "ready": "complete"
+      },
+      "claudeWorkspaceId": "681d6f42-36f3-4f51-bbdd-99da6495845a",
+      "claudeTargetBranch": "feature-x",
+      "dshProbe": {
+        "mark": "df4d2683",
+        "t0": 1788573799640,
+        "href": "http://127.0.0.1:11819/",
+        "title": "DeepSeek Harness",
+        "ready": "complete"
+      },
+      "dshMode": "Owned",
+      "dshBoundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Piy9dl",
+      "viewerProbe": {
+        "mark": "d4c3525f",
+        "t0": 1788573786543,
+        "href": "http://127.0.0.1:1405/",
+        "title": "文件查看器与任务时间机",
+        "ready": "complete"
+      },
+      "viewerRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Piy9dl",
+      "ok": true
+    },
+    "asserts": {
+      "currentRootIsB": true,
+      "viewerRootIsB": true,
+      "claudeWorkspaceChanged": true,
+      "claudeWorkspaceErrorNull": true,
+      "claudeTargetBranch": "feature-x",
+      "kimiBoundRootIsB": true,
+      "kimiSessionChanged": true,
+      "dshMode": "Owned",
+      "dshBoundCwdIsB": true,
+      "dshOwnedPidChanged": true,
+      "dshAPidGone": true
+    },
+    "claude_session_in_B": {
+      "workspaceId": "681d6f42-36f3-4f51-bbdd-99da6495845a",
+      "sessionId": "69e89f49-d1c4-4206-9171-d9d82a7eb260",
+      "processId": "797a2174-b845-4484-972e-9ef71e2f0011",
+      "status": "completed"
+    },
+    "cycleInB": {
+      "kimi": {
+        "mark": "ead9b16e",
+        "t0": 1788573791332,
+        "href": "http://127.0.0.1:12480/sessions/session_03a17988-cd5b-4f2e-a960-440f351e303f",
+        "title": "d0-03-proj-Piy9dl | Kimi Code",
+        "ready": "complete"
+      },
+      "claude": {
+        "mark": "317f6614",
+        "t0": 1788573791581,
+        "href": "http://127.0.0.1:8211/workspaces/681d6f42-36f3-4f51-bbdd-99da6495845a",
+        "title": "arckeep-d0-03-proj-Piy9dl-1b06abf2 | cdesktop",
+        "ready": "complete"
+      },
+      "dsh": {
+        "mark": "df4d2683",
+        "t0": 1788573799640,
+        "href": "http://127.0.0.1:11819/",
+        "title": "DeepSeek Harness",
+        "ready": "complete"
+      },
+      "viewer": {
+        "mark": "d4c3525f",
+        "t0": 1788573786543,
+        "href": "http://127.0.0.1:1405/",
+        "title": "文件查看器与任务时间机",
+        "ready": "complete"
+      }
+    },
+    "ordinarySwitchNoReloadInB": true,
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null,
+        "boundSession": "session_03a17988-cd5b-4f2e-a960-440f351e303f"
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:8211/",
+        "ownedPid": 73952,
+        "workspaceId": "681d6f42-36f3-4f51-bbdd-99da6495845a",
+        "workspaceError": null,
+        "targetBranch": "feature-x"
+      },
+      "dsh": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:11819/",
+        "ownedPid": 108676,
+        "boundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Piy9dl"
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:1405/?token=2feed19896f9327b127ca8941d98f0de55823bb5340403b878c4e000e345422a",
+        "ownedPid": 126916,
+        "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-Piy9dl"
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 73952,
+        "ownedGone": true
+      },
+      {
+        "surface": "dsh",
+        "pid": 108676,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 126916,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  },
+  "userDsh": {
+    "cwd": "D:\\_projects\\platform\\agent-team-workbench",
+    "preExisting": true,
+    "aliveAfterExit": true,
+    "arckeepDshOwnedWithProjectCwd": true
+  },
+  "ok": true
+}
