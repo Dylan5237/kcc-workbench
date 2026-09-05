@@ -16,6 +16,9 @@ internal sealed class KimiWebService : IDisposable
     public string? OpenUrl { get; private set; }
     public Exception? Failure { get; set; }
 
+    /// <summary>自有 kimi web 进程 PID（复用既有实例时为 null；诊断/关机证据用）。</summary>
+    internal int? OwnedPid => _proc is { HasExited: false } ? _proc.Id : null;
+
     public async Task<string> StartAsync(string cwd, TimeSpan? timeout = null)
     {
         if (OpenUrl is not null && _proc is { HasExited: false }) return OpenUrl;

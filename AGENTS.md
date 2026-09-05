@@ -42,7 +42,7 @@ Use Node.js 22 for KCC v1 development and packaging. Legacy CloudCLI currently s
 - `arckeep/` is the active Windows product implementation.
 - Host stack remains C# thin shell + WebView2 for the current walking skeleton.
 - Existing Kimi Web + ACP behavior is proven and should not be casually rewritten.
-- Runtime prerequisites: Windows 10/11, WebView2 Runtime, .NET SDK 7+, kimi CLI >= 0.39 on PATH, and Node.js on PATH (KCC Viewer sidecar, D0-04).
+- Runtime prerequisites: Windows 10/11, WebView2 Runtime, .NET SDK 7+, kimi CLI >= 0.39 on PATH, and Node.js on PATH (KCC Viewer sidecar, D0-04). Claude surface reuses cdesktop 0.2.3 (binary auto-downloaded under `~/.cdesktop/bin/` on first `npx cdesktop`; D0-03); DSH workspace reuses the user's `dsh` CLI when present (D0-02), both attach-first and optional — Arckeep must stay usable without them.
 - `src/` is KCC v1 legacy/product code and a capability donor during D0; do not perform broad migration/restructure unless explicitly authorized.
 - `src/viewer/**` is a high-value reuse source for the Arckeep Viewer WorkPackage.
 

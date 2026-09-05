@@ -1,0 +1,70 @@
+{
+  "scenario": "fail-dsh",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-S4ODO0",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "failTarget": "dsh",
+    "dshFailed": true,
+    "failureMessage": "dsh web 启动超时：",
+    "projectAlive": true,
+    "survivors": {
+      "claude": {
+        "mark": "0d019675",
+        "t0": 1788568313679,
+        "href": "http://127.0.0.1:7137/",
+        "title": "cdesktop",
+        "ready": "interactive"
+      },
+      "kimi": {
+        "mark": "496eeb2c",
+        "t0": 1788568314746,
+        "href": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "title": "",
+        "ready": "loading"
+      },
+      "viewer": {
+        "mark": "43db4dbf",
+        "t0": 1788568315982,
+        "href": "http://127.0.0.1:9589/",
+        "title": "文件查看器与任务时间机",
+        "ready": "loading"
+      }
+    },
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:7137/",
+        "ownedPid": 100384
+      },
+      "dsh": {
+        "mode": "None",
+        "url": null,
+        "ownedPid": null
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:9589/?token=1c8a989f271b9ebc01cac078cff29ca1d3261c2bcaf3a1562d77bf8a36c3bb54",
+        "ownedPid": 78084
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 100384,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 78084,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

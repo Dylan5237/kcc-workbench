@@ -43,6 +43,13 @@ ARCKEEP_AUTO=1 ARCKEEP_SHOT=<final.png> ARCKEEP_SHOT_EARLY=<mid.png> [ARCKEEP_SH
 ARCKEEP_QUOTA_FIXTURE=<out.json> ./Arckeep.exe   # 额度提取 fixture 自测，exit 0=通过
 ARCKEEP_TEST_VIEWER=1 ARCKEEP_TEST_VIEWER_PROJECT=<dir> ARCKEEP_TEST_VIEWER_OUT=<proof.json> ./Arckeep.exe   # Viewer sidecar + WebView2 真实加载，exit 0=通过
 # 加 ARCKEEP_TEST_VIEWER_KILL=1：中途杀 sidecar，验证壳不崩且 Viewer 可重启恢复（V5 故障隔离）
+# D0-03 多工作面（证据由 spike/shell-switch/probe-d0-03.mjs 统一驱动并核对关机语义）：
+ARCKEEP_TEST_SWITCH=1 ARCKEEP_TEST_PROJECT=<dir> ARCKEEP_TEST_OUT=<proof.json> ./Arckeep.exe
+#   全序列 Project→Kimi→Claude→DSH→Viewer→Claude→Kimi→DSH→Project；标记/timeOrigin 证明未 reload；
+#   真实 Claude session 创建 + 切走切回同 session 续跑；真实 Close() 关机路径，exit 0=通过
+ARCKEEP_TEST_FAIL=claude|dsh ARCKEEP_TEST_PROJECT=<dir> ARCKEEP_TEST_OUT=<proof.json> ./Arckeep.exe
+#   故障隔离：目标工作面真实失败（claude 用 CDESKTOP_BIN/ARCKEEP_CDESKTOP_PORT_FILE 指向不存在路径；
+#   dsh 用 PATH 前置假 dsh.cmd + ARCKEEP_DSH_ATTACH_AUTHORITY=127.0.0.1:9），其余工作面必须可用
 ```
 
 ## 踩坑记录（后续开发别再踩）
@@ -62,8 +69,11 @@ ARCKEEP_TEST_VIEWER=1 ARCKEEP_TEST_VIEWER_PROJECT=<dir> ARCKEEP_TEST_VIEWER_OUT=
 ```
 shell/
   Program.cs         入口
-  ShellWindow.cs     窗口、双 WebView2 布局切换、桥接、ACP 编排、fs diff 回流、Viewer 模式
+  ShellWindow.cs     窗口、多工作面持久切换（Project/Kimi/Claude/DSH/Viewer）、桥接、ACP 编排、fs diff 回流
+  ShellWindow.TestHooks.cs  D0-03 真实验证钩子（多工作面切换/持久化/真实 Claude 会话/故障隔离/关机）
   KimiWebService.cs  kimi web 按需启动（视觉平面）
+  CdesktopService.cs cdesktop（Claude 视觉面）attach 优先 + 自有启动 + workspace 确保（D0-03）
+  DshService.cs      DSH web attach 优先 + 自有启动（D0-02）
   ViewerService.cs   KCC Viewer sidecar（node src/viewer/standalone.cjs，stdout 握手 + stdin 控制通道）
   ProjectStore.cs    .arckeep/ 读写（原子写、待办确认/忽略/添加、会话记录）
   AcpClient.cs       ACP 客户端（控制平面）
@@ -73,10 +83,18 @@ ui/                  原生 HTML/JS（品牌 v1.0，无构建步骤）
   app.js             桥接、渲染、交互
 ```
 
+工作面切换模型（D0-03）：标题栏 Project / Kimi / Claude / DSH / Viewer 五个一级按钮；
+四个工作面各自独立持久 WebView2（独立 UDF），普通切换只做 Visible/置顶，
+不销毁、不 reload、不停 agent/session。Claude/DSH/Viewer 为整幅覆盖层，
+Kimi 为接入态布局（左工作面 + 右 320px 项目侧轨）。「打开 Kimi 工作面」与
+「经 ACP 交付 Brief」（项目空间「开始」按钮）解耦，共享同一持久 Kimi WebView2。
+
 Viewer 复用 `src/viewer/`（Node sidecar，不重写）：标题栏 `Viewer` 按钮或项目空间「Viewer 检查」打开；项目根目录经 sidecar stdin 控制通道确定性同步。
 
 ## 已知边界（M1 不做，后续里程碑）
 
+- cdesktop（Claude 工作面）冷启动会自动打开一个外部浏览器窗口：上游 0.2.3 无已验证的 no-open 开关，D0 不 fork/patch，登记为集成打磨项
+- cdesktop attach 发现面窄：只认 %TEMP%/cdesktop/cdesktop.port + /api/health；用户多实例时 Arckeep 会并存一个自有实例（PORT=0，不争端口）
 - 侧轨"文件变化"暂在回流后显示，不做会话中实时刷新
 - 关键判断的添加/确认交互未做（只读展示）
 - Session Map / 时间机器 UI 未接入（Time Machine 后端随 Viewer sidecar 保留运行，UI 接回留待后续 seam，见 `docs/acceptance/D0-04-viewer-integration.md`）

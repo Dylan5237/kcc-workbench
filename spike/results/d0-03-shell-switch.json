@@ -1,0 +1,128 @@
+{
+  "scenario": "shell-switch",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-yaoIp2",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "v1": {
+      "projectUiAlive": true,
+      "elapsedMsSinceShown": 3491.3822,
+      "kimiNotStarted": true,
+      "claudeNotStarted": true,
+      "dshNotStarted": true,
+      "viewerNotStarted": true
+    },
+    "v3_first": {
+      "workspaceId": "10c71806-e8c8-49c5-852f-120685ebfbc1",
+      "sessionId": "0681462f-0258-4ee4-8124-790afee6bdf4",
+      "processId": "c3150d18-3ad5-4fff-ad6d-717e34f6b63d",
+      "status": "completed"
+    },
+    "first": {
+      "kimi": {
+        "mark": "6b36103a",
+        "t0": 1788568130762,
+        "href": "http://127.0.0.1:12480/",
+        "title": "Kimi Code",
+        "ready": "interactive"
+      },
+      "claude": {
+        "mark": "2e3ab9e4",
+        "t0": 1788568138692,
+        "href": "http://127.0.0.1:5484/",
+        "title": "cdesktop",
+        "ready": "interactive"
+      },
+      "dsh": {
+        "mark": "007c44c8",
+        "t0": 1788568189130,
+        "href": "http://127.0.0.1:14363/",
+        "title": "DeepSeek Harness",
+        "ready": "interactive"
+      },
+      "viewer": {
+        "mark": "955ba2c0",
+        "t0": 1788568190608,
+        "href": "http://127.0.0.1:10072/",
+        "title": "文件查看器与任务时间机",
+        "ready": "loading"
+      }
+    },
+    "v3_resume": {
+      "sessionId": "0681462f-0258-4ee4-8124-790afee6bdf4",
+      "processId": "61a6ec18-9aab-42f5-8205-e4d8927309fe",
+      "status": "completed"
+    },
+    "projectAliveAtEnd": true,
+    "second": {
+      "claude": {
+        "mark": "2e3ab9e4",
+        "t0": 1788568138692,
+        "href": "http://127.0.0.1:5484/workspaces/create",
+        "title": "新会话 | cdesktop",
+        "ready": "complete"
+      },
+      "kimi": {
+        "mark": "6b36103a",
+        "t0": 1788568130762,
+        "href": "http://127.0.0.1:12480/sessions/session_1f1bd29e-abf9-4577-8d90-706a206b897a",
+        "title": "agent-team-workbench | Kimi Code",
+        "ready": "complete"
+      },
+      "dsh": {
+        "mark": "007c44c8",
+        "t0": 1788568189130,
+        "href": "http://127.0.0.1:14363/",
+        "title": "DeepSeek Harness",
+        "ready": "complete"
+      }
+    },
+    "persistence": {
+      "claudeNoReload": true,
+      "kimiNoReload": true,
+      "dshNoReload": true
+    },
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:5484/",
+        "ownedPid": 114996,
+        "workspaceId": "10c71806-e8c8-49c5-852f-120685ebfbc1",
+        "workspaceError": null
+      },
+      "dsh": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:14363/",
+        "ownedPid": 134868
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:10072/?token=359d58792f9c305f072a3a332ff42f06e7d61169d2ca7a2249f632618d858997",
+        "ownedPid": 136236
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 114996,
+        "ownedGone": true
+      },
+      {
+        "surface": "dsh",
+        "pid": 134868,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 136236,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

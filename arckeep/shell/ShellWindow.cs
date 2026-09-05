@@ -7,36 +7,56 @@ using Microsoft.Web.WebView2.WinForms;
 namespace Arckeep.Shell;
 
 /// <summary>
-/// Arckeep 主窗口。空间模式：Arckeep UI 铺满；接入态：左侧 Kimi Web 原生界面（大块）
-/// + 右侧 320px 项目侧轨（同一 UI 切 rail 模式）。
+/// Arckeep 主窗口。D0-03 多工作面持久壳：Project（Arckeep UI）+ Kimi / Claude(cdesktop) /
+/// DSH / Viewer 四个一级工作面，各自独立持久 WebView2；普通切换只做 Visible/置顶，
+/// 不销毁、不 reload、不停 agent/session。
 /// 控制平面走 ACP（简报交付证据），视觉平面是 agent 原生 Web UI（D-20 接入 ≠ 改造）。
 /// </summary>
-internal sealed class ShellWindow : Form
+internal sealed partial class ShellWindow : Form
 {
     private static readonly string UiDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "ui"));
     private static readonly string UiDirDev = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "arckeep", "ui"));
     private const int RailWidth = 320;
 
+    /// <summary>一级工作面。普通切换只改宿主可见性，inactive WebView2 保持存活。</summary>
+    private enum Workspace { Project, Kimi, Claude, Dsh, Viewer }
+
     private readonly TableLayoutPanel _layout = new() { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
     private readonly WebView2 _agentView = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly WebView2 _uiView = new() { Dock = DockStyle.Fill };
     private readonly WebView2 _viewerView = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly WebView2 _claudeView = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly WebView2 _dshView = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly Panel _titleBar = new() { Dock = DockStyle.Top, Height = 36, BackColor = Color.FromArgb(0xF5, 0xF2, 0xEA) };
     private readonly Label _quotaChip = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleCenter };
+    private readonly Label _projectLabel = new() { AutoSize = true, ForeColor = Color.FromArgb(0x66, 0x63, 0x5D) };
 
     private ProjectStore? _store;
     private AcpClient? _acp;
     private readonly KimiWebService _kimiWeb = new();
     private readonly QuotaService _quota = new();
     private readonly ViewerService _viewer = new();
+    private readonly CdesktopService _cdesktop = new();
+    private readonly DshService _dsh = new();
     private string? _selectedNextId;
     private Dictionary<string, (long Ticks, long Length)>? _fsSnapshot;
     private SessionRecord? _session;
+    private DateTime _shownAt;
     private bool _attached;
     private bool _agentReady;
     private bool _viewerReady;
-    private bool _viewerActive;
+    private bool _claudeReady;
+    private bool _dshReady;
+    private Workspace _active = Workspace.Project;
+    // 各工作面已导航地址：非空即已加载，普通切回绝不重新导航（不 reload）
+    private string? _kimiLoadedUrl;
     private string? _viewerLoadedUrl;
+    private string? _claudeLoadedUrl;
+    private string? _dshLoadedUrl;
+    private Button? _btnProject;
+    private Button? _btnKimi;
+    private Button? _btnClaude;
+    private Button? _btnDsh;
     private Button? _btnViewer;
 
     private static readonly JsonSerializerOptions SendOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -57,13 +77,17 @@ internal sealed class ShellWindow : Form
         _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));  // Arckeep UI
         _layout.Controls.Add(_agentView, 0, 0);
         _layout.Controls.Add(_uiView, 1, 0);
-        _layout.Controls.Add(_viewerView, 0, 0);   // 与 agent 同格但跨两列，激活时置顶覆盖
-        _layout.SetColumnSpan(_viewerView, 2);
+        // Claude / DSH / Viewer 覆盖层：与 agent 同格但跨两列，激活时置顶覆盖（纯可见性切换）
+        foreach (var overlay in new[] { _viewerView, _claudeView, _dshView })
+        {
+            _layout.Controls.Add(overlay, 0, 0);
+            _layout.SetColumnSpan(overlay, 2);
+        }
         Controls.Add(_layout);
         Controls.Add(_titleBar);   // 后加入者先 dock：标题栏占顶部，内容铺满剩余
 
         Shown += async (_, _) => await OnShownAsync();
-        FormClosed += (_, _) => { _acp?.Dispose(); _kimiWeb.Dispose(); _quota.Dispose(); _viewer.Dispose(); };
+        FormClosed += (_, _) => { _acp?.Dispose(); _kimiWeb.Dispose(); _quota.Dispose(); _viewer.Dispose(); _cdesktop.Dispose(); _dsh.Dispose(); };
     }
 
     private void BuildTitleBar()
@@ -95,8 +119,15 @@ internal sealed class ShellWindow : Form
         var btnMin = TitleButton("—", 40);
         btnMin.Click += (_, _) => WindowState = FormWindowState.Minimized;
 
-        _btnViewer = TitleButton("Viewer", 56);
-        _btnViewer.Click += async (_, _) => await ToggleViewerAsync();
+        // D0-03 一级工作面切换：Project / Kimi / Claude / DSH / Viewer（极简原生按钮，非设计系统）
+        _btnViewer = WorkspaceButton("Viewer", 56, Workspace.Viewer);
+        _btnDsh = WorkspaceButton("DSH", 52, Workspace.Dsh);
+        _btnClaude = WorkspaceButton("Claude", 60, Workspace.Claude);
+        _btnKimi = WorkspaceButton("Kimi", 52, Workspace.Kimi);
+        _btnProject = WorkspaceButton("Project", 64, Workspace.Project);
+
+        _projectLabel.Font = new Font("Segoe UI", 8.5f);
+        _projectLabel.Text = "";
 
         _quotaChip.Text = "额度 · 点这里同步";
         _quotaChip.Font = new Font("Consolas", 8.5f);
@@ -113,8 +144,13 @@ internal sealed class ShellWindow : Form
 
         _titleBar.Controls.Add(icon);
         _titleBar.Controls.Add(title);
+        _titleBar.Controls.Add(_projectLabel);
         _titleBar.Controls.Add(_quotaChip);
         _titleBar.Controls.Add(_btnViewer);
+        _titleBar.Controls.Add(_btnDsh);
+        _titleBar.Controls.Add(_btnClaude);
+        _titleBar.Controls.Add(_btnKimi);
+        _titleBar.Controls.Add(_btnProject);
         _titleBar.Controls.Add(btnMin);
         _titleBar.Controls.Add(btnMax);
         _titleBar.Controls.Add(btnClose);
@@ -123,10 +159,18 @@ internal sealed class ShellWindow : Form
             btnClose.Left = _titleBar.Width - 40;
             btnMax.Left = _titleBar.Width - 80;
             btnMin.Left = _titleBar.Width - 120;
-            _btnViewer.Left = _titleBar.Width - 182;
+            // 工作面按钮从右往左排在窗口控件之前
+            var x = _titleBar.Width - 128;
+            foreach (var b in new[] { _btnViewer, _btnDsh, _btnClaude, _btnKimi, _btnProject })
+            {
+                x -= b!.Width + 4;
+                b.Left = x;
+            }
             _quotaChip.Width = Math.Max(60, _quotaChip.PreferredSize.Width == 0 ? 150 : _quotaChip.PreferredSize.Width + 16);
-            _quotaChip.Left = _btnViewer.Left - _quotaChip.Width - 10;
+            _quotaChip.Left = Math.Max(140, x - _quotaChip.Width - 10);
             _quotaChip.Top = 7;
+            _projectLabel.Left = 34 + title.PreferredWidth + 14;
+            _projectLabel.Top = 11;
         };
         // 拖动与双击
         void Drag(object? s, MouseEventArgs e)
@@ -151,6 +195,30 @@ internal sealed class ShellWindow : Form
         FlatAppearance = { BorderSize = 0 },
         Anchor = AnchorStyles.Top | AnchorStyles.Right,
     };
+
+    private Button WorkspaceButton(string text, int width, Workspace workspace)
+    {
+        var button = TitleButton(text, width);
+        button.Click += async (_, _) => await SwitchToAsync(workspace);
+        return button;
+    }
+
+    /// <summary>当前工作面高亮（极简态：粗体 + 深色字），其余按钮恢复默认。</summary>
+    private void UpdateWorkspaceButtons()
+    {
+        var map = new (Button? Button, Workspace Ws)[]
+        {
+            (_btnProject, Workspace.Project), (_btnKimi, Workspace.Kimi),
+            (_btnClaude, Workspace.Claude), (_btnDsh, Workspace.Dsh), (_btnViewer, Workspace.Viewer),
+        };
+        foreach (var (button, ws) in map)
+        {
+            if (button is null) continue;
+            var active = ws == _active;
+            button.Font = new Font("Segoe UI", 9f, active ? FontStyle.Bold : FontStyle.Regular);
+            button.ForeColor = active ? Color.FromArgb(0x23, 0x23, 0x23) : Color.FromArgb(0x66, 0x63, 0x5D);
+        }
+    }
 
     // 无边框窗口：边缘缩放 + 最大化不遮任务栏
     protected override void WndProc(ref Message m)
@@ -206,6 +274,7 @@ internal sealed class ShellWindow : Form
 
     private async Task OnShownAsync()
     {
+        _shownAt = DateTime.UtcNow;
         var udf = Path.Combine(ProjectStore.ArckeepDataDir, "udfs", "ui");
         var env = await CoreWebView2Environment.CreateAsync(userDataFolder: udf);
         await _uiView.EnsureCoreWebView2Async(env);
@@ -306,7 +375,7 @@ internal sealed class ShellWindow : Form
                         SendState();
                         return Task.CompletedTask;
                     });
-                    await ToggleViewerAsync();
+                    await SwitchToAsync(Workspace.Viewer);
                     // ExecuteScriptAsync 不 await Promise：先启动采集，再轮询 window._proof
                     await this.InvokeAsync(async () =>
                         await _viewerView.CoreWebView2.ExecuteScriptAsync(
@@ -333,12 +402,10 @@ internal sealed class ShellWindow : Form
                         await Task.Delay(1500);
                         await this.InvokeAsync(() =>
                         {
-                            _viewerView.Visible = false;   // ToggleViewerAsync 的关闭半段（UI 线程）
-                            _viewerActive = false;
-                            UpdateViewerButton();
+                            ShowProject();   // 关闭 Viewer 覆盖层（UI 线程，纯可见性）
                             return Task.CompletedTask;
                         });
-                        await ToggleViewerAsync();   // 重新打开 = 重启 sidecar + 重新导航
+                        await SwitchToAsync(Workspace.Viewer);   // 重新打开 = 重启 sidecar + 重新导航
                         await this.InvokeAsync(async () =>
                             await _viewerView.CoreWebView2.ExecuteScriptAsync(
                                 "fetch('/api/tree').then(r=>r.json()).then(j=>{window._proof2=JSON.stringify({href:location.href,treeChildren:(j.tree&&j.tree.children||[]).length})}).catch(e=>{window._proof2='ERR:'+e})"));
@@ -370,6 +437,15 @@ internal sealed class ShellWindow : Form
                     Environment.Exit(4);
                 }
             });
+
+        // 测试钩子：D0-03 多工作面真实切换 + 持久化 + 真实 Claude 会话 + 真实关闭路径
+        if (Environment.GetEnvironmentVariable("ARCKEEP_TEST_SWITCH") == "1")
+            _ = Task.Run(RunSurfaceSwitchTestAsync);
+
+        // 测试钩子：D0-03 故障隔离（ARCKEEP_TEST_FAIL=claude|dsh，其余工作面必须可用）
+        var failTarget = Environment.GetEnvironmentVariable("ARCKEEP_TEST_FAIL");
+        if (!string.IsNullOrEmpty(failTarget))
+            _ = Task.Run(() => RunFailureIsolationTestAsync(failTarget));
 
         var shot = Environment.GetEnvironmentVariable("ARCKEEP_SHOT");
         if (!string.IsNullOrEmpty(shot))
@@ -449,7 +525,7 @@ internal sealed class ShellWindow : Form
             case "start": _ = StartSessionAsync(); break;
             case "send-prompt": _ = SendFollowUpAsync(msg["text"]?.GetValue<string>() ?? ""); break;
             case "back": BackToProject(); break;
-            case "open-viewer": _ = ToggleViewerAsync(); break;
+            case "open-viewer": _ = SwitchToAsync(Workspace.Viewer); break;
             case "quota-refresh": _ = _quota.RefreshAsync(); break;
             case "quota-login": _ = _quota.ShowLoginAndRefreshAsync(this); break;
         }
@@ -521,7 +597,13 @@ internal sealed class ShellWindow : Form
     {
         using var dialog = new FolderBrowserDialog { Description = "选择项目目录（Arckeep 会在其中创建 .arckeep 文件夹）" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        _store = new ProjectStore(dialog.SelectedPath);
+        SetProject(dialog.SelectedPath);
+    }
+
+    /// <summary>确定性项目切换：所有工作面（Kimi/Claude/DSH/Viewer）都以这里的根为上下文。</summary>
+    private void SetProject(string root)
+    {
+        _store = new ProjectStore(root);
         _store.LoadOrCreate();
         Directory.CreateDirectory(ProjectStore.ArckeepDataDir);
         File.WriteAllText(
@@ -542,6 +624,7 @@ internal sealed class ShellWindow : Form
 
     private void SendState()
     {
+        UpdateProjectLabel();
         if (_store is null)
         {
             Send(new { type = "state", empty = true });
@@ -565,6 +648,14 @@ internal sealed class ShellWindow : Form
     {
         if (source is null) return "";
         return source.Type == "user" ? "你自己写的" : $"我猜的 · 来自{source.Ref}";
+    }
+
+    /// <summary>标题栏当前项目上下文（极简：项目名 + 根路径 tooltip 语义）。</summary>
+    private void UpdateProjectLabel()
+    {
+        void Apply() => _projectLabel.Text = _store is null ? "" : $"· {_store.Data.Project.Name} — {_store.Root}";
+        if (_titleBar.InvokeRequired) _titleBar.BeginInvoke(Apply);
+        else Apply();
     }
 
     private static readonly HashSet<string> SkipDirs = new(StringComparer.OrdinalIgnoreCase)
@@ -613,6 +704,8 @@ internal sealed class ShellWindow : Form
         var pickedText = "";
         await this.InvokeAsync(() =>
         {
+            _active = Workspace.Kimi;
+            UpdateWorkspaceButtons();
             SetAttachedLayout(true);
             Send(new { type = "mode", mode = "rail" });
             return Task.CompletedTask;
@@ -627,11 +720,13 @@ internal sealed class ShellWindow : Form
         _fsSnapshot = SafeWalk(cwd).ToDictionary(f => f.Path, f => (f.Ticks, f.Length));
 
         // 视觉平面：agent webview 初始化 + kimi web 后台启动
+        // （已导航过则保持原页面——Brief 会话不再 reload 已打开的 Kimi 工作面）
         await this.InvokeAsync(async () =>
         {
             await EnsureAgentViewAsync();
-            _agentView.CoreWebView2.NavigateToString(
-                "<body style='background:#F5F2EA;color:#66635D;font:13px sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>正在启动 Kimi Code…</body>");
+            if (_kimiLoadedUrl is null)
+                _agentView.CoreWebView2.NavigateToString(
+                    "<body style='background:#F5F2EA;color:#66635D;font:13px sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>正在启动 Kimi Code…</body>");
         });
         _ = Task.Run(async () =>
         {
@@ -640,7 +735,11 @@ internal sealed class ShellWindow : Form
                 var url = await _kimiWeb.StartAsync(cwd);
                 await this.InvokeAsync(() =>
                 {
-                    _agentView.CoreWebView2.Navigate(url);
+                    if (_kimiLoadedUrl is null)
+                    {
+                        _kimiLoadedUrl = url;
+                        _agentView.CoreWebView2.Navigate(url);
+                    }
                     return Task.CompletedTask;
                 });
             }
@@ -650,9 +749,10 @@ internal sealed class ShellWindow : Form
                 _kimiWeb.Failure = ex;
                 await this.InvokeAsync(() =>
                 {
-                    _agentView.CoreWebView2.NavigateToString(
-                        "<body style='background:#F5F2EA;color:#8E3C32;font:13px sans-serif;padding:32px'>Kimi Web 启动失败：" +
-                        System.Net.WebUtility.HtmlEncode(ex.Message) + "</body>");
+                    if (_kimiLoadedUrl is null)
+                        _agentView.CoreWebView2.NavigateToString(
+                            "<body style='background:#F5F2EA;color:#8E3C32;font:13px sans-serif;padding:32px'>Kimi Web 启动失败：" +
+                            System.Net.WebUtility.HtmlEncode(ex.Message) + "</body>");
                     return Task.CompletedTask;
                 });
             }
@@ -715,6 +815,195 @@ internal sealed class ShellWindow : Form
         _agentReady = true;
     }
 
+    // ---------- 工作面切换（D0-03：纯可见性/布局切换，不销毁、不 reload、不停 session） ----------
+
+    /// <summary>线程安全入口：布局操作封送回 UI 线程。</summary>
+    private Task SwitchToAsync(Workspace target) => this.InvokeAsync(() => SwitchOnUiThreadAsync(target));
+
+    private async Task SwitchOnUiThreadAsync(Workspace target)
+    {
+        switch (target)
+        {
+            case Workspace.Project: ShowProject(); break;
+            case Workspace.Kimi: await OpenKimiAsync(); break;
+            case Workspace.Claude: await OpenClaudeAsync(); break;
+            case Workspace.Dsh: await OpenDshAsync(); break;
+            case Workspace.Viewer: await OpenViewerAsync(); break;
+        }
+    }
+
+    /// <summary>回到项目空间：只收覆盖层、恢复原布局；不动任何 agent/session。</summary>
+    private void ShowProject()
+    {
+        HideOverlays();
+        _active = Workspace.Project;
+        SetAttachedLayout(false);
+        Send(new { type = "mode", mode = "space" });
+        UpdateWorkspaceButtons();
+    }
+
+    private void HideOverlays()
+    {
+        _viewerView.Visible = false;
+        _claudeView.Visible = false;
+        _dshView.Visible = false;
+    }
+
+    /// <summary>激活一个整幅覆盖工作面（Claude/DSH/Viewer 通用宿主动作）。</summary>
+    private void ShowOverlay(WebView2 view, Workspace workspace)
+    {
+        HideOverlays();
+        _active = workspace;
+        view.Visible = true;
+        view.BringToFront();
+        UpdateWorkspaceButtons();
+    }
+
+    /// <summary>无项目时先选目录（所有工作面都以当前 Arckeep project 为上下文）。</summary>
+    private bool EnsureProject()
+    {
+        if (_store is not null) return true;
+        PickDirectory();
+        return _store is not null;
+    }
+
+    private static string LoadingHtml(string text) =>
+        "<body style='background:#F5F2EA;color:#66635D;font:13px sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>" +
+        System.Net.WebUtility.HtmlEncode(text) + "</body>";
+
+    private static string ErrorHtml(string title, string? message) =>
+        "<body style='background:#F5F2EA;color:#8E3C32;font:13px sans-serif;padding:32px'>" +
+        System.Net.WebUtility.HtmlEncode(title) + "：" +
+        System.Net.WebUtility.HtmlEncode(message ?? "未知原因") +
+        "<br><span style='color:#66635D'>其他工作面不受影响；再次点击上方按钮可重试。</span></body>";
+
+    /// <summary>
+    /// Kimi 工作面：打开 ≠ 交付 Brief。这里只保证 Kimi Web 以当前项目根运行并嵌入；
+    /// ACP Brief/follow-up 路径仍在「开始」里，二者共享同一持久 _agentView。
+    /// </summary>
+    private async Task OpenKimiAsync()
+    {
+        if (!EnsureProject()) return;
+        HideOverlays();
+        _active = Workspace.Kimi;
+        SetAttachedLayout(true);
+        Send(new { type = "mode", mode = "rail" });
+        UpdateWorkspaceButtons();
+        await EnsureAgentViewAsync();
+        if (_kimiLoadedUrl is not null) return;   // 已加载：纯可见性切换
+        _agentView.CoreWebView2.NavigateToString(LoadingHtml("正在启动 Kimi Code…"));
+        var cwd = _store!.Root;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var url = await _kimiWeb.StartAsync(cwd);
+                await this.InvokeAsync(() =>
+                {
+                    if (_kimiLoadedUrl is null)
+                    {
+                        _kimiLoadedUrl = url;
+                        _agentView.CoreWebView2.Navigate(url);
+                    }
+                    return Task.CompletedTask;
+                });
+            }
+            catch (Exception ex)
+            {
+                Program.Log("kimi web 启动失败：" + ex.Message);
+                _kimiWeb.Failure = ex;
+                await this.InvokeAsync(() =>
+                {
+                    if (_kimiLoadedUrl is null)
+                        _agentView.CoreWebView2.NavigateToString(ErrorHtml("Kimi Web 启动失败", ex.Message));
+                    return Task.CompletedTask;
+                });
+            }
+        });
+    }
+
+    private async Task OpenClaudeAsync()
+    {
+        if (!EnsureProject()) return;
+        await EnsureClaudeViewAsync();
+        ShowOverlay(_claudeView, Workspace.Claude);
+        if (_claudeLoadedUrl is not null) return;
+        _claudeView.CoreWebView2.NavigateToString(LoadingHtml("正在启动 Claude 工作面（cdesktop）…"));
+        var cwd = _store!.Root;
+        _ = Task.Run(async () =>
+        {
+            var url = await _cdesktop.StartAsync(cwd);
+            await this.InvokeAsync(() =>
+            {
+                if (url is not null)
+                {
+                    if (_claudeLoadedUrl is null)
+                    {
+                        _claudeLoadedUrl = url;
+                        _claudeView.CoreWebView2.Navigate(url);
+                    }
+                }
+                else
+                {
+                    _claudeView.CoreWebView2.NavigateToString(
+                        ErrorHtml("Claude 工作面不可用", _cdesktop.Failure?.Message));
+                }
+                return Task.CompletedTask;
+            });
+        });
+    }
+
+    private async Task OpenDshAsync()
+    {
+        if (!EnsureProject()) return;
+        await EnsureDshViewAsync();
+        ShowOverlay(_dshView, Workspace.Dsh);
+        if (_dshLoadedUrl is not null) return;
+        _dshView.CoreWebView2.NavigateToString(LoadingHtml("正在接入 DSH 工作面…"));
+        var cwd = _store!.Root;
+        _ = Task.Run(async () =>
+        {
+            // ARCKEEP_DSH_ATTACH_AUTHORITY：测试钩子用来把 attach 探测指向空端口，强制走 owned/失败路径
+            var url = await _dsh.StartAsync(cwd,
+                attachAuthority: Environment.GetEnvironmentVariable("ARCKEEP_DSH_ATTACH_AUTHORITY"));
+            await this.InvokeAsync(() =>
+            {
+                if (url is not null)
+                {
+                    if (_dshLoadedUrl is null)
+                    {
+                        _dshLoadedUrl = url;
+                        _dshView.CoreWebView2.Navigate(url);
+                    }
+                }
+                else
+                {
+                    _dshView.CoreWebView2.NavigateToString(
+                        ErrorHtml("DSH 工作面不可用", _dsh.Failure?.Message));
+                }
+                return Task.CompletedTask;
+            });
+        });
+    }
+
+    private async Task EnsureClaudeViewAsync()
+    {
+        if (_claudeReady) return;
+        var udf = Path.Combine(ProjectStore.ArckeepDataDir, "udfs", "claude");
+        var env = await CoreWebView2Environment.CreateAsync(userDataFolder: udf);
+        await _claudeView.EnsureCoreWebView2Async(env);
+        _claudeReady = true;
+    }
+
+    private async Task EnsureDshViewAsync()
+    {
+        if (_dshReady) return;
+        var udf = Path.Combine(ProjectStore.ArckeepDataDir, "udfs", "dsh");
+        var env = await CoreWebView2Environment.CreateAsync(userDataFolder: udf);
+        await _dshView.EnsureCoreWebView2Async(env);
+        _dshReady = true;
+    }
+
     // ---------- Viewer（KCC Viewer sidecar + WebView2，D0-04） ----------
 
     private async Task EnsureViewerViewAsync()
@@ -726,17 +1015,10 @@ internal sealed class ShellWindow : Form
         _viewerReady = true;
     }
 
-    /// <summary>Viewer 模式开关：只切可见性，不销毁任何工作面（agent/UI webview 保持运行）。</summary>
-    private async Task ToggleViewerAsync()
+    /// <summary>Viewer 工作面：只切可见性，不销毁任何工作面（agent/UI webview 保持运行）。</summary>
+    private async Task OpenViewerAsync()
     {
-        if (_viewerActive)
-        {
-            _viewerActive = false;
-            _viewerView.Visible = false;
-            UpdateViewerButton();
-            return;
-        }
-        if (_store is null) return;   // 未打开项目时没有可检查的根目录
+        if (_store is null) { PickDirectory(); if (_store is null) return; }
 
         string? url = null;
         try
@@ -762,22 +1044,11 @@ internal sealed class ShellWindow : Form
             }
             else
             {
-                _viewerView.CoreWebView2.NavigateToString(
-                    "<body style='background:#F5F2EA;color:#8E3C32;font:13px sans-serif;padding:32px'>Viewer 启动失败：" +
-                    System.Net.WebUtility.HtmlEncode(_viewer.Failure?.Message ?? "未知原因") +
-                    "（工作面不受影响；关闭本面板即可继续）</body>");
+                _viewerView.CoreWebView2.NavigateToString(ErrorHtml("Viewer 启动失败", _viewer.Failure?.Message));
+                _viewerLoadedUrl = null;
             }
-            _viewerActive = true;
-            _viewerView.Visible = true;
-            _viewerView.BringToFront();
-            UpdateViewerButton();
+            ShowOverlay(_viewerView, Workspace.Viewer);
         });
-    }
-
-    private void UpdateViewerButton()
-    {
-        if (_btnViewer is null) return;
-        _btnViewer.Text = _viewerActive ? "← 返回" : "Viewer";
     }
 
     /// <summary>项目切换时若 sidecar 在运行则同步根目录；未运行则下次打开时按新项目启动。</summary>
@@ -849,6 +1120,8 @@ internal sealed class ShellWindow : Form
         }
         _session = null;
         SetAttachedLayout(false);
+        _active = Workspace.Project;
+        UpdateWorkspaceButtons();
         Send(new { type = "mode", mode = "space" });
         Send(new { type = "backflow", changed = changed.Take(50), evidence = "观察（文件系统差异，无归因）" });
         SendState();
