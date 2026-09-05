@@ -48,11 +48,17 @@ internal sealed partial class ShellWindow : Form
     private bool _claudeReady;
     private bool _dshReady;
     private Workspace _active = Workspace.Project;
-    // 各工作面已导航地址：非空即已加载，普通切回绝不重新导航（不 reload）
+    // 各工作面已导航地址：非空且绑定根未变时，普通切回绝不重新导航（不 reload）
     private string? _kimiLoadedUrl;
     private string? _viewerLoadedUrl;
     private string? _claudeLoadedUrl;
     private string? _dshLoadedUrl;
+    // Project binding（R1）：工作面当前绑定的项目根；显式项目切换时受控重绑
+    private string? _kimiBoundRoot;
+    private string? _claudeBoundRoot;
+    private string? _dshBoundRoot;
+    private string? _kimiBoundSessionId;
+    private Task _rebindTask = Task.CompletedTask;
     private Button? _btnProject;
     private Button? _btnKimi;
     private Button? _btnClaude;
@@ -447,6 +453,10 @@ internal sealed partial class ShellWindow : Form
         if (!string.IsNullOrEmpty(failTarget))
             _ = Task.Run(() => RunFailureIsolationTestAsync(failTarget));
 
+        // 测试钩子：D0-03 R1 双项目重绑（A→B 受控重绑 + B 内普通切换仍 no-reload）
+        if (Environment.GetEnvironmentVariable("ARCKEEP_TEST_REBIND") == "1")
+            _ = Task.Run(RunProjectRebindTestAsync);
+
         var shot = Environment.GetEnvironmentVariable("ARCKEEP_SHOT");
         if (!string.IsNullOrEmpty(shot))
         {
@@ -600,9 +610,14 @@ internal sealed partial class ShellWindow : Form
         SetProject(dialog.SelectedPath);
     }
 
-    /// <summary>确定性项目切换：所有工作面（Kimi/Claude/DSH/Viewer）都以这里的根为上下文。</summary>
+    /// <summary>
+    /// 确定性项目切换：所有工作面（Kimi/Claude/DSH/Viewer）都以这里的根为上下文。
+    /// 显式项目切换（A→B）是 context change：已加载的项目作用域工作面受控重绑（R1），
+    /// 不允许继续把 A 的 surface 显示为 B。
+    /// </summary>
     private void SetProject(string root)
     {
+        var previousRoot = _store?.Root;
         _store = new ProjectStore(root);
         _store.LoadOrCreate();
         Directory.CreateDirectory(ProjectStore.ArckeepDataDir);
@@ -610,7 +625,120 @@ internal sealed partial class ShellWindow : Form
             Path.Combine(ProjectStore.ArckeepDataDir, "registry.json"),
             JsonSerializer.Serialize(new { lastProjectPath = _store.Root, lastProjectId = _store.Data.Project.ProjectId }, new JsonSerializerOptions { WriteIndented = true }));
         SyncViewerRoot();
+        if (previousRoot is not null && !SamePath(previousRoot, root))
+            RebindSurfaces(root);
         SendState();
+    }
+
+    private static bool SamePath(string? left, string? right) =>
+        string.Equals(
+            left is null ? null : Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
+            right is null ? null : Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 项目 A→B：只重绑「已加载」的工作面（未打开的下次 Open 自然按 B 绑定）。
+    /// 重绑 = intentional navigate/restart，区别于普通工作面切换（绝不 reload）。
+    /// </summary>
+    private void RebindSurfaces(string root)
+    {
+        var rebindKimi = _kimiLoadedUrl is not null;
+        var rebindClaude = _claudeLoadedUrl is not null;
+        var rebindDsh = _dshLoadedUrl is not null;
+        Program.Log($"项目切换 → {root}；重绑 kimi={rebindKimi} claude={rebindClaude} dsh={rebindDsh}");
+        if (!rebindKimi && !rebindClaude && !rebindDsh) return;
+        _rebindTask = Task.Run(async () =>
+        {
+            if (rebindKimi) await RebindKimiAsync(root);
+            if (rebindClaude) await RebindClaudeAsync(root);
+            if (rebindDsh) await RebindDshAsync(root);
+        });
+    }
+
+    /// <summary>Kimi：同一 kimi web 实例上绑定/创建 cwd=新根的 session 并导航（不重启进程）。</summary>
+    private async Task RebindKimiAsync(string root)
+    {
+        var binding = await _kimiWeb.BindSessionAsync(root);
+        await this.InvokeAsync(() =>
+        {
+            if (binding is not null)
+            {
+                if (_kimiLoadedUrl != binding.Url)
+                {
+                    _kimiLoadedUrl = binding.Url;
+                    _agentView.CoreWebView2.Navigate(binding.Url);
+                }
+                _kimiBoundRoot = binding.Cwd;
+                _kimiBoundSessionId = binding.SessionId;
+            }
+            else
+            {
+                Program.Log("kimi 重绑失败：保留现状并记录（不伪造绑定）");
+            }
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>Claude：复用 cdesktop 进程，对新根 EnsureWorkspace 并导航到 /workspaces/{id}。</summary>
+    private async Task RebindClaudeAsync(string root)
+    {
+        var url = await _cdesktop.StartAsync(root);
+        await this.InvokeAsync(() =>
+        {
+            if (url is not null)
+            {
+                var target = _cdesktop.WorkspaceUrl ?? url;
+                if (_claudeLoadedUrl != target)
+                {
+                    _claudeLoadedUrl = target;
+                    _claudeView.CoreWebView2.Navigate(target);
+                }
+                _claudeBoundRoot = root;
+            }
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// DSH：Arckeep-owned 且 cwd 过期 → 安全 Dispose 自有实例并按新根重启（intentional）；
+    /// Attached 用户实例绝不 kill，只记录其真实 cwd（不伪造 project binding）。
+    /// </summary>
+    private async Task RebindDshAsync(string root)
+    {
+        if (_dsh.Mode == DshService.Ownership.Owned && !SamePath(_dsh.BoundCwd, root))
+        {
+            _dsh.Dispose();
+            await this.InvokeAsync(() =>
+            {
+                _dshLoadedUrl = null;
+                _dshBoundRoot = null;
+                return Task.CompletedTask;
+            });
+        }
+        if (_dsh.Mode == DshService.Ownership.Attached)
+        {
+            _dshBoundRoot = _dsh.BoundCwd;   // 用户实例事实记录，不重启不导航
+            return;
+        }
+        var url = await _dsh.StartAsync(root,
+            attachAuthority: Environment.GetEnvironmentVariable("ARCKEEP_DSH_ATTACH_AUTHORITY"));
+        await this.InvokeAsync(() =>
+        {
+            if (url is not null)
+            {
+                if (_dshLoadedUrl != url)
+                {
+                    _dshLoadedUrl = url;
+                    _dshView.CoreWebView2.Navigate(url);
+                }
+                _dshBoundRoot = _dsh.BoundCwd;
+            }
+            else if (_dsh.Mode == DshService.Ownership.Attached)
+            {
+                _dshBoundRoot = _dsh.BoundCwd;
+            }
+            return Task.CompletedTask;
+        });
     }
 
     private void EditStatus(string text)
@@ -732,16 +860,8 @@ internal sealed partial class ShellWindow : Form
         {
             try
             {
-                var url = await _kimiWeb.StartAsync(cwd);
-                await this.InvokeAsync(() =>
-                {
-                    if (_kimiLoadedUrl is null)
-                    {
-                        _kimiLoadedUrl = url;
-                        _agentView.CoreWebView2.Navigate(url);
-                    }
-                    return Task.CompletedTask;
-                });
+                await _kimiWeb.StartAsync(cwd);
+                await RebindKimiAsync(cwd);   // 绑定/创建 cwd=当前项目的 session 并导航
             }
             catch (Exception ex)
             {
@@ -890,23 +1010,27 @@ internal sealed partial class ShellWindow : Form
         Send(new { type = "mode", mode = "rail" });
         UpdateWorkspaceButtons();
         await EnsureAgentViewAsync();
-        if (_kimiLoadedUrl is not null) return;   // 已加载：纯可见性切换
-        _agentView.CoreWebView2.NavigateToString(LoadingHtml("正在启动 Kimi Code…"));
         var cwd = _store!.Root;
+        if (_kimiLoadedUrl is not null && SamePath(_kimiBoundRoot, cwd)) return;   // 已绑定当前项目：纯可见性切换
+        if (_kimiLoadedUrl is null)
+            _agentView.CoreWebView2.NavigateToString(LoadingHtml("正在启动 Kimi Code…"));
         _ = Task.Run(async () =>
         {
             try
             {
-                var url = await _kimiWeb.StartAsync(cwd);
-                await this.InvokeAsync(() =>
-                {
-                    if (_kimiLoadedUrl is null)
+                await _kimiWeb.StartAsync(cwd);
+                await RebindKimiAsync(cwd);   // 绑定/创建 cwd=当前项目的 session 并导航
+                // 绑定失败时至少保证页面落在 kimi web 上（记录但不伪造绑定）
+                if (_kimiBoundRoot is null)
+                    await this.InvokeAsync(() =>
                     {
-                        _kimiLoadedUrl = url;
-                        _agentView.CoreWebView2.Navigate(url);
-                    }
-                    return Task.CompletedTask;
-                });
+                        if (_kimiLoadedUrl is null && _kimiWeb.OpenUrl is not null)
+                        {
+                            _kimiLoadedUrl = _kimiWeb.OpenUrl;
+                            _agentView.CoreWebView2.Navigate(_kimiWeb.OpenUrl);
+                        }
+                        return Task.CompletedTask;
+                    });
             }
             catch (Exception ex)
             {
@@ -927,9 +1051,10 @@ internal sealed partial class ShellWindow : Form
         if (!EnsureProject()) return;
         await EnsureClaudeViewAsync();
         ShowOverlay(_claudeView, Workspace.Claude);
-        if (_claudeLoadedUrl is not null) return;
-        _claudeView.CoreWebView2.NavigateToString(LoadingHtml("正在启动 Claude 工作面（cdesktop）…"));
         var cwd = _store!.Root;
+        if (_claudeLoadedUrl is not null && SamePath(_claudeBoundRoot, cwd)) return;   // 已绑定当前项目：纯可见性切换
+        if (_claudeLoadedUrl is null)
+            _claudeView.CoreWebView2.NavigateToString(LoadingHtml("正在启动 Claude 工作面（cdesktop）…"));
         _ = Task.Run(async () =>
         {
             var url = await _cdesktop.StartAsync(cwd);
@@ -937,11 +1062,14 @@ internal sealed partial class ShellWindow : Form
             {
                 if (url is not null)
                 {
-                    if (_claudeLoadedUrl is null)
+                    // 直接落到当前项目根的 workspace 路由，不停在 /workspaces/create
+                    var target = _cdesktop.WorkspaceUrl ?? url;
+                    if (_claudeLoadedUrl != target)
                     {
-                        _claudeLoadedUrl = url;
-                        _claudeView.CoreWebView2.Navigate(url);
+                        _claudeLoadedUrl = target;
+                        _claudeView.CoreWebView2.Navigate(target);
                     }
+                    _claudeBoundRoot = cwd;
                 }
                 else
                 {
@@ -958,33 +1086,31 @@ internal sealed partial class ShellWindow : Form
         if (!EnsureProject()) return;
         await EnsureDshViewAsync();
         ShowOverlay(_dshView, Workspace.Dsh);
-        if (_dshLoadedUrl is not null) return;
-        _dshView.CoreWebView2.NavigateToString(LoadingHtml("正在接入 DSH 工作面…"));
         var cwd = _store!.Root;
+        if (_dshLoadedUrl is not null && DshBindingValid(cwd)) return;   // 纯可见性切换
+        if (_dshLoadedUrl is null)
+            _dshView.CoreWebView2.NavigateToString(LoadingHtml("正在接入 DSH 工作面…"));
         _ = Task.Run(async () =>
         {
-            // ARCKEEP_DSH_ATTACH_AUTHORITY：测试钩子用来把 attach 探测指向空端口，强制走 owned/失败路径
-            var url = await _dsh.StartAsync(cwd,
-                attachAuthority: Environment.GetEnvironmentVariable("ARCKEEP_DSH_ATTACH_AUTHORITY"));
+            await RebindDshAsync(cwd);
             await this.InvokeAsync(() =>
             {
-                if (url is not null)
-                {
-                    if (_dshLoadedUrl is null)
-                    {
-                        _dshLoadedUrl = url;
-                        _dshView.CoreWebView2.Navigate(url);
-                    }
-                }
-                else
-                {
+                if (_dshLoadedUrl is null && _dsh.Failure is not null)
                     _dshView.CoreWebView2.NavigateToString(
                         ErrorHtml("DSH 工作面不可用", _dsh.Failure?.Message));
-                }
                 return Task.CompletedTask;
             });
         });
     }
+
+    /// <summary>DSH 绑定有效性：Owned 必须 cwd 匹配当前项目；Attached 用户实例不伪造绑定但保持可用。</summary>
+    private bool DshBindingValid(string root) =>
+        _dsh.Mode switch
+        {
+            DshService.Ownership.Owned => SamePath(_dsh.BoundCwd, root),
+            DshService.Ownership.Attached => true,
+            _ => false,
+        };
 
     private async Task EnsureClaudeViewAsync()
     {

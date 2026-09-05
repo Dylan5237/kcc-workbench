@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Arckeep.Shell;
@@ -16,8 +18,85 @@ internal sealed class KimiWebService : IDisposable
     public string? OpenUrl { get; private set; }
     public Exception? Failure { get; set; }
 
+    /// <summary>一次 cwd 绑定的结果：页面 URL + session id（证据用）。</summary>
+    internal sealed record KimiBinding(string Url, string SessionId, string Cwd);
+
     /// <summary>自有 kimi web 进程 PID（复用既有实例时为 null；诊断/关机证据用）。</summary>
     internal int? OwnedPid => _proc is { HasExited: false } ? _proc.Id : null;
+
+    /// <summary>
+    /// Kimi 工作面的 project binding（D0-03 R1）：在已运行的 kimi web 上找到
+    /// metadata.cwd == projectRoot 的最近 session，找不到就用既有
+    /// POST /api/v1/sessions {metadata:{cwd}} seam 创建一个空 session（不发 prompt、不启动 turn），
+    /// 返回该 session 的页面 URL。端口复用只证明"是 Kimi Web"，本方法证明"是当前项目的 session"。
+    /// 失败返回 null（调用方回退到 base URL 并记录，绝不 kill 用户既有实例）。
+    /// </summary>
+    public async Task<KimiBinding?> BindSessionAsync(string projectRoot)
+    {
+        if (OpenUrl is null) return null;
+        try
+        {
+            var origin = new Uri(OpenUrl).GetLeftPart(UriPartial.Authority);
+            var token = ExtractToken(OpenUrl) ?? await ReadServerTokenAsync();
+            if (token is null) return null;
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // 复用已有 cwd 匹配的 session（取最近更新；列表项携带 metadata.cwd，spike 实证）
+            string? sessionId = null;
+            using (var doc = JsonDocument.Parse(await http.GetStringAsync(origin + "/api/v1/sessions")))
+            {
+                if (doc.RootElement.TryGetProperty("data", out var data)
+                    && data.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+                {
+                    string? bestUpdated = null;
+                    foreach (var item in items.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("archived", out var arch) && arch.GetBoolean()) continue;
+                        var cwd = item.TryGetProperty("metadata", out var meta)
+                            && meta.TryGetProperty("cwd", out var c) ? c.GetString() : null;
+                        if (!SamePath(cwd, projectRoot)) continue;
+                        var updated = item.TryGetProperty("updated_at", out var u) ? u.GetString() : null;
+                        if (bestUpdated is null || string.CompareOrdinal(updated, bestUpdated) > 0)
+                        {
+                            bestUpdated = updated;
+                            sessionId = item.GetProperty("id").GetString();
+                        }
+                    }
+                }
+            }
+            if (sessionId is null)
+            {
+                var res = await http.PostAsJsonAsync(origin + "/api/v1/sessions",
+                    new { metadata = new { cwd = projectRoot } });
+                if (!res.IsSuccessStatusCode) return null;
+                using var created = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
+                sessionId = created.RootElement.GetProperty("data").GetProperty("id").GetString();
+            }
+            if (sessionId is null) return null;
+            Program.Log($"kimi session 绑定：{sessionId} cwd={projectRoot}");
+            return new KimiBinding($"{origin}/sessions/{sessionId}#token={token}", sessionId, projectRoot);
+        }
+        catch (Exception ex)
+        {
+            Program.Log("kimi session 绑定失败：" + ex.Message);
+            return null;
+        }
+    }
+
+    private static string? ExtractToken(string openUrl)
+    {
+        var hash = openUrl.Contains('#') ? openUrl[(openUrl.IndexOf('#') + 1)..] : "";
+        foreach (var part in hash.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            if (part.StartsWith("token=") && part.Length > 6) return part[6..];
+        return null;
+    }
+
+    private static bool SamePath(string? left, string? right) =>
+        string.Equals(
+            left is null ? null : Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
+            right is null ? null : Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
 
     public async Task<string> StartAsync(string cwd, TimeSpan? timeout = null)
     {

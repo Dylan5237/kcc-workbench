@@ -364,4 +364,184 @@ internal sealed partial class ShellWindow
         }
         return null;
     }
+
+    /// <summary>等待某工作面 href 满足条件（重绑后的 intentional navigation 完成信号）。</summary>
+    private async Task<bool> WaitSurfaceHrefAsync(WebView2 view, string mustContain, Func<Exception?> failure, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (failure() is not null) return false;
+            var href = await this.InvokeAsync(async () =>
+                JsonSerializer.Deserialize<string>(
+                    await view.CoreWebView2.ExecuteScriptAsync("location.href")) ?? "");
+            if (href.Contains(mustContain)) return true;
+            await Task.Delay(500);
+        }
+        return false;
+    }
+
+    // ---------- R1：双项目重绑（A→B 受控重绑；B 内普通切换仍 no-reload） ----------
+
+    private async Task RunProjectRebindTestAsync()
+    {
+        var proof = new JsonObject();
+        var ok = true;
+        try
+        {
+            await Task.Delay(2500);
+            var dirA = Environment.GetEnvironmentVariable("ARCKEEP_TEST_PROJECT_A") ?? "";
+            var dirB = Environment.GetEnvironmentVariable("ARCKEEP_TEST_PROJECT_B") ?? "";
+            if (!Directory.Exists(dirA) || !Directory.Exists(dirB))
+                throw new Exception("ARCKEEP_TEST_PROJECT_A/B 无效");
+            if (SamePath(dirA, dirB)) throw new Exception("A/B 必须是不同项目");
+
+            // ---- Phase A：在 A 打开全部四个工作面 ----
+            await this.InvokeAsync(() => { SetProject(dirA); return Task.CompletedTask; });
+            var a = await OpenAllAndCaptureAsync(dirA);
+            proof["A"] = a;
+            ok &= a["ok"]!.GetValue<bool>();
+
+            // ---- 显式项目切换 A→B（context change：受控重绑） ----
+            await SwitchToAsync(Workspace.Project);
+            var dshAPid = _dsh.OwnedProcessId;
+            var claudeWsA = _cdesktop.WorkspaceId;
+            var kimiSessionA = _kimiBoundSessionId;
+            await this.InvokeAsync(() => { SetProject(dirB); return Task.CompletedTask; });
+            await _rebindTask;   // 等重绑完成（intentional navigate/restart 允许发生在这里）
+            await Task.Delay(1500);
+
+            // ---- Phase B：再打开全部四个工作面，必须全部指向 B ----
+            var b = await OpenAllAndCaptureAsync(dirB);
+            proof["B"] = b;
+            ok &= b["ok"]!.GetValue<bool>();
+
+            // 绑定断言
+            var asserts = new JsonObject
+            {
+                ["currentRootIsB"] = SamePath(_store!.Root, dirB),
+                ["viewerRootIsB"] = SamePath(_viewer.CurrentRoot, dirB),
+                ["claudeWorkspaceChanged"] = _cdesktop.WorkspaceId is not null && _cdesktop.WorkspaceId != claudeWsA,
+                ["claudeWorkspaceErrorNull"] = _cdesktop.WorkspaceError is null,
+                ["claudeTargetBranch"] = _cdesktop.LastTargetBranch,
+                ["kimiBoundRootIsB"] = SamePath(_kimiBoundRoot, dirB),
+                ["kimiSessionChanged"] = _kimiBoundSessionId is not null && _kimiBoundSessionId != kimiSessionA,
+            };
+            // DSH：Owned 必须由 B cwd 重启（A 的 owned 进程已死）；Attached 诚实记录用户实例事实
+            if (_dsh.Mode == DshService.Ownership.Owned)
+            {
+                asserts["dshMode"] = "Owned";
+                asserts["dshBoundCwdIsB"] = SamePath(_dsh.BoundCwd, dirB);
+                asserts["dshOwnedPidChanged"] = dshAPid is not null && _dsh.OwnedProcessId != dshAPid;
+                asserts["dshAPidGone"] = dshAPid is null || !ProcessExists(dshAPid.Value);
+            }
+            else
+            {
+                asserts["dshMode"] = _dsh.Mode.ToString();
+                asserts["dshAttachedNote"] = "用户实例不随项目切换（不伪造绑定），其实例 cwd=" + _dsh.BoundCwd;
+            }
+            proof["asserts"] = asserts;
+            foreach (var kv in asserts)
+                if (kv.Value is JsonValue v && v.TryGetValue<bool>(out var flag)) ok &= flag;
+
+            // ---- 受 repair 影响的最小 Claude continuation：B workspace 内真实 session ----
+            proof["claude_session_in_B"] = await ClaudeSessionProbeAsync("arckeep-d0-03-rebind-ok");
+            ok &= (proof["claude_session_in_B"] as JsonObject)?["status"]?.GetValue<string>() == "completed";
+
+            // ---- B 内普通工作面切换：Kimi→Claude→DSH→Viewer→Claude→Kimi，仍 no reload ----
+            var cycle = new JsonObject();
+            await SwitchToAsync(Workspace.Kimi);
+            cycle["kimi"] = await ProbeSurfaceAsync(_agentView);
+            await SwitchToAsync(Workspace.Claude);
+            cycle["claude"] = await ProbeSurfaceAsync(_claudeView);
+            await SwitchToAsync(Workspace.Dsh);
+            cycle["dsh"] = await ProbeSurfaceAsync(_dshView);
+            await SwitchToAsync(Workspace.Viewer);
+            cycle["viewer"] = await ProbeSurfaceAsync(_viewerView);
+            await SwitchToAsync(Workspace.Claude);
+            var claudeAgain = await ProbeSurfaceAsync(_claudeView);
+            await SwitchToAsync(Workspace.Kimi);
+            var kimiAgain = await ProbeSurfaceAsync(_agentView);
+            proof["cycleInB"] = cycle;
+            var cycleOk = SameSurface(b["claudeProbe"] as JsonObject, claudeAgain)
+                       && SameSurface(b["kimiProbe"] as JsonObject, kimiAgain);
+            proof["ordinarySwitchNoReloadInB"] = cycleOk;
+            ok &= cycleOk;
+
+            proof["matrix"] = new JsonObject
+            {
+                ["kimi"] = new JsonObject { ["url"] = _kimiWeb.OpenUrl, ["ownedPid"] = _kimiWeb.OwnedPid, ["boundSession"] = _kimiBoundSessionId },
+                ["claude"] = new JsonObject
+                {
+                    ["mode"] = _cdesktop.Mode.ToString(), ["url"] = _cdesktop.OpenUrl,
+                    ["ownedPid"] = _cdesktop.OwnedProcessId,
+                    ["workspaceId"] = _cdesktop.WorkspaceId, ["workspaceError"] = _cdesktop.WorkspaceError,
+                    ["targetBranch"] = _cdesktop.LastTargetBranch,
+                },
+                ["dsh"] = new JsonObject
+                {
+                    ["mode"] = _dsh.Mode.ToString(), ["url"] = _dsh.OpenUrl,
+                    ["ownedPid"] = _dsh.OwnedProcessId, ["boundCwd"] = _dsh.BoundCwd,
+                },
+                ["viewer"] = new JsonObject { ["url"] = _viewer.ViewerUrl, ["ownedPid"] = _viewer.SidecarPid, ["root"] = _viewer.CurrentRoot },
+            };
+        }
+        catch (Exception ex)
+        {
+            Program.Log("d0-03 rebind-test 异常：" + ex);
+            proof["error"] = ex.ToString();
+            ok = false;
+            Environment.ExitCode = 4;
+        }
+        await FinishProofAsync(proof, ok && Environment.ExitCode != 4);
+    }
+
+    /// <summary>打开四个工作面并采集绑定事实 + 持久化标记（A/B 两阶段共用）。</summary>
+    private async Task<JsonObject> OpenAllAndCaptureAsync(string expectedRoot)
+    {
+        var phase = new JsonObject { ["root"] = expectedRoot };
+        var ok = true;
+
+        await SwitchToAsync(Workspace.Kimi);
+        ok &= await WaitSurfaceHrefAsync(_agentView, "/sessions/", () => _kimiWeb.Failure, TimeSpan.FromSeconds(90));
+        phase["kimiProbe"] = await ProbeSurfaceAsync(_agentView);
+        phase["kimiBoundRoot"] = _kimiBoundRoot;
+        phase["kimiSessionId"] = _kimiBoundSessionId;
+        ok &= SamePath(_kimiBoundRoot, expectedRoot);
+
+        await SwitchToAsync(Workspace.Claude);
+        ok &= await WaitSurfaceLoadedAsync(_claudeView, () => _cdesktop.Failure, TimeSpan.FromSeconds(120));
+        // Claude 必须落在当前项目的 workspace 路由上
+        if (_cdesktop.WorkspaceId is not null)
+        {
+            ok &= await WaitSurfaceHrefAsync(_claudeView, "/workspaces/" + _cdesktop.WorkspaceId,
+                () => _cdesktop.Failure, TimeSpan.FromSeconds(30));
+        }
+        else ok = false;
+        phase["claudeProbe"] = await ProbeSurfaceAsync(_claudeView);
+        phase["claudeWorkspaceId"] = _cdesktop.WorkspaceId;
+        phase["claudeTargetBranch"] = _cdesktop.LastTargetBranch;
+
+        await SwitchToAsync(Workspace.Dsh);
+        ok &= await WaitSurfaceLoadedAsync(_dshView, () => _dsh.Failure, TimeSpan.FromSeconds(120));
+        phase["dshProbe"] = await ProbeSurfaceAsync(_dshView);
+        phase["dshMode"] = _dsh.Mode.ToString();
+        phase["dshBoundCwd"] = _dsh.BoundCwd;
+        if (_dsh.Mode == DshService.Ownership.Owned) ok &= SamePath(_dsh.BoundCwd, expectedRoot);
+
+        await SwitchToAsync(Workspace.Viewer);
+        ok &= await WaitSurfaceLoadedAsync(_viewerView, () => _viewer.Failure, TimeSpan.FromSeconds(60));
+        phase["viewerProbe"] = await ProbeSurfaceAsync(_viewerView);
+        phase["viewerRoot"] = _viewer.CurrentRoot;
+        ok &= SamePath(_viewer.CurrentRoot, expectedRoot);
+
+        phase["ok"] = ok;
+        return phase;
+    }
+
+    private static bool ProcessExists(int pid)
+    {
+        try { using var p = System.Diagnostics.Process.GetProcessById(pid); return !p.HasExited; }
+        catch { return false; }
+    }
 }

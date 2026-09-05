@@ -1,0 +1,182 @@
+{
+  "scenario": "rebind-owned-dsh",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-m4CB5x",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "A": {
+      "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-0efRb0",
+      "kimiProbe": {
+        "mark": "5dd7c158",
+        "t0": 1788570621533,
+        "href": "http://127.0.0.1:12480/sessions/session_f2e91ee6-1f37-431e-9ad0-e24c0f59d7ed",
+        "title": "Kimi Code",
+        "ready": "complete"
+      },
+      "kimiBoundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-0efRb0",
+      "kimiSessionId": "session_f2e91ee6-1f37-431e-9ad0-e24c0f59d7ed",
+      "claudeProbe": {
+        "mark": "7713e94d",
+        "t0": 1788570626870,
+        "href": "http://127.0.0.1:6735/workspaces/bc728066-c91d-421d-856a-d14664fb3e6d",
+        "title": "cdesktop",
+        "ready": "loading"
+      },
+      "claudeWorkspaceId": "bc728066-c91d-421d-856a-d14664fb3e6d",
+      "claudeTargetBranch": "main",
+      "dshProbe": {
+        "mark": "68c49176",
+        "t0": 1788570648061,
+        "href": "http://127.0.0.1:7800/",
+        "title": "DeepSeek Harness",
+        "ready": "interactive"
+      },
+      "dshMode": "Owned",
+      "dshBoundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-0efRb0",
+      "viewerProbe": {
+        "mark": "2fb0d7da",
+        "t0": 1788570649295,
+        "href": "http://127.0.0.1:2986/",
+        "title": "文件查看器与任务时间机",
+        "ready": "loading"
+      },
+      "viewerRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-0efRb0",
+      "ok": true
+    },
+    "B": {
+      "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-bBrHye",
+      "kimiProbe": {
+        "mark": "d7e2bfca",
+        "t0": 1788570651887,
+        "href": "http://127.0.0.1:12480/sessions/session_3afc244b-d203-4e5b-9e95-e8ebeb28cf23",
+        "title": "d0-03-proj-bBrHye | Kimi Code",
+        "ready": "complete"
+      },
+      "kimiBoundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-bBrHye",
+      "kimiSessionId": "session_3afc244b-d203-4e5b-9e95-e8ebeb28cf23",
+      "claudeProbe": {
+        "mark": "5169a221",
+        "t0": 1788570652178,
+        "href": "http://127.0.0.1:6735/workspaces/22ba1613-023c-4302-8fbc-10dfd23d7032",
+        "title": "arckeep-d0-03-proj-bBrHye-053916fc | cdesktop",
+        "ready": "complete"
+      },
+      "claudeWorkspaceId": "22ba1613-023c-4302-8fbc-10dfd23d7032",
+      "claudeTargetBranch": "feature-x",
+      "dshProbe": {
+        "mark": "b8158598",
+        "t0": 1788570660857,
+        "href": "http://127.0.0.1:9276/",
+        "title": "DeepSeek Harness",
+        "ready": "interactive"
+      },
+      "dshMode": "Owned",
+      "dshBoundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-bBrHye",
+      "viewerProbe": {
+        "mark": "2fb0d7da",
+        "t0": 1788570649295,
+        "href": "http://127.0.0.1:2986/",
+        "title": "文件查看器与任务时间机",
+        "ready": "complete"
+      },
+      "viewerRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-bBrHye",
+      "ok": true
+    },
+    "asserts": {
+      "currentRootIsB": true,
+      "viewerRootIsB": true,
+      "claudeWorkspaceChanged": true,
+      "claudeWorkspaceErrorNull": true,
+      "claudeTargetBranch": "feature-x",
+      "kimiBoundRootIsB": true,
+      "kimiSessionChanged": true,
+      "dshMode": "Owned",
+      "dshBoundCwdIsB": true,
+      "dshOwnedPidChanged": true,
+      "dshAPidGone": true
+    },
+    "claude_session_in_B": {
+      "workspaceId": "22ba1613-023c-4302-8fbc-10dfd23d7032",
+      "sessionId": "bce2ea50-ff17-4b3a-bb61-8538ef2258b1",
+      "processId": "0bbb85a7-c218-4eee-9544-06d13c076441",
+      "status": "completed"
+    },
+    "cycleInB": {
+      "kimi": {
+        "mark": "d7e2bfca",
+        "t0": 1788570651887,
+        "href": "http://127.0.0.1:12480/sessions/session_3afc244b-d203-4e5b-9e95-e8ebeb28cf23",
+        "title": "d0-03-proj-bBrHye | Kimi Code",
+        "ready": "complete"
+      },
+      "claude": {
+        "mark": "5169a221",
+        "t0": 1788570652178,
+        "href": "http://127.0.0.1:6735/workspaces/22ba1613-023c-4302-8fbc-10dfd23d7032",
+        "title": "arckeep-d0-03-proj-bBrHye-053916fc | cdesktop",
+        "ready": "complete"
+      },
+      "dsh": {
+        "mark": "b8158598",
+        "t0": 1788570660857,
+        "href": "http://127.0.0.1:9276/",
+        "title": "DeepSeek Harness",
+        "ready": "complete"
+      },
+      "viewer": {
+        "mark": "2fb0d7da",
+        "t0": 1788570649295,
+        "href": "http://127.0.0.1:2986/",
+        "title": "文件查看器与任务时间机",
+        "ready": "complete"
+      }
+    },
+    "ordinarySwitchNoReloadInB": true,
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null,
+        "boundSession": "session_3afc244b-d203-4e5b-9e95-e8ebeb28cf23"
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:6735/",
+        "ownedPid": 146584,
+        "workspaceId": "22ba1613-023c-4302-8fbc-10dfd23d7032",
+        "workspaceError": null,
+        "targetBranch": "feature-x"
+      },
+      "dsh": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:9276/",
+        "ownedPid": 129788,
+        "boundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-bBrHye"
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:2986/?token=1320798c6b7bca133ac2edb68b7a0186217bf71c7507a61e83dcf103754f76b0",
+        "ownedPid": 88248,
+        "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-bBrHye"
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 146584,
+        "ownedGone": true
+      },
+      {
+        "surface": "dsh",
+        "pid": 129788,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 88248,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

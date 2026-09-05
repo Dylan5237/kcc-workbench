@@ -35,11 +35,23 @@ async function httpOk(url) {
   } catch { return false; }
 }
 
-function makeFixtureProject() {
+function makeFixtureProject(marker) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'd0-03-proj-'));
   fs.writeFileSync(path.join(dir, 'README.md'), '# d0-03 probe project\n');
   fs.mkdirSync(path.join(dir, 'src'));
   fs.writeFileSync(path.join(dir, 'src', 'hello.py'), 'print("hi")\n');
+  if (marker) fs.writeFileSync(path.join(dir, marker), 'marker\n');
+  return dir;
+}
+
+// R1-4：项目 B 是「当前分支 != main」的 git 仓库，验证 target_branch 不硬编码 main
+function makeGitFixtureProject(marker, branch) {
+  const dir = makeFixtureProject(marker);
+  const git = (args) => execSync(`git ${args}`, { cwd: dir, stdio: 'pipe' });
+  git('init -q');
+  git('-c user.email=probe@local -c user.name=probe add -A');
+  git('-c user.email=probe@local -c user.name=probe commit -qm init');
+  git(`checkout -qb ${branch}`);
   return dir;
 }
 
@@ -201,6 +213,24 @@ async function main() {
       if (userDsh && !userDsh.preExisting) killTree(userDsh.child);
     }
     const ok = results.every((r) => r.ok !== false && r.exitCode === 0);
+    console.log(`[${stamp()}] OVERALL ${ok ? 'PASS' : 'FAIL'}`);
+    process.exit(ok ? 0 : 1);
+  }
+
+  if (which === 'rebind' || which === 'rebind-owned-dsh') {
+    const dirA = makeFixtureProject('.arckeep-test-project-a');
+    const dirB = makeGitFixtureProject('.arckeep-test-project-b', 'feature-x');
+    // rebind-owned-dsh：attach 探测指向空端口，强制 DSH 走 owned，验证 A→B 时 owned DSH 重启语义
+    const ownedDsh = which === 'rebind-owned-dsh';
+    console.log(`[${stamp()}] rebind projects: A=${dirA} B=${dirB} (branch=feature-x, dsh=${ownedDsh ? 'owned' : 'natural'})`);
+    const r = await runScenario(which, {
+      ARCKEEP_TEST_REBIND: '1',
+      ARCKEEP_TEST_PROJECT_A: dirA,
+      ARCKEEP_TEST_PROJECT_B: dirB,
+      ...(ownedDsh ? { ARCKEEP_DSH_ATTACH_AUTHORITY: '127.0.0.1:9' } : {}),
+    }, 15);
+    results.push(r);
+    const ok = results.every((x) => x.exitCode === 0 && !x.timedOut && x.shutdown?.ok !== false);
     console.log(`[${stamp()}] OVERALL ${ok ? 'PASS' : 'FAIL'}`);
     process.exit(ok ? 0 : 1);
   }

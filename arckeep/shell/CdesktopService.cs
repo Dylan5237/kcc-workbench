@@ -34,6 +34,13 @@ internal sealed class CdesktopService : IDisposable
     /// <summary>当前项目根对应的 cdesktop workspace id（EnsureWorkspace 成功后记录）。</summary>
     public string? WorkspaceId { get; private set; }
 
+    /// <summary>当前项目根的 workspace 页面路由（cdesktop 0.2.3 既有 /workspaces/{id} seam）。</summary>
+    public string? WorkspaceUrl =>
+        OpenUrl is not null && WorkspaceId is not null ? OpenUrl + "workspaces/" + WorkspaceId : null;
+
+    /// <summary>最近一次 workspace 挂载使用的 target_branch（非 main 分支证据用）。</summary>
+    public string? LastTargetBranch { get; private set; }
+
     /// <summary>workspace 确保失败的诊断（服务本身仍可用，不升级为 Failure）。</summary>
     public string? WorkspaceError { get; private set; }
 
@@ -277,22 +284,36 @@ internal sealed class CdesktopService : IDisposable
         var projectName = new DirectoryInfo(projectRoot.TrimEnd(Path.DirectorySeparatorChar)).Name;
         var workspaceName = "arckeep-" + Sanitize(projectName) + "-" + ShortHash(projectRoot);
 
-        // repo：按真实路径复用，否则注册
+        // repo：按真实路径复用，否则注册；保留上游探测的 default_target_branch
         string? repoId = null;
+        string? defaultTargetBranch = null;
         using (var reposDoc = JsonDocument.Parse(await http.GetStringAsync(baseUrl + "/api/repos")))
         {
             if (reposDoc.RootElement.TryGetProperty("data", out var repos) && repos.ValueKind == JsonValueKind.Array)
                 foreach (var r in repos.EnumerateArray())
                     if (r.TryGetProperty("path", out var p) && SamePath(p.GetString(), projectRoot)
                         && r.TryGetProperty("id", out var id))
+                    {
                         repoId = id.GetString();
+                        if (r.TryGetProperty("default_target_branch", out var db) && db.ValueKind == JsonValueKind.String)
+                            defaultTargetBranch = db.GetString();
+                    }
         }
         if (repoId is null)
         {
             var created = await PostJsonAsync(http, baseUrl + "/api/repos",
                 new { path = projectRoot, display_name = projectName });
             repoId = created.GetProperty("data").GetProperty("id").GetString();
+            if (created.GetProperty("data").TryGetProperty("default_target_branch", out var db)
+                && db.ValueKind == JsonValueKind.String)
+                defaultTargetBranch = db.GetString();
         }
+
+        // target_branch 是必填字段（422 when omitted，实测）：优先上游探测值，
+        // 否则用项目当前 git 分支（不假定 main），非 git 项目回退 main（is_git=false 时该值不被使用）。
+        var targetBranch = !string.IsNullOrEmpty(defaultTargetBranch) ? defaultTargetBranch!
+            : TryCurrentGitBranch(projectRoot) ?? "main";
+        LastTargetBranch = targetBranch;
 
         // workspace：按命名约定复用，否则创建并挂载 repo
         string? workspaceId = null;
@@ -310,10 +331,34 @@ internal sealed class CdesktopService : IDisposable
                 new { name = workspaceName, use_worktree = false });
             workspaceId = created.GetProperty("data").GetProperty("id").GetString();
             await PostJsonAsync(http, baseUrl + $"/api/workspaces/{workspaceId}/repos",
-                new { repo_id = repoId, target_branch = "main" });
+                new { repo_id = repoId, target_branch = targetBranch });
         }
         WorkspaceId = workspaceId;
-        Program.Log($"cdesktop workspace 就绪：{workspaceName} ({workspaceId})");
+        Program.Log($"cdesktop workspace 就绪：{workspaceName} ({workspaceId}) target_branch={targetBranch}");
+    }
+
+    /// <summary>读项目当前 git 分支；非 git 仓库/失败返回 null（不引入 git workflow，只读事实）。</summary>
+    private static string? TryCurrentGitBranch(string projectRoot)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "rev-parse --abbrev-ref HEAD",
+                WorkingDirectory = projectRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(psi);
+            if (proc is null) return null;
+            var branch = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit(5000);
+            return proc.ExitCode == 0 && branch.Length > 0 && branch != "HEAD" ? branch : null;
+        }
+        catch { return null; }
     }
 
     private static async Task<JsonElement> PostJsonAsync(HttpClient http, string url, object body)

@@ -19,6 +19,9 @@ internal sealed class DshService : IDisposable
 
     private static readonly Regex ReadyLine = new(@"dsh web: (http://\S+)", RegexOptions.Compiled);
 
+    /// <summary>attach 探测结果：URL + 该实例的真实 cwd（host.describe 事实，不伪造绑定）。</summary>
+    public sealed record AttachInfo(string Url, string? Cwd);
+
     private Process? _proc;
 
     public enum Ownership { None, Attached, Owned }
@@ -26,6 +29,12 @@ internal sealed class DshService : IDisposable
     public string? OpenUrl { get; private set; }
     public Ownership Mode { get; private set; } = Ownership.None;
     public Exception? Failure { get; private set; }
+
+    /// <summary>
+    /// 本实例的项目绑定事实：Owned = 启动 cwd；Attached = host.describe 报告的 cwd
+    /// （用户实例不随 Arckeep 项目切换，仅供壳层诚实记录）。
+    /// </summary>
+    public string? BoundCwd { get; private set; }
 
     /// <summary>自有模式下的子进程 PID（诊断/看门狗用；attached 模式恒为 null）。</summary>
     public int? OwnedProcessId => Mode == Ownership.Owned ? _proc?.Id : null;
@@ -45,8 +54,9 @@ internal sealed class DshService : IDisposable
         if (attached is not null)
         {
             Mode = Ownership.Attached;
-            OpenUrl = attached;
-            Program.Log($"dsh 复用用户已有实例 {attached}");
+            OpenUrl = attached.Url;
+            BoundCwd = attached.Cwd;
+            Program.Log($"dsh 复用用户已有实例 {attached.Url}（其实例 cwd={attached.Cwd ?? "未知"}，不随 Arckeep 项目切换）");
             return OpenUrl;
         }
 
@@ -72,7 +82,7 @@ internal sealed class DshService : IDisposable
     /// POST /api/host.describe → server-response 且 result.ok=true 且带 cwd/home。
     /// loopback Host 通过 DSH 的 browser-trust fence（dsh-client-connection）。
     /// </summary>
-    public static async Task<string?> TryAttachAsync(string authority)
+    public static async Task<AttachInfo?> TryAttachAsync(string authority)
     {
         var origin = $"http://{authority}";
         try
@@ -91,8 +101,8 @@ internal sealed class DshService : IDisposable
             if (root.GetProperty("type").GetString() != "server-response") return null;
             if (!root.GetProperty("result").GetProperty("ok").GetBoolean()) return null;
             var value = root.GetProperty("result").GetProperty("value");
-            if (!value.TryGetProperty("cwd", out _) || !value.TryGetProperty("home", out _)) return null;
-            return origin + "/";
+            if (!value.TryGetProperty("cwd", out var cwdEl) || !value.TryGetProperty("home", out _)) return null;
+            return new AttachInfo(origin + "/", cwdEl.GetString());
         }
         catch
         {
@@ -163,7 +173,8 @@ internal sealed class DshService : IDisposable
         if (!await WaitReadyAsync(origin, deadline - DateTime.UtcNow))
             throw new TimeoutException("dsh web readiness 超时：" + origin);
         OpenUrl = origin + "/";
-        Program.Log($"dsh 已启动（Arckeep 自有）{OpenUrl}");
+        BoundCwd = cwd;   // owned 实例的项目绑定 = 启动 cwd
+        Program.Log($"dsh 已启动（Arckeep 自有）{OpenUrl} cwd={cwd}");
     }
 
     /// <summary>
@@ -186,12 +197,13 @@ internal sealed class DshService : IDisposable
         _proc = null;
         OpenUrl = null;
         Mode = Ownership.None;
+        BoundCwd = null;
     }
 
     /// <summary>只清理 Arckeep 明确创建并拥有的进程树；attach 的用户实例绝不动。</summary>
     public void Dispose()
     {
         if (Mode == Ownership.Owned) TerminateOwned();
-        else { _proc = null; OpenUrl = null; Mode = Ownership.None; }
+        else { _proc = null; OpenUrl = null; Mode = Ownership.None; BoundCwd = null; }
     }
 }

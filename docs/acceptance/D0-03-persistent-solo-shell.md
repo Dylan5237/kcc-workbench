@@ -117,3 +117,70 @@ ShellWindow（WinForms + 原生标题栏）
 
 无 `CDESKTOP_INTEGRATION_BLOCKED` / `DSH_INTEGRATION_BLOCKED` / `KIMI_REGRESSION` / `ARCHITECTURE_EXCEPTION`。
 不 merge，不启动 D0-05 / D0-V。等待 ChatGPT Architecture Review。
+
+---
+
+# R1 — S3 Project Continuity 修复（Architecture Review REQUEST_CHANGES 后）
+
+Reviewed HEAD：`1890aa706dd8d6d61402559c693f9d759aea733e`
+Finding：workspace switching 与 project switching 混淆；A→B 后 Kimi/Claude/DSH 仍停在 A
+（`_*LoadedUrl` 非空短路）。修复 = 最小 project binding，无 generalized abstraction。
+
+## R1.1 绑定模型
+
+显式区分两类切换：
+
+- **普通工作面切换**（Kimi→Claude→DSH→Viewer→…）：`Open*` 守卫
+  `_*LoadedUrl != null && SamePath(_*BoundRoot, currentRoot)` → 直接 return，纯可见性，不 reload。
+- **显式项目切换**（`SetProject` 检测 root 变化）→ `RebindSurfaces(B)`：
+  只重绑**已加载**的工作面（未打开的下次 Open 自然按 B 绑定）：
+
+| 工作面 | 绑定机制 | A→B 行为 |
+| --- | --- | --- |
+| Kimi | `_kimiBoundRoot` + `_kimiBoundSessionId`；`KimiWebService.BindSessionAsync`：`GET /api/v1/sessions` 找 `metadata.cwd==B` 的最近 session，否则 `POST /api/v1/sessions {metadata:{cwd}}` 创建空 session（实测 200、message_count=0、不启动 turn、不计费），导航 `/sessions/<id>` | 同实例换 session（intentional navigate），不重启 kimi web，绝不 kill 用户实例 |
+| Claude | `_claudeBoundRoot`；cdesktop 进程复用，对 B 再 `EnsureWorkspace` → `WorkspaceId=B`，导航 `/workspaces/{idB}`（0.2.3 既有 SPA 路由） | intentional navigate，不杀 cdesktop |
+| DSH | `DshService.BoundCwd`（Owned=启动 cwd；Attached=host.describe 真实 cwd） | Owned 且 cwd 过期 → Dispose 自有实例 + 按 B cwd 重启；Attached 用户实例绝不 kill，诚实记录其实例 cwd |
+| Viewer | 既有 `SyncViewerRoot`（D0-04 seam） | 不变 |
+
+## R1-4 cdesktop target_branch
+
+实测 cdesktop 0.2.3：`target_branch` 为**必填**（缺失 → 422）；
+`default_target_branch` 由上游探测（无 remote 的 git 仓库也可能为 null）。
+取值顺序：`repo.default_target_branch` → 项目当前 git 分支（`git rev-parse --abbrev-ref HEAD`，只读事实）
+→ 非 git 回退 `main`（`is_git=false` 时该值不被使用，既有证据）。
+验证：项目 B 为 git 仓库且当前分支 `feature-x`（非 main），workspace 挂载成功、`WorkspaceError=null`、
+`LastTargetBranch="feature-x"`（`d0-03-rebind*.json` → `asserts.claudeTargetBranch`）。
+
+## R1 双项目证据（真实运行，两 fixture 目录各带 `.arckeep-test-project-a/b` 标记）
+
+`spike/results/d0-03-rebind.json`（DSH 自然 attach 路径）：
+
+- Phase A：Kimi session `session_b1933d4f…`（cwd=A）；Claude workspace `4ca7d0a7…`，
+  href `…/workspaces/4ca7d0a7…`；Viewer root=A；DSH Attached（用户 3080 实例，cwd 如实记录）。
+- `SetProject(B)` 后：Kimi → 新 session `session_3df9632a…`（cwd=B，标题变为
+  `d0-03-proj-hdwhKl | Kimi Code`——不再是旧项目）；Claude `WorkspaceId` → `8c0c3158…`，
+  href `…/workspaces/8c0c3158…`，`target_branch=feature-x`；Viewer root=B；全部断言 `true`。
+- B 内真实 Claude session `23866d49…` completed（B workspace 功能验证）。
+- B 内普通切换 Kimi→Claude→DSH→Viewer→Claude→Kimi：mark/timeOrigin 逐值相等，
+  `ordinarySwitchNoReloadInB=true`。
+
+`spike/results/d0-03-rebind-owned-dsh.json`（强制 owned DSH 路径）：
+
+- A：Owned DSH cwd=A；`SetProject(B)` 后：A 的 owned 进程确定死亡（`dshAPidGone=true`）、
+  新 owned 实例 cwd=B（`dshBoundCwdIsB=true`、`dshOwnedPidChanged=true`）；
+  B 内普通切换仍 no-reload；退出后全部 owned 进程消失。
+
+## R1 回归
+
+- `dotnet build -c Release`：0 错误。
+- `npm test`：124/124。
+- `switch` 场景重跑（V1/V2/V3/V4/V8 修复后回归）：见 `d0-03-shell-switch.json` 最新一轮。
+- Kimi ACP Brief/follow-up（V5）重跑：见报告 §4 V5 行与 `d0-03-kimi-auto-r1.png`。
+- V7 故障隔离路径未改动（failure 分支代码同 R0），lifecycle 关机语义未改动；
+  重绑新增的 owned-DSH Dispose 由 rebind-owned-dsh 场景的 `dshAPidGone` + 关机矩阵覆盖。
+
+## R1 新增 limitation
+
+- Kimi 绑定依赖 kimi web `metadata.cwd` seam（0.39 实测）；session 列表较大时线性扫描（本机 292 条，毫秒级）。
+- Attached DSH 是用户实例，其内容上下文由用户实例自身决定；Arckeep 只做事实记录，不做项目绑定伪造。
+- Kimi 绑定失败时回退到 kimi web base URL 且 `_kimiBoundRoot` 保持空（证据中可判，不冒充绑定）。
