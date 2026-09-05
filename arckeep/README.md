@@ -50,6 +50,10 @@ ARCKEEP_TEST_SWITCH=1 ARCKEEP_TEST_PROJECT=<dir> ARCKEEP_TEST_OUT=<proof.json> .
 ARCKEEP_TEST_FAIL=claude|dsh ARCKEEP_TEST_PROJECT=<dir> ARCKEEP_TEST_OUT=<proof.json> ./Arckeep.exe
 #   故障隔离：目标工作面真实失败（claude 用 CDESKTOP_BIN/ARCKEEP_CDESKTOP_PORT_FILE 指向不存在路径；
 #   dsh 用 PATH 前置假 dsh.cmd + ARCKEEP_DSH_ATTACH_AUTHORITY=127.0.0.1:9），其余工作面必须可用
+ARCKEEP_TEST_COMPOSITION=1 ARCKEEP_TEST_PROJECT=<dir> ARCKEEP_TEST_OUT=<proof.json> ./Arckeep.exe
+#   R3 人眼可见组合契约：H6 序列每站断言 Visible / bounds==contentHost / GetChildIndex 最顶 /
+#   Project-Rail 不压覆盖层，且 DOM 探针同时成功（防「JS 可跑但用户看不到」false positive）；
+#   回访站断言标记/timeOrigin 不变（普通切换 no-reload），不创建付费 Claude session
 ```
 
 ## 踩坑记录（后续开发别再踩）

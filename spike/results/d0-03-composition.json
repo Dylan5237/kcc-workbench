@@ -1,0 +1,269 @@
+{
+  "scenario": "composition",
+  "project": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-K7DnUM",
+  "exitCode": 0,
+  "timedOut": false,
+  "proof": {
+    "projectUiReady": true,
+    "first": {
+      "project": {
+        "workspace": "Project",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "layoutVisible": true,
+        "layoutBoundsMatch": true,
+        "layoutTopmostVisible": true,
+        "overlaysHidden": true,
+        "uiVisible": true,
+        "agentHidden": true,
+        "uiBoundsMatch": true,
+        "dom": {
+          "mark": "06814024",
+          "t0": 1788580120330,
+          "href": "https://arckeep.local/index.html",
+          "title": "Arckeep",
+          "ready": "complete"
+        },
+        "domOk": true
+      },
+      "kimi": {
+        "workspace": "Kimi",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "layoutVisible": true,
+        "layoutBoundsMatch": true,
+        "layoutTopmostVisible": true,
+        "overlaysHidden": true,
+        "uiVisible": true,
+        "agentVisible": true,
+        "agentBoundsMatch": true,
+        "railBoundsMatch": true,
+        "splitRuleMatch": true,
+        "dom": {
+          "mark": "12cc710c",
+          "t0": 1788580138180,
+          "href": "http://127.0.0.1:12480/sessions/session_901a04db-35ae-4892-8fec-79df6d10be30",
+          "title": "Kimi Code",
+          "ready": "interactive"
+        },
+        "domOk": true,
+        "surfaceLoaded": true
+      },
+      "claude": {
+        "workspace": "Claude",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "viewVisible": true,
+        "viewBoundsMatch": true,
+        "viewTopmost": true,
+        "viewTopmostVisible": true,
+        "layoutBelowView": true,
+        "otherOverlaysHidden": true,
+        "dom": {
+          "mark": "2e1988d2",
+          "t0": 1788580146833,
+          "href": "http://127.0.0.1:6058/workspaces/509e305a-a187-40f0-964f-9cf2bbfa66c4",
+          "title": "cdesktop",
+          "ready": "interactive"
+        },
+        "domOk": true,
+        "surfaceLoaded": true
+      },
+      "dsh": {
+        "workspace": "Dsh",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "viewVisible": true,
+        "viewBoundsMatch": true,
+        "viewTopmost": true,
+        "viewTopmostVisible": true,
+        "layoutBelowView": true,
+        "otherOverlaysHidden": true,
+        "dom": {
+          "mark": "d0328d88",
+          "t0": 1788580212216,
+          "href": "http://127.0.0.1:10746/",
+          "title": "DeepSeek Harness",
+          "ready": "interactive"
+        },
+        "domOk": true,
+        "surfaceLoaded": true
+      },
+      "viewer": {
+        "workspace": "Viewer",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "viewVisible": true,
+        "viewBoundsMatch": true,
+        "viewTopmost": true,
+        "viewTopmostVisible": true,
+        "layoutBelowView": true,
+        "otherOverlaysHidden": true,
+        "dom": {
+          "mark": "1bd99547",
+          "t0": 1788580216698,
+          "href": "http://127.0.0.1:4102/",
+          "title": "文件查看器与任务时间机",
+          "ready": "complete"
+        },
+        "domOk": true,
+        "surfaceLoaded": true
+      }
+    },
+    "revisit": {
+      "claude": {
+        "workspace": "Claude",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "viewVisible": true,
+        "viewBoundsMatch": true,
+        "viewTopmost": true,
+        "viewTopmostVisible": true,
+        "layoutBelowView": true,
+        "otherOverlaysHidden": true,
+        "dom": {
+          "mark": "2e1988d2",
+          "t0": 1788580146833,
+          "href": "http://127.0.0.1:6058/workspaces/509e305a-a187-40f0-964f-9cf2bbfa66c4",
+          "title": "cdesktop",
+          "ready": "interactive"
+        },
+        "domOk": true,
+        "noReload": true
+      },
+      "kimi": {
+        "workspace": "Kimi",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "layoutVisible": true,
+        "layoutBoundsMatch": true,
+        "layoutTopmostVisible": true,
+        "overlaysHidden": true,
+        "uiVisible": true,
+        "agentVisible": true,
+        "agentBoundsMatch": true,
+        "railBoundsMatch": true,
+        "splitRuleMatch": true,
+        "dom": {
+          "mark": "12cc710c",
+          "t0": 1788580138180,
+          "href": "http://127.0.0.1:12480/sessions/session_901a04db-35ae-4892-8fec-79df6d10be30",
+          "title": "d0-03-proj-K7DnUM | Kimi Code",
+          "ready": "complete"
+        },
+        "domOk": true,
+        "noReload": true
+      },
+      "project": {
+        "workspace": "Project",
+        "activeMatches": true,
+        "hostClient": {
+          "x": 0,
+          "y": 0,
+          "w": 1520,
+          "h": 914
+        },
+        "layoutVisible": true,
+        "layoutBoundsMatch": true,
+        "layoutTopmostVisible": true,
+        "overlaysHidden": true,
+        "uiVisible": true,
+        "agentHidden": true,
+        "uiBoundsMatch": true,
+        "dom": {
+          "mark": "06814024",
+          "t0": 1788580120330,
+          "href": "https://arckeep.local/index.html",
+          "title": "Arckeep",
+          "ready": "complete"
+        },
+        "domOk": true,
+        "noReload": true
+      }
+    },
+    "matrix": {
+      "kimi": {
+        "url": "http://127.0.0.1:12480/#token=8Aftv_JZdHXx-Cu7p2BmZQyzNDYRQ35Gk_BuZdvZEJU",
+        "ownedPid": null,
+        "boundSession": "session_901a04db-35ae-4892-8fec-79df6d10be30",
+        "boundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-K7DnUM"
+      },
+      "claude": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:6058/",
+        "ownedPid": 90400,
+        "workspaceId": "509e305a-a187-40f0-964f-9cf2bbfa66c4",
+        "workspaceError": null,
+        "targetBranch": "main",
+        "boundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-K7DnUM"
+      },
+      "dsh": {
+        "mode": "Owned",
+        "url": "http://127.0.0.1:10746/",
+        "ownedPid": 128204,
+        "boundCwd": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-K7DnUM",
+        "boundRoot": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-K7DnUM"
+      },
+      "viewer": {
+        "url": "http://127.0.0.1:4102/?token=e40af2ba8cdbc1f5666007f7916e1751ed88a6a42e9c335dd4160175bf86902c",
+        "ownedPid": 31824,
+        "root": "C:\\Users\\howyo\\AppData\\Local\\Temp\\d0-03-proj-K7DnUM"
+      }
+    }
+  },
+  "shutdown": {
+    "checks": [
+      {
+        "surface": "claude",
+        "pid": 90400,
+        "ownedGone": true
+      },
+      {
+        "surface": "dsh",
+        "pid": 128204,
+        "ownedGone": true
+      },
+      {
+        "surface": "viewer",
+        "pid": 31824,
+        "ownedGone": true
+      }
+    ],
+    "ok": true
+  }
+}

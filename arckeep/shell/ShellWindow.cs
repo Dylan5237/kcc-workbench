@@ -11,6 +11,11 @@ namespace Arckeep.Shell;
 /// DSH / Viewer 四个一级工作面，各自独立持久 WebView2；普通切换只做 Visible/置顶，
 /// 不销毁、不 reload、不停 agent/session。
 /// 控制平面走 ACP（简报交付证据），视觉平面是 agent 原生 Web UI（D-20 接入 ≠ 改造）。
+/// R3 宿主组合：titleBar 之下由 _contentHost 独占内容区；Project/Kimi 共用分栏布局
+/// _projectKimiLayout，Claude/DSH/Viewer 是与该布局平级的整幅兄弟控件（Dock=Fill），
+/// 激活 = Visible + BringToFront，z-order 只由 _contentHost.Controls 顺序决定——
+/// 不再让多个 WebView2 共享同一个 TableLayoutPanel 单元格（真实机器上该组合不可靠：
+/// 覆盖层 DOM 已加载但仍被 Project/Rail 压在下面，DOM 探针产生 false positive）。
 /// </summary>
 internal sealed partial class ShellWindow : Form
 {
@@ -21,12 +26,15 @@ internal sealed partial class ShellWindow : Form
     /// <summary>一级工作面。普通切换只改宿主可见性，inactive WebView2 保持存活。</summary>
     private enum Workspace { Project, Kimi, Claude, Dsh, Viewer }
 
-    private readonly TableLayoutPanel _layout = new() { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
-    private readonly WebView2 _agentView = new() { Dock = DockStyle.Fill, Visible = false };
-    private readonly WebView2 _uiView = new() { Dock = DockStyle.Fill };
-    private readonly WebView2 _viewerView = new() { Dock = DockStyle.Fill, Visible = false };
-    private readonly WebView2 _claudeView = new() { Dock = DockStyle.Fill, Visible = false };
-    private readonly WebView2 _dshView = new() { Dock = DockStyle.Fill, Visible = false };
+    // 内容宿主：Form 的唯二内容子控件之一（另一个是全宽 titleBar）。
+    // 五个目的地全部是它的直接子控件；整幅工作面的 z-order 由 Controls 集合顺序确定。
+    private readonly Panel _contentHost = new() { Dock = DockStyle.Fill };
+    private readonly TableLayoutPanel _projectKimiLayout = new() { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+    private readonly WebView2 _agentView = new() { Dock = DockStyle.Fill, Visible = false, Margin = Padding.Empty };
+    private readonly WebView2 _uiView = new() { Dock = DockStyle.Fill, Margin = Padding.Empty };
+    private readonly WebView2 _viewerView = new() { Dock = DockStyle.Fill, Visible = false, Margin = Padding.Empty };
+    private readonly WebView2 _claudeView = new() { Dock = DockStyle.Fill, Visible = false, Margin = Padding.Empty };
+    private readonly WebView2 _dshView = new() { Dock = DockStyle.Fill, Visible = false, Margin = Padding.Empty };
     private readonly Panel _titleBar = new() { Dock = DockStyle.Top, Height = 36, BackColor = Color.FromArgb(0xF5, 0xF2, 0xEA) };
     private readonly Label _quotaChip = new() { AutoSize = false, TextAlign = ContentAlignment.MiddleCenter };
     private readonly Label _projectLabel = new() { AutoSize = true, ForeColor = Color.FromArgb(0x66, 0x63, 0x5D) };
@@ -81,17 +89,16 @@ internal sealed partial class ShellWindow : Form
 
         BuildTitleBar();
 
-        _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));   // agent（接入态展开）
-        _layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));  // Arckeep UI
-        _layout.Controls.Add(_agentView, 0, 0);
-        _layout.Controls.Add(_uiView, 1, 0);
-        // Claude / DSH / Viewer 覆盖层：与 agent 同格但跨两列，激活时置顶覆盖（纯可见性切换）
+        _projectKimiLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));   // agent（接入态展开）
+        _projectKimiLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));  // Arckeep UI
+        _projectKimiLayout.Controls.Add(_agentView, 0, 0);
+        _projectKimiLayout.Controls.Add(_uiView, 1, 0);
+        _contentHost.Controls.Add(_projectKimiLayout);
+        // Claude / DSH / Viewer 整幅工作面：_projectKimiLayout 的兄弟控件（同一 contentHost 内），
+        // 激活时 Visible + BringToFront 置顶；不与任何其他控件共享 TableLayoutPanel 单元格。
         foreach (var overlay in new[] { _viewerView, _claudeView, _dshView })
-        {
-            _layout.Controls.Add(overlay, 0, 0);
-            _layout.SetColumnSpan(overlay, 2);
-        }
-        Controls.Add(_layout);
+            _contentHost.Controls.Add(overlay);
+        Controls.Add(_contentHost);
         Controls.Add(_titleBar);   // 后加入者先 dock：标题栏占顶部，内容铺满剩余
 
         Shown += async (_, _) => await OnShownAsync();
@@ -466,6 +473,10 @@ internal sealed partial class ShellWindow : Form
         // 测试钩子：D0-03 R2 绑定失败 fail-closed（服务健康但 workspace/session 绑定失败）
         if (Environment.GetEnvironmentVariable("ARCKEEP_TEST_BINDFAIL") == "1")
             _ = Task.Run(RunBindFailureTestAsync);
+
+        // 测试钩子：D0-03 R3 人眼可见工作面组合契约（Visible/bounds/z-order + DOM 探针，H6/H7）
+        if (Environment.GetEnvironmentVariable("ARCKEEP_TEST_COMPOSITION") == "1")
+            _ = Task.Run(RunCompositionProbeAsync);
 
         var shot = Environment.GetEnvironmentVariable("ARCKEEP_SHOT");
         if (!string.IsNullOrEmpty(shot))
@@ -1049,6 +1060,8 @@ internal sealed partial class ShellWindow : Form
     {
         HideOverlays();
         _active = workspace;
+        // contentHost 内兄弟组合：BringToFront = Controls[0] = 确定的最上层，
+        // Project/Kimi 布局与另外两个工作面被压在下面且不接收输入（R3 修复的核心不变量）
         view.Visible = true;
         view.BringToFront();
         UpdateWorkspaceButtons();
@@ -1215,8 +1228,8 @@ internal sealed partial class ShellWindow : Form
     {
         // 只能在 UI 线程调用
         _attached = attached;
-        _layout.ColumnStyles[0] = new ColumnStyle(SizeType.Percent, attached ? 100F : 0F);
-        _layout.ColumnStyles[1] = new ColumnStyle(attached ? SizeType.Absolute : SizeType.Percent, attached ? RailWidth : 100F);
+        _projectKimiLayout.ColumnStyles[0] = new ColumnStyle(SizeType.Percent, attached ? 100F : 0F);
+        _projectKimiLayout.ColumnStyles[1] = new ColumnStyle(attached ? SizeType.Absolute : SizeType.Percent, attached ? RailWidth : 100F);
         _agentView.Visible = attached;
     }
 
