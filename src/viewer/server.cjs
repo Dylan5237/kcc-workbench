@@ -143,16 +143,24 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
             : normalizeWebPath(path.join(watchRoot, raw))
           if (isIgnoredRelativePath(openPath)) return
           const extension = path.extname(raw).toLowerCase()
-          if (!WATCHED_EXTENSIONS.has(extension) && !HTML_ASSET_EXTENSIONS.has(extension)) return
+          if (WATCHED_EXTENSIONS.has(extension)) {
+            // 文档类变更由 scheduleArtifact 确认内容后统一广播 change + artifact,
+            // 保证 fs.watch 与轮询兜底两条路径走同一出口。
+            scheduleArtifact(openPath)
+            return
+          }
+          const isCode = CODE_EXTENSIONS.has(extension)
+          const isAsset = HTML_ASSET_EXTENSIONS.has(extension)
+          if (!isCode && !isAsset) return
           clearTimeout(debounceTimer)
           debounceTimer = setTimeout(() => {
             broadcast({
               type: 'change',
               file: openPath,
-              kind: WATCHED_EXTENSIONS.has(extension) ? 'document' : 'asset'
+              // asset 优先保持既有语义: html 预览的 css/图片资源变化仍刷新预览
+              kind: isAsset ? 'asset' : 'code'
             })
           }, 250)
-          if (WATCHED_EXTENSIONS.has(extension)) scheduleArtifact(openPath)
         })
         watchers.push(handle)
       } catch (error) {
@@ -176,7 +184,11 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       const current = artifactRoot
         ? await readArtifactDocument(artifactRoot, relativePath)
         : null
-      if (sameArtifactDocument(previous, current)) return
+      if (sameArtifactDocument(previous, current)) {
+        // 内容未变时仍刷新 mtime 基线, 否则轮询兜底会因 mtime 差异每 3s 重复调度
+        if (previous && current) artifactSnapshot.set(relativePath, current)
+        return
+      }
       if (current) artifactSnapshot.set(relativePath, current)
       else artifactSnapshot.delete(relativePath)
       const type = !previous ? 'created' : (!current ? 'deleted' : 'modified')
@@ -199,6 +211,9 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         beforeContent: previous?.content || '',
         afterContent: current?.content || ''
       })
+      // 先广播 change 驱动文件树/预览刷新, 再广播 artifact 驱动本轮产物;
+      // 轮询兜底路径也经由此处, 两条链路对前端表现一致。
+      broadcast({ type: 'change', file: relativePath, kind: 'document' })
       broadcast({ type: 'artifact', artifact, session: publicArtifactSession() })
     }, 350))
   }
