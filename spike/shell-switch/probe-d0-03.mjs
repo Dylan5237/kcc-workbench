@@ -7,8 +7,12 @@
 //               after exit, owned PIDs must be gone, attached instances alive (V8).
 //   fail-claude ARCKEEP_TEST_FAIL=claude with bogus CDESKTOP_BIN / port file (V7).
 //   fail-dsh    ARCKEEP_TEST_FAIL=dsh with a fake `dsh` shim first in PATH (V7).
+//   composition ARCKEEP_TEST_COMPOSITION=1 — R3 human-visible host-composition contract:
+//               H6 sequence with per-destination Visible/bounds/z-order/GetChildIndex
+//               assertions + DOM probe on the topmost WebView2 (anti false-positive);
+//               no paid Claude session is created.
 //
-// Usage: node spike/shell-switch/probe-d0-03.mjs [switch|fail-claude|fail-dsh|all]
+// Usage: node spike/shell-switch/probe-d0-03.mjs [switch|fail-claude|fail-dsh|composition|all]
 // Output: spike/results/d0-03-<scenario>.json
 import { spawn, execSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -322,6 +326,12 @@ async function main() {
     const ok = results.every((x) => x.ok !== false && x.exitCode === 0);
     console.log(`[${stamp()}] OVERALL ${ok ? 'PASS' : 'FAIL'}`);
     process.exit(ok ? 0 : 1);
+  }
+
+  if (which === 'composition') {
+    results.push(await runScenario('composition', {
+      ARCKEEP_TEST_COMPOSITION: '1',
+    }, 15));
   }
 
   if (which === 'switch' || which === 'all') {
