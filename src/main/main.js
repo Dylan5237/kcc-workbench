@@ -44,6 +44,7 @@ import { requireSender, normalizeForkRequest } from './ipc-validators.js'
 import { createKimiCodeUrlGuard } from './url-trust.js'
 import { createGracefulShutdownHandler } from './graceful-shutdown.js'
 import { createBackgroundContextSync } from './viewer-context-sync.js'
+import { createViewerSessionArm } from './viewer-session-arm.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -84,6 +85,7 @@ let settingsService = null
 let workbenchConfigService = null
 let activeEngine = 'kimi'
 let viewerContextSync = null
+let viewerSessionArm = null
 let viewerContextLogPath = null
 let lastViewerContextLog = { signature: '', timestamp: 0 }
 let loginWindow = null
@@ -203,6 +205,12 @@ app.whenReady().then(async () => {
   viewerServer = await startViewerServer({
     port: 0,
     configDir: app.getPath('userData')
+  })
+  viewerSessionArm = createViewerSessionArm({
+    observe: observeViewerSessionState,
+    detect: detectViewerSessionContext,
+    apply: applyViewerSessionContext,
+    onEvent: (event, details) => logViewerContext(event, details)
   })
   configureRemoteSession()
   await createMainWindow()
@@ -363,6 +371,7 @@ async function createMainWindow() {
   mainWindow.on('closed', () => {
     viewerContextSync?.stop()
     viewerContextSync = null
+    viewerSessionArm = null
     quotaVisible = false
     if (loginWindow && !loginWindow.isDestroyed()) {
       loginWindow.close()
@@ -1102,25 +1111,59 @@ async function detectKimiProjectDirectory() {
   return (await detectKimiWorkspaceContext()).context?.projectDirectory || null
 }
 
+// 所有 Viewer 上下文同步（后台轮询 / 导航信号 / 页签与引擎切换）都经过
+// viewerSessionArm 的串行队列：检测期间引擎或 URL 已变化的结果直接丢弃，
+// 检测 miss 不会解除已 arm 的上下文，Viewer 可见性不参与记录正确性。
 async function syncViewerConversationContext() {
-  if (!viewerServer) return false
-  const detection = activeEngine === 'cloudcli'
-    ? await detectCloudCliWorkspaceContext()
-    : await detectKimiWorkspaceContext()
-  const context = detection.context
-  if (!context?.projectDirectory) {
-    await logViewerContext('context-miss', {
-      engine: activeEngine,
-      cloudCliUrl: activeEngine === 'cloudcli' ? cloudCliView?.webContents.getURL() : undefined,
-      routeSessionId: detection.routeSessionId,
-      apiStatus: detection.apiStatus,
-      apiError: detection.apiError,
-      fallback: detection.fallback
-    })
-    return false
+  if (!viewerSessionArm) return false
+  const result = await viewerSessionArm.sync()
+  if (result.stale) viewerContextSync?.request(0)
+  return result.applied
+}
+
+function observeViewerSessionState() {
+  const engine = activeEngine
+  const view = engine === 'cloudcli' ? cloudCliView : kimiView
+  const url = view && !view.webContents.isDestroyed() ? view.webContents.getURL() : ''
+  return { engine, url, key: `${engine}|${url}` }
+}
+
+async function detectViewerSessionContext(observed) {
+  return observed.engine === 'cloudcli'
+    ? detectCloudCliWorkspaceContext(observed.url)
+    : detectKimiRouteContext(observed.url)
+}
+
+// Arm 只跟随路由里明确展示的会话：路由无 /sessions/<id> 时保持当前上下文,
+// 不再用 DOM 抓取的侧栏会话 id 切换（那是真实使用中 A↔B 抖动/错误 arm 的来源）。
+async function detectKimiRouteContext(kimiUrl) {
+  const routeSessionId = parseKimiSessionId(kimiUrl) || null
+  const miss = extra => ({
+    context: null,
+    diagnostics: { engine: 'kimi', routeSessionId, fallback: false, ...extra }
+  })
+  if (!routeSessionId) return miss()
+  const sessionInfo = await fetchKimiSession(routeSessionId)
+  const workDirectory = await existingDirectory(
+    sessionInfo?.work_dir
+    || sessionInfo?.metadata?.cwd
+    || sessionInfo?.cwd
+    || sessionInfo?.workspace?.cwd
+  )
+  if (workDirectory) {
+    return {
+      context: { projectDirectory: workDirectory, sessionId: routeSessionId },
+      diagnostics: { engine: 'kimi', routeSessionId, fallback: false }
+    }
   }
-  const prefix = activeEngine === 'cloudcli' ? 'cloudcli' : 'kimi'
-  const label = activeEngine === 'cloudcli' ? '当前 CloudCLI 会话' : '当前 Kimi 对话'
+  return miss({ apiError: sessionInfo ? 'session-payload-missing-workdir' : 'session-api-request-failed' })
+}
+
+async function applyViewerSessionContext(context, detection) {
+  const diagnostics = detection?.diagnostics || {}
+  const engine = diagnostics.engine || activeEngine
+  const prefix = engine === 'cloudcli' ? 'cloudcli' : 'kimi'
+  const label = engine === 'cloudcli' ? '当前 CloudCLI 会话' : '当前 Kimi 对话'
   const previousRoot = viewerServer.root
   const extraRoots = normalizeExtraRoots(context.touchedPaths, context.projectDirectory)
   await viewerServer.setConversationContext({
@@ -1130,60 +1173,79 @@ async function syncViewerConversationContext() {
     extraRoots
   })
   await logViewerContext('context-applied', {
-    engine: activeEngine,
-    source: context.source || (activeEngine === 'cloudcli' ? 'jsonl-activity' : 'kimi-api'),
+    engine,
+    source: context.source || (engine === 'cloudcli' ? 'jsonl-activity' : 'kimi-api'),
     provider: context.provider,
     sessionId: context.sessionId,
-    routeSessionId: detection.routeSessionId,
-    apiStatus: detection.apiStatus,
-    apiError: detection.apiError,
-    fallback: detection.fallback,
+    routeSessionId: diagnostics.routeSessionId,
+    apiStatus: diagnostics.apiStatus,
+    apiError: diagnostics.apiError,
+    fallback: diagnostics.fallback,
     projectDirectory: context.projectDirectory,
     extraRootCount: extraRoots.length,
     extraRoots,
     previousRoot,
     viewerRoot: viewerServer.root
   })
-  return true
 }
 
-async function detectCloudCliWorkspaceContext() {
-  const cloudCliUrl = cloudCliView?.webContents.getURL() || ''
+function withTimeout(promise, ms, fallback = null) {
+  let timer = null
+  return Promise.race([
+    promise,
+    new Promise(resolve => {
+      timer = setTimeout(() => resolve(fallback), ms)
+      timer.unref?.()
+    })
+  ]).finally(() => clearTimeout(timer))
+}
+
+async function detectCloudCliWorkspaceContext(observedUrl) {
+  const cloudCliUrl = observedUrl || ''
   const routeSessionId = parseCloudCliSessionId(cloudCliUrl)
   let apiStatus = null
   let apiError = null
 
   if (routeSessionId && cloudCliView && !cloudCliView.webContents.isDestroyed()) {
     try {
-      const result = await cloudCliView.webContents.executeJavaScript(`
+      const result = await withTimeout(cloudCliView.webContents.executeJavaScript(`
         (async () => {
           const sessionId = ${JSON.stringify(routeSessionId)}
           const token = localStorage.getItem('auth-token')
           const response = await fetch('/api/providers/sessions/' + encodeURIComponent(sessionId), {
-            headers: token ? { Authorization: 'Bearer ' + token } : {}
+            headers: token ? { Authorization: 'Bearer ' + token } : {},
+            signal: AbortSignal.timeout(3000)
           })
           const text = await response.text()
           let payload = null
           try { payload = JSON.parse(text) } catch {}
           return { ok: response.ok, status: response.status, payload }
         })()
-      `, true)
-      apiStatus = result?.status ?? null
-      const routeContext = result?.ok
-        ? extractCloudCliSessionContext(result.payload, routeSessionId)
-        : null
-      const projectDirectory = await existingDirectory(routeContext?.projectDirectory)
-      if (routeContext && projectDirectory) {
-        return {
-          context: { ...routeContext, projectDirectory },
-          routeSessionId,
-          apiStatus,
-          fallback: false
+      `, true), 8000, null)
+      if (result === null) {
+        apiError = 'session-api-timeout'
+      } else {
+        apiStatus = result?.status ?? null
+        const routeContext = result?.ok
+          ? extractCloudCliSessionContext(result.payload, routeSessionId)
+          : null
+        const projectDirectory = await existingDirectory(routeContext?.projectDirectory)
+        if (routeContext && projectDirectory) {
+          return {
+            context: { ...routeContext, projectDirectory },
+            diagnostics: {
+              engine: 'cloudcli',
+              cloudCliUrl,
+              routeSessionId,
+              apiStatus,
+              fallback: false
+            }
+          }
         }
+        if (result?.ok && routeContext && !projectDirectory) apiError = 'project-directory-missing'
+        else if (!result?.ok) apiError = 'session-api-request-failed'
+        else apiError = 'session-api-payload-missing-project'
       }
-      if (result?.ok && routeContext && !projectDirectory) apiError = 'project-directory-missing'
-      else if (!result?.ok) apiError = 'session-api-request-failed'
-      else apiError = 'session-api-payload-missing-project'
     } catch (error) {
       apiError = error instanceof Error ? error.message : String(error)
     }
@@ -1192,10 +1254,14 @@ async function detectCloudCliWorkspaceContext() {
   const fallbackContext = await detectCloudCliContext()
   return {
     context: fallbackContext ? { ...fallbackContext, source: 'jsonl-activity' } : null,
-    routeSessionId,
-    apiStatus,
-    apiError,
-    fallback: true
+    diagnostics: {
+      engine: 'cloudcli',
+      cloudCliUrl,
+      routeSessionId,
+      apiStatus,
+      apiError,
+      fallback: true
+    }
   }
 }
 
@@ -1322,7 +1388,11 @@ async function fetchKimiSession(sessionId) {
     : [`${localKimiService.url}api/sessions/${encodedId}`, `${localKimiService.url}api/v1/sessions/${encodedId}`]
   for (const url of candidates) {
     try {
-      const response = await net.fetch(url, { headers: localKimiService.apiHeaders })
+      // 无超时的挂起请求会永久卡住后台同步队列, 这里必须限时。
+      const response = await net.fetch(url, {
+        headers: localKimiService.apiHeaders,
+        signal: AbortSignal.timeout(3000)
+      })
       if (!response.ok) continue
       const payload = await response.json()
       return payload?.data || payload
