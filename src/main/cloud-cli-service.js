@@ -4,6 +4,7 @@ import path from 'node:path'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { net } from 'electron'
+import { isCloudCliHealth, readMarkerUrl, resolveCloudCliEndpoint } from './cloud-cli-endpoint.js'
 
 const HOST = '127.0.0.1'
 const READY_PATTERN = /CloudCLI Server - Ready|Server URL/i
@@ -15,6 +16,9 @@ export class CloudCliService {
     this.env = env
     this.port = port
     this.child = null
+    // true when `url` points at a CloudCLI server we attached to but did not
+    // spawn; stop() must never kill a server owned by someone else.
+    this.attached = false
     this.startPromise = null
   }
 
@@ -23,7 +27,7 @@ export class CloudCliService {
   }
 
   async start() {
-    if (this.child && this.url && await isReady(this.url)) return this.url
+    if ((this.child || this.attached) && this.url && await isReady(this.url)) return this.url
     if (this.startPromise) return this.startPromise
     this.startPromise = this.startProcess()
     try {
@@ -48,10 +52,30 @@ export class CloudCliService {
       setTimeout(resolve, 5000)
     })
     this.child = null
+    this.attached = false
   }
 
   async startProcess() {
-    await this.ensureAvailablePort()
+    const endpoint = await resolveCloudCliEndpoint({
+      preferredPort: this.port || DEFAULT_PORT,
+      host: HOST,
+      markerUrl: await readMarkerUrl(),
+      isPortAvailable,
+      probeCloudCliUrl,
+      onLog: message => this.writeLog(`${message}\n`)
+    })
+    if (!endpoint) throw new Error('无法为 CloudCLI 分配可用端口')
+    this.port = endpoint.port
+    if (endpoint.action === 'attach') {
+      // Positive /health identification already done inside resolveCloudCliEndpoint.
+      // Reusing the running server keeps the web origin (and its localStorage
+      // auth token) stable across KCC restarts.
+      this.child = null
+      this.attached = true
+      await this.writeLog(`CloudCLI attached at ${this.url}\n`)
+      return this.url
+    }
+    this.attached = false
     const cliEntry = resolveCloudCliEntry()
     const url = this.url
     const nodeExecutable = resolveNodeExecutable()
@@ -96,19 +120,6 @@ export class CloudCliService {
       await delay(400)
     }
     throw new Error(`等待 CloudCLI 就绪超时: ${output.slice(-2000)}`)
-  }
-
-  async ensureAvailablePort() {
-    if (!this.port || await isPortAvailable(this.port)) return
-    for (let offset = 1; offset < 100; offset += 1) {
-      const candidate = DEFAULT_PORT + offset
-      if (await isPortAvailable(candidate)) {
-        this.port = candidate
-        await this.writeLog(`Port ${DEFAULT_PORT} busy, using ${candidate}\n`)
-        return
-      }
-    }
-    throw new Error('无法为 CloudCLI 分配可用端口')
   }
 
   async writeLog(text) {
@@ -166,6 +177,18 @@ async function isReady(url) {
     if (!response.ok) return false
     const html = await response.text()
     return /CloudCLI|Claude UI|claude/i.test(html) || html.includes('assets/')
+  } catch {
+    return false
+  }
+}
+
+// Positively identify a CloudCLI server via its upstream /health contract.
+// A port being open is never enough to attach.
+async function probeCloudCliUrl(url) {
+  try {
+    const response = await net.fetch(new URL('health', url), { signal: AbortSignal.timeout(2000) })
+    if (!response.ok) return false
+    return isCloudCliHealth(await response.json())
   } catch {
     return false
   }
