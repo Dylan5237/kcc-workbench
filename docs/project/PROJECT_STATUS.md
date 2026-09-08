@@ -10,12 +10,12 @@ Current phase: **KCC 1.0 stabilization before 5-day dogfood**.
 
 Frozen execution order:
 
-1. #25 deterministic development packaging;
-2. #19 startup/package performance;
-3. #20 application identity swap to Arckeep;
-4. 5-day dogfood.
+1. #25 deterministic development packaging — **CLOSED / PASS / MERGED**;
+2. #19 startup/development package performance — **RELEASED**;
+3. #20 application identity swap to Arckeep — NOT RELEASED;
+4. 5-day dogfood — NOT STARTED.
 
-Only #25 is currently RELEASED. #19/#20 must not start until #25 is reviewed and merged.
+Do not start #20 or dogfood until #19 is reviewed/merged unless the user explicitly changes sequence.
 
 ## Long-lived branches
 
@@ -59,81 +59,94 @@ Accepted product contract:
 
 > Viewer recording is armed by the active Agent session/project, not by Viewer visibility. Opening Viewer is review-only.
 
-Accepted mechanisms:
-- all Viewer context sync paths serialize through one session-arm queue;
-- stale async detection results cannot overwrite a newer Agent session;
-- Kimi recording follows positively identified route session context;
-- Kimi / CloudCLI context probes have bounded timeout behavior;
-- same logical session/root re-sync does not reset the artifact baseline;
-- real Windows acceptance passed with Viewer never opened during the work phase.
-
 Known acceptance limitation:
 - signed-in CloudCLI UI route-API detection was not exercised in the isolated test profile; CloudCLI fallback end-to-end passed. This remains a normal user smoke item, not a merge blocker.
 
-## Active WorkPackage
+### #25 Deterministic development packaging — CLOSED / PASS / MERGED
 
-### #25 Deterministic development packaging — RELEASED
+Reviewed R1 HEAD:
+`e50e82af2c52434afa6984976224f4f33128f32d`
 
-Goal:
-- development packages always come from exact fetched `origin/develop/kcc-1.0`;
-- packaging runs in a dedicated detached sibling worktree;
-- current control repo / feature worktrees / dirty changes are never used as package source and are never mutated;
-- generated build metadata identifies exact source branch/SHA/time/version;
-- dirty/conflicting packaging worktree fails closed.
+Merge SHA:
+`a6e0994362d9cc30919e0124ce2b42f391b7a83c`
+
+Accepted contract:
+- development source is mechanically fixed to exact fetched `origin/develop/kcc-1.0`;
+- build runs in a dedicated detached packaging worktree;
+- user/Agent control and feature worktrees are not mutated or used as package source;
+- dirty/conflicting packaging worktree fails closed;
+- `npm ci` is unconditional until a later source/lockfile-aware cache is proven;
+- adjacent `build-info.json` records exact source SHA/version/time/mode.
+
+Captured performance baseline for #19:
+- total package run: ~334–418s;
+- `npm ci`: ~28–62s;
+- tests: ~13–20s;
+- pack/electron-builder + zip: ~290–338s (dominant);
+- zip: ~416.3 MB.
+
+## Active WorkPackage — #19 / K1-S0.4
+
+### Startup & development package performance — RELEASED
 
 Frozen taskbook:
-`docs/tasks/kimicode/K1-S0.3-development-packaging.md`
+`docs/tasks/kimicode/K1-S0.4-performance-stabilization.md`
 
 Implementation branch:
-`feat/k1-development-packaging`
+`fix/k1-startup-package-performance`
+
+Dedicated worktree:
+`D:\_projects\tools\kcc-workbench-wt-k1-performance`
 
 PR target:
 `develop/kcc-1.0`
 
-This WorkPackage establishes deterministic packaging mechanics only. Package-size/startup optimization belongs to #19.
+Execution discipline:
+- measure real Windows startup and package phases before changing behavior;
+- classify dominant causes mechanically;
+- implement only measured low-risk wins;
+- preserve #25 deterministic provenance;
+- preserve #17 realtime Viewer, #18 CloudCLI auth/origin continuity, and #23 passive Viewer recording.
+
+Current startup hypothesis to test:
+- `app.whenReady()` awaits Viewer server startup before `createMainWindow()`;
+- Viewer server startup currently waits for initial watcher/snapshot of the stored root;
+- this work may be blocking first-shell visibility.
+
+Current packaging hypothesis to test:
+- the ~290–338s `pack` stage is the dominant cost;
+- existing unpacked fast mode and zip/staging composition should be measured before any dependency/package pruning.
 
 ## Repository normalization
 
-Remote repository has been normalized around three long-lived branches:
+Remote repository is organized around three long-lived lines:
 
 - `main`
 - `develop/kcc-1.0`
 - `develop/arckeep-2.0`
 
-Legacy development refs such as `feature/viewer-modes`, `integration/arckeep-daily-driver`, completed D0 branches and completed K1 fix branches are retired as development baselines.
-
-Local historical worktrees/branches may still exist and must not be destructively cleaned while they contain user changes. They are not valid baselines for new work.
+Legacy development refs are retired as baselines. Local historical worktrees/branches may remain where user changes exist and must not be destructively cleaned.
 
 ## Arckeep 2.0
 
 Status: **RESERVED / FROZEN**.
 
-The 2.0 line preserves the latest C# + WebView2 architecture candidate and associated evidence, but product development is paused. Do not resume D0-05/D0-V or new 2.0 implementation without explicit user decision.
+The 2.0 line preserves the latest C# + WebView2 architecture candidate and associated evidence, but product development is paused.
 
-Product-level conclusion from dogfood so far:
-- KCC 1.0 Electron shell currently provides better day-to-day usability;
-- 2.0 architecture work produced useful runtime contracts, but its incremental product value has not yet justified continued engineering investment.
+Current product judgement: KCC 1.0 Electron shell is the better day-to-day baseline. Do not resume D0-05/D0-V or new 2.0 implementation without explicit user decision.
 
-## Next sequence after #25
-
-### #19 Startup / package performance — NOT RELEASED
-
-After deterministic packaging exists:
-- measure startup critical path;
-- measure packaging stages and package composition;
-- reduce unnecessary eager work and proven packaging bottlenecks;
-- avoid attributing all latency to Electron without evidence.
+## Next gates
 
 ### #20 Application identity swap — NOT RELEASED
 
-After performance work:
+After #19:
 - change KCC Workbench identity to Arckeep;
 - use Arckeep name/logo;
 - preserve existing sessions/settings/auth/user state across the identity transition.
 
 ### 5-day dogfood — NOT STARTED
 
-Begin only after stabilization exit gate is satisfied. Use KCC 1.0 in real work and record actual recurring friction, then decide whether to continue KCC 1.x evolution, resume Arckeep 2.0, or stop the broader project.
+Begin only after stabilization exit gate is satisfied. Use KCC 1.0 in real work, record recurring friction, then decide whether to continue KCC 1.x evolution, resume Arckeep 2.0, or stop the broader project.
 
 ## Stabilization exit gate
 
@@ -148,6 +161,6 @@ KCC 1.0 is dogfood-ready only when:
 
 ## Current execution gate
 
-**#25 RELEASED.**
+**#19 / K1-S0.4 RELEASED.**
 
-Do not start #19, #20, dogfood, or Arckeep 2.0 until #25 is reviewed/merged and the next gate is explicitly released.
+Do not start #20, dogfood, or Arckeep 2.0 until #19 is reviewed/merged.
