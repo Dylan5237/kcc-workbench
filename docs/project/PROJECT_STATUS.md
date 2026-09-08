@@ -8,7 +8,14 @@ KCC 1.0 is the active product line. Arckeep 2.0 is reserved/frozen.
 
 Current phase: **KCC 1.0 stabilization before 5-day dogfood**.
 
-No new implementation task is released automatically after this status update.
+Frozen execution order:
+
+1. #25 deterministic development packaging;
+2. #19 startup/package performance;
+3. #20 application identity swap to Arckeep;
+4. 5-day dogfood.
+
+Only #25 is currently RELEASED. #19/#20 must not start until #25 is reviewed and merged.
 
 ## Long-lived branches
 
@@ -63,6 +70,28 @@ Accepted mechanisms:
 Known acceptance limitation:
 - signed-in CloudCLI UI route-API detection was not exercised in the isolated test profile; CloudCLI fallback end-to-end passed. This remains a normal user smoke item, not a merge blocker.
 
+## Active WorkPackage
+
+### #25 Deterministic development packaging — RELEASED
+
+Goal:
+- development packages always come from exact fetched `origin/develop/kcc-1.0`;
+- packaging runs in a dedicated detached sibling worktree;
+- current control repo / feature worktrees / dirty changes are never used as package source and are never mutated;
+- generated build metadata identifies exact source branch/SHA/time/version;
+- dirty/conflicting packaging worktree fails closed.
+
+Frozen taskbook:
+`docs/tasks/kimicode/K1-S0.3-development-packaging.md`
+
+Implementation branch:
+`feat/k1-development-packaging`
+
+PR target:
+`develop/kcc-1.0`
+
+This WorkPackage establishes deterministic packaging mechanics only. Package-size/startup optimization belongs to #19.
+
 ## Repository normalization
 
 Remote repository has been normalized around three long-lived branches:
@@ -85,29 +114,26 @@ Product-level conclusion from dogfood so far:
 - KCC 1.0 Electron shell currently provides better day-to-day usability;
 - 2.0 architecture work produced useful runtime contracts, but its incremental product value has not yet justified continued engineering investment.
 
-## Remaining KCC 1.0 backlog
+## Next sequence after #25
 
-Not released:
+### #19 Startup / package performance — NOT RELEASED
 
-1. `#19` Startup / package performance
-   - measure startup critical path;
-   - reduce unnecessary eager work;
-   - improve update/build turnaround based on evidence.
+After deterministic packaging exists:
+- measure startup critical path;
+- measure packaging stages and package composition;
+- reduce unnecessary eager work and proven packaging bottlenecks;
+- avoid attributing all latency to Electron without evidence.
 
-2. `#20` Application identity swap
-   - change KCC Workbench identity to Arckeep;
-   - use Arckeep name/logo without losing existing local sessions/settings/auth state.
+### #20 Application identity swap — NOT RELEASED
 
-3. Development packaging workflow
-   - development packages must be built from exact `origin/develop/kcc-1.0`;
-   - build in a dedicated packaging worktree;
-   - embed source branch/commit in build metadata;
-   - release packages come from `main` or an explicit release tag.
+After performance work:
+- change KCC Workbench identity to Arckeep;
+- use Arckeep name/logo;
+- preserve existing sessions/settings/auth/user state across the identity transition.
 
-4. 5-day dogfood
-   - begin only after stabilization exit gate is satisfied;
-   - use KCC 1.0 in real work and record only actual recurring friction;
-   - use evidence to decide whether to continue KCC 1.x evolution, resume Arckeep 2.0, or stop the broader project.
+### 5-day dogfood — NOT STARTED
+
+Begin only after stabilization exit gate is satisfied. Use KCC 1.0 in real work and record actual recurring friction, then decide whether to continue KCC 1.x evolution, resume Arckeep 2.0, or stop the broader project.
 
 ## Stabilization exit gate
 
@@ -115,12 +141,13 @@ KCC 1.0 is dogfood-ready only when:
 
 - no known P0 blocker remains;
 - #23 passive Viewer recording passes normal user smoke;
+- deterministic development packaging is available;
 - startup/update loop is materially usable or has a measured stable workaround;
-- identity swap, if still desired, preserves existing user state;
+- identity swap preserves existing user state;
 - Kimi / CloudCLI / Viewer switching and persistence work without debugging the shell.
 
-## Current decision gate
+## Current execution gate
 
-**PAUSED FOR PM / USER SEQUENCING DECISION.**
+**#25 RELEASED.**
 
-Do not automatically release #19, #20, packaging work, or Arckeep 2.0 work. The next WorkPackage must be selected explicitly.
+Do not start #19, #20, dogfood, or Arckeep 2.0 until #25 is reviewed/merged and the next gate is explicitly released.
