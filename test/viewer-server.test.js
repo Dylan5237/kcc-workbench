@@ -38,6 +38,58 @@ function requestWithHost(server, host) {
   })
 }
 
+test('startServer resolves with HTTP surface before the initial watcher baseline (#19)', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-defer-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Hello')
+
+  const marks = []
+  const server = await startServer({
+    port: 0,
+    configDir,
+    defaultRoot: projectDir,
+    onProfile: label => marks.push(label)
+  })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  // 解析时 HTTP 面已可用, 但初始快照/监听基线尚未完成 (快照需等待文件 I/O)
+  assert.deepEqual(marks, ['viewer-listener-ready'])
+  const rootInfo = await viewerFetch(server, '/api/root').then(response => response.json())
+  assert.equal(rootInfo.root, projectDir)
+
+  await server.whenWatcherReady()
+  assert.deepEqual(marks, ['viewer-listener-ready', 'viewer-snapshot-ready', 'viewer-watcher-ready'])
+})
+
+test('same-root session arm waits for the deferred baseline before recording (#23)', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-arm-defer-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Before')
+
+  // 不等待 whenWatcherReady: 模拟应用启动后立刻武装同根会话 (#19 的后台基线仍在扫描)
+  const server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+  await server.setConversationContext({ id: 'kimi:session-1', label: '新会话', root: projectDir })
+
+  await fs.writeFile(path.join(projectDir, 'README.md'), '# Before\n\nTask output')
+  await new Promise(resolve => setTimeout(resolve, 900))
+  const session = await viewerFetch(server, '/api/artifacts').then(response => response.json())
+  assert.equal(session.id, 'kimi:session-1')
+  const change = session.changes.find(item => item.path === 'README.md')
+  assert.ok(change, '同根武装后的变更必须被记录, 不能被后台基线吞掉')
+  assert.equal(change.type, 'modified')
+})
+
 test('starts empty and accepts a project directory injection', async t => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-'))
   const configDir = path.join(tempRoot, 'config')
@@ -235,6 +287,8 @@ test('polling fallback records deleted documents', async t => {
   let server
   try {
     server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+    // #19: 在强制 fs.watch 失败的窗口内等初始 watcher 就绪, 保证走轮询兜底
+    await server.whenWatcherReady()
   } finally {
     fsSync.watch = originalWatch
   }
@@ -396,6 +450,8 @@ test('excludes transient directories and process files from tree and artifacts',
     await server.close()
     await fs.rm(tempRoot, { recursive: true, force: true })
   })
+  // #19: 等待初始 watcher 基线就绪, 随后的写入才能确定被捕获
+  await server.whenWatcherReady()
 
   // 开发模式全量树: 正式文件保留, tmp 目录/过程文件/点目录被过滤
   const tree = await viewerFetch(server, '/api/tree?mode=dev').then(response => response.json())

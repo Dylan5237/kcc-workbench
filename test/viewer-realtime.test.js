@@ -69,11 +69,16 @@ async function makeServer(t, { watchFails = false } = {}) {
     fsSync.watch = () => { throw new Error('forced polling fallback') }
     try {
       server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+      // #19: startServer 现在先返回 HTTP 面, 初始 watcher 在后台安装;
+      // 在强制 fs.watch 失败的窗口内等基线就绪, 保证走轮询兜底路径
+      await server.whenWatcherReady()
     } finally {
       fsSync.watch = originalWatch
     }
   } else {
     server = await startServer({ port: 0, configDir, defaultRoot: projectDir })
+    // 等待初始 watcher 基线就绪, 随后的文件写入才能确定被捕获
+    await server.whenWatcherReady()
   }
   t.after(async () => {
     await server.close()
