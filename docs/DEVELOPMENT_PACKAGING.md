@@ -30,9 +30,12 @@ package a feature ref while labeling it as develop. Future release packaging wil
 ship as a separate `package-release.ps1` rather than a generic source override here.
 
 Dependency reuse (#19): `npm ci` remains the source of truth. A successful `npm ci`
-writes `node_modules/.kcc-dep-stamp` with SHA-256(`package-lock.json`) plus the
-node/npm versions and os/arch; later runs skip the install only when the stamp
-matches the frozen source exactly. A bare "node_modules exists" check is never
+writes `node_modules/.kcc-dep-stamp` with SHA-256(`package.json`) +
+SHA-256(`package-lock.json`) plus the node/npm versions and os/arch; later runs
+skip the install only when the stamp matches the frozen source exactly. A
+`package.json`-only drift (lockfile untouched) therefore still invalidates the
+stamp and falls back to `npm ci`, which fails closed if the two manifests are
+inconsistent. A bare "node_modules exists" check is never
 sufficient, and `-ForceInstall` always forces a clean `npm ci`.
 
 ## Architecture

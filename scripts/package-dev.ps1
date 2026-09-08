@@ -18,8 +18,9 @@
     - never checkout/switch/reset/clean/stash the control repo or any feature worktree
     - never git pull; fetch only
     - a dirty registered packaging worktree stops the run (fail-closed)
-    - dependency reuse is keyed on package-lock.json SHA-256 + node/npm versions,
-      never on a bare node_modules-exists check (-ForceInstall bypasses)
+    - dependency reuse is keyed on package.json + package-lock.json SHA-256 and
+      node/npm versions, never on a bare node_modules-exists check
+      (-ForceInstall bypasses)
 
   Stop conditions (exit codes):
     10  STOP PACKAGING_WORKTREE_DIRTY
@@ -52,8 +53,8 @@ param(
   [switch]$Fast,
 
   # Force 'npm ci' even when the validated dependency stamp matches. Reuse is
-  # keyed on the exact package-lock.json content plus node/npm runtime versions,
-  # never on a bare "node_modules exists" check.
+  # keyed on the exact package.json + package-lock.json content plus node/npm
+  # runtime versions, never on a bare "node_modules exists" check.
   [switch]$ForceInstall
 )
 
@@ -215,19 +216,23 @@ Write-Host "worktree HEAD: $wtHead (detached, clean)"
 
 # --- Dependencies: deterministic install from the lockfile ---------------------------
 # npm ci remains the default. A validated reuse stamp (#19) may skip it: the stamp is
-# written only by a successful npm ci and is matched against the SHA-256 of the frozen
-# source's package-lock.json plus the node/npm runtime versions. A bare "node_modules
-# exists" check is never sufficient; -ForceInstall bypasses the stamp.
+# written only by a successful npm ci and is matched against a fingerprint of the
+# frozen source's package.json AND package-lock.json (SHA-256 each) plus the node/npm
+# runtime versions -- so a package.json edit that forgot to sync the lockfile still
+# invalidates the stamp and lets npm ci fail closed. A bare "node_modules exists"
+# check is never sufficient; -ForceInstall bypasses the stamp.
 Measure-Phase 'install' {
-  $lockPath = Join-Path $PackagingWorktree 'package-lock.json'
   $stampPath = Join-Path $PackagingWorktree 'node_modules\.kcc-dep-stamp'
-  $lockHash = (Get-FileHash -Algorithm SHA256 -Path $lockPath).Hash
   $nodeVersion = (& node --version)
   $npmVersion = (& npm --version)
-  $fingerprint = "$lockHash|node=$nodeVersion|npm=$npmVersion|os=win32-x64"
+  $fingerprint = (& node $LibPath dep-fingerprint `
+    --pkg (Join-Path $PackagingWorktree 'package.json') `
+    --lock (Join-Path $PackagingWorktree 'package-lock.json') `
+    --node $nodeVersion --npm $npmVersion --os 'win32-x64') | Select-Object -First 1
+  if ($LASTEXITCODE -ne 0) { throw "dep-fingerprint failed: $fingerprint" }
   $stamp = if (Test-Path $stampPath) { (Get-Content $stampPath -Raw).Trim() } else { '' }
   if (-not $ForceInstall -and $stamp -eq $fingerprint) {
-    Write-Host "`n> reusing node_modules (package-lock SHA-256 + node/npm runtime fingerprint match; -ForceInstall to override)"
+    Write-Host "`n> reusing node_modules (package.json+package-lock SHA-256 + node/npm runtime fingerprint match; -ForceInstall to override)"
   } else {
     Write-Host "`n> npm ci (deterministic install from package-lock.json)"
     & npm ci --prefix $PackagingWorktree | Out-Host
