@@ -12,7 +12,7 @@ KCC Workbench is a Windows Electron desktop shell for Kimi Code and CloudCLI (Cl
 - Isolated demo: `npm run demo -- --demo-profile=<name>`
 - Build unpacked app: `npm run build`
 - Build portable app: `npm run pack`
-- Deterministic dev package from `origin/develop/kcc-1.0`: `powershell -NoProfile -File scripts/package-dev.ps1` (see `docs/DEVELOPMENT_PACKAGING.md`)
+- Deterministic dev package from `origin/develop/kcc-1.0`: `powershell -NoProfile -File scripts/package-dev.ps1` (see `docs/DEVELOPMENT_PACKAGING.md`; add `-Fast` for an unpacked local-iteration build)
 
 Use Node.js 22 for development and packaging. CloudCLI currently starts through a compatible system Node runtime; a future release should bundle that runtime before claiming zero-prerequisite portability.
 
