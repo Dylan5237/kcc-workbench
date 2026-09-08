@@ -30,23 +30,20 @@ param(
   # Its checked-out branch and working tree are never modified.
   [string]$RepoRoot = '',
 
-  # Source ref resolved after fetch; frozen for the whole run.
-  [string]$SourceRef = 'origin/develop/kcc-1.0',
-
-  # Branch label recorded in build metadata.
-  [string]$SourceBranch = 'develop/kcc-1.0',
-
   # Dedicated packaging worktree. Default: sibling of the control repo named
   # 'kcc-workbench-wt-package-dev'. Must be detached at the resolved SHA.
   [string]$PackagingWorktree = '',
 
-  # Skip 'npm ci' (requires an existing node_modules). Deterministic default is to
-  # always reinstall from package-lock.json; reuse is opt-in only.
-  [switch]$SkipInstall,
-
   # Skip 'npm test' before packaging. Not recommended; acceptance runs tests.
   [switch]$SkipTests
 )
+
+# Development package source is mechanically fixed. No CLI override exists on
+# purpose: a caller must never be able to package a feature ref while labeling
+# the metadata as develop. Future release packaging gets its own
+# package-release.ps1 instead of a generic -SourceRef parameter here.
+$SourceRef = 'origin/develop/kcc-1.0'
+$SourceBranch = 'develop/kcc-1.0'
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -198,18 +195,13 @@ if ($wtDirty) {
 Write-Host "worktree HEAD: $wtHead (detached, clean)"
 
 # --- Dependencies: deterministic install from the lockfile ---------------------------
-if ($SkipInstall) {
-  if (-not (Test-Path (Join-Path $PackagingWorktree 'node_modules'))) {
-    throw "-SkipInstall requires an existing node_modules in $PackagingWorktree"
-  }
-  Write-Host "`n> skipping npm ci (-SkipInstall)"
-  $script:Timings['install'] = 0
-} else {
-  Measure-Phase 'install' {
-    Write-Host "`n> npm ci (deterministic install from package-lock.json)"
-    & npm ci --prefix $PackagingWorktree | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "npm ci failed (exit $LASTEXITCODE)" }
-  }
+# npm ci runs on every run, unconditionally. Reusing an existing node_modules cannot
+# prove it matches the frozen source SHA's package-lock.json, so no skip escape hatch
+# exists. A source/lockfile-aware validated cache is #19 scope, not this script.
+Measure-Phase 'install' {
+  Write-Host "`n> npm ci (deterministic install from package-lock.json)"
+  & npm ci --prefix $PackagingWorktree | Out-Host
+  if ($LASTEXITCODE -ne 0) { throw "npm ci failed (exit $LASTEXITCODE)" }
 }
 
 # --- Tests ----------------------------------------------------------------------------

@@ -17,10 +17,16 @@ Optional parameters:
   containing the script). Its branch and working tree are never modified.
 - `-PackagingWorktree <path>` — default: sibling of the control repo named
   `kcc-workbench-wt-package-dev`.
-- `-SkipInstall` — reuse the packaging worktree's existing `node_modules` instead of
-  `npm ci`. Non-default escape hatch; the deterministic path is a fresh lockfile
-  install on every run.
 - `-SkipTests` — skip `npm test` before packaging (not recommended).
+
+The development source is **not** a parameter. It is hardcoded to
+`origin/develop/kcc-1.0` (metadata branch `develop/kcc-1.0`) so a caller can never
+package a feature ref while labeling it as develop. Future release packaging will
+ship as a separate `package-release.ps1` rather than a generic source override here.
+
+Likewise there is no install skip: `npm ci` runs unconditionally on every run,
+because an existing `node_modules` cannot prove it matches the frozen SHA's
+lockfile. A source/lockfile-aware validated cache is #19 scope.
 
 ## Architecture
 
