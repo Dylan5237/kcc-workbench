@@ -40,7 +40,15 @@ import {
   syncSkillToEngines
 } from './skills-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
-import { requireSender, normalizeForkRequest } from './ipc-validators.js'
+import { createDogfoodService } from './dogfood-service.js'
+import { readBuildSourceCommit } from './build-info.js'
+import {
+  requireSender,
+  normalizeForkRequest,
+  normalizeDogfoodCreateInput,
+  normalizeDogfoodUpdateInput,
+  normalizeDogfoodDeleteInput
+} from './ipc-validators.js'
 import { createKimiCodeUrlGuard } from './url-trust.js'
 import { createGracefulShutdownHandler } from './graceful-shutdown.js'
 import { createBackgroundContextSync } from './viewer-context-sync.js'
@@ -63,6 +71,7 @@ startupMark('main-module-start')
 const rendererRoot = path.resolve(__dirname, '../renderer')
 const TITLEBAR_HEIGHT = 44
 const POPUP_WIDTH = 382
+const DOGFOOD_DRAWER_WIDTH = 400
 const WINDOW_CONTROLS_WIDTH = 142
 const SESSION_PARTITION = 'persist:kimi'
 
@@ -85,9 +94,14 @@ let cloudCliView = null
 let viewerView = null
 let settingsView = null
 let quotaView = null
+let dogfoodView = null
 let viewerServer = null
 let activeTab = 'kimi'
 let quotaVisible = false
+let dogfoodVisible = false
+let dogfoodService = null
+let dogfoodSourceCommit
+let lastAppliedViewerContext = null
 let quotaPreferredHeight = 620
 let quotaService = null
 let localKimiService = null
@@ -239,6 +253,16 @@ app.whenReady().then(async () => {
     apply: applyViewerSessionContext,
     onEvent: (event, details) => logViewerContext(event, details)
   })
+  dogfoodService = createDogfoodService({
+    dir: path.join(app.getPath('userData'), 'dogfood'),
+    onMalformedLine: ({ line }) => {
+      console.warn(`[dogfood] 忽略 inbox.jsonl 第 ${line} 行损坏内容（已保留其余记录）`)
+    },
+    onSnapshotError: error => {
+      console.warn('[dogfood] inbox.md 快照写入失败（JSONL 记录不受影响）:', error)
+    }
+  })
+  await dogfoodService.ensureLoaded()
   configureRemoteSession()
   startupMark('create-main-window-start')
   await createMainWindow()
@@ -369,6 +393,7 @@ async function createMainWindow() {
   viewerContextSync.start()
   createSettingsView()
   createQuotaView()
+  createDogfoodView()
 
   mainWindow.on('resize', layoutViews)
   mainWindow.on('maximize', layoutViews)
@@ -404,16 +429,18 @@ async function createMainWindow() {
     viewerContextSync = null
     viewerSessionArm = null
     quotaVisible = false
+    dogfoodVisible = false
     if (loginWindow && !loginWindow.isDestroyed()) {
       loginWindow.close()
     }
-    for (const view of [shellView, kimiView, cloudCliView, viewerView, settingsView, quotaView]) {
+    for (const view of [shellView, kimiView, cloudCliView, viewerView, settingsView, quotaView, dogfoodView]) {
       if (view && !view.webContents.isDestroyed()) {
         view.webContents.close()
       }
     }
     shellView = null
     quotaView = null
+    dogfoodView = null
     kimiView = null
     cloudCliView = null
     viewerView = null
@@ -435,7 +462,7 @@ function createShellView() {
     }
   })
   shellView.setBackgroundColor('#fafafa')
-  registerEngineShortcut(shellView)
+  registerViewShortcuts(shellView)
   mainWindow.contentView.addChildView(shellView)
 }
 
@@ -450,7 +477,7 @@ function createKimiView() {
     }
   })
   kimiView.setBackgroundColor('#ffffff')
-  registerEngineShortcut(kimiView)
+  registerViewShortcuts(kimiView)
   mainWindow.contentView.addChildView(kimiView)
 
   kimiView.webContents.setWindowOpenHandler(({ url }) => {
@@ -505,7 +532,7 @@ function createCloudCliView() {
     }
   })
   cloudCliView.setBackgroundColor('#ffffff')
-  registerEngineShortcut(cloudCliView)
+  registerViewShortcuts(cloudCliView)
 
   cloudCliView.webContents.setWindowOpenHandler(({ url }) => {
     if (isTrustedCloudCliUrl(url)) {
@@ -544,7 +571,7 @@ function createViewerView() {
     }
   })
   viewerView.setBackgroundColor('#ffffff')
-  registerEngineShortcut(viewerView)
+  registerViewShortcuts(viewerView)
   viewerView.webContents.on('focus', closeQuotaPopup)
   viewerView.webContents.setWindowOpenHandler(({ url }) => {
     if (isSafeExternalUrl(url)) shell.openExternal(url)
@@ -571,7 +598,7 @@ function createSettingsView() {
     }
   })
   settingsView.setBackgroundColor('#f6f6f6')
-  registerEngineShortcut(settingsView)
+  registerViewShortcuts(settingsView)
   settingsView.webContents.on('focus', closeQuotaPopup)
   settingsView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   settingsView.webContents.on('will-navigate', event => event.preventDefault())
@@ -589,8 +616,26 @@ function createQuotaView() {
     }
   })
   quotaView.setBackgroundColor('#00000000')
-  registerEngineShortcut(quotaView)
+  registerViewShortcuts(quotaView)
   quotaView.webContents.loadURL('app://shell/quota.html')
+}
+
+// K1-D0 (#34): Dogfood Inbox 抽屉是一个常驻创建的 WebContentsView overlay。
+// 打开 = addChildView, 关闭 = removeChildView, 底层 Kimi/CloudCLI/Viewer/
+// Settings view 的 bounds 与挂载状态完全不动 — 不会 reload/重建任何 Agent 会话。
+function createDogfoodView() {
+  dogfoodView = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/dogfood.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true
+    }
+  })
+  dogfoodView.setBackgroundColor('#00000000')
+  registerViewShortcuts(dogfoodView)
+  dogfoodView.webContents.loadURL('app://shell/dogfood.html')
 }
 
 function layoutViews() {
@@ -620,6 +665,15 @@ function layoutViews() {
       y: TITLEBAR_HEIGHT,
       width: POPUP_WIDTH,
       height: Math.min(quotaPreferredHeight, availableHeight)
+    })
+  }
+
+  if (dogfoodView) {
+    dogfoodView.setBounds({
+      x: Math.max(0, width - DOGFOOD_DRAWER_WIDTH),
+      y: TITLEBAR_HEIGHT,
+      width: DOGFOOD_DRAWER_WIDTH,
+      height: Math.max(0, height - TITLEBAR_HEIGHT)
     })
   }
 }
@@ -696,12 +750,26 @@ function activeEngineView() {
   return activeEngine === 'cloudcli' ? cloudCliView : kimiView
 }
 
-function registerEngineShortcut(view) {
+// 所有主工作区 view 共享的应用级快捷键（before-input-event, 仅 app 内生效,
+// 不注册 system-global hotkey）: Alt+Q 切引擎, Ctrl+Shift+N 打开/聚焦 Dogfood
+// 记录抽屉, Dogfood 打开时 Esc 关闭。两组 chord 互不重叠, 与页面快捷键隔离。
+function registerViewShortcuts(view) {
   view.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || input.isAutoRepeat || !input.alt || input.control || input.meta) return
-    if (String(input.key).toLowerCase() !== 'q') return
-    event.preventDefault()
-    toggleEngine().catch(error => console.error('Unable to switch engine:', error))
+    if (input.type !== 'keyDown' || input.isAutoRepeat) return
+    if (input.alt && !input.control && !input.meta && String(input.key).toLowerCase() === 'q') {
+      event.preventDefault()
+      toggleEngine().catch(error => console.error('Unable to switch engine:', error))
+      return
+    }
+    if (input.control && input.shift && !input.alt && !input.meta && String(input.key).toLowerCase() === 'n') {
+      event.preventDefault()
+      openDogfoodInbox()
+      return
+    }
+    if (!input.control && !input.alt && !input.meta && input.key === 'Escape' && dogfoodVisible) {
+      event.preventDefault()
+      closeDogfoodInbox()
+    }
   })
 }
 
@@ -712,6 +780,7 @@ function toggleQuotaPopup() {
     return
   }
 
+  closeDogfoodInbox()  // single-overlay: quota 与 dogfood 不同时打开
   quotaVisible = true
   mainWindow.contentView.addChildView(quotaView)
   layoutViews()
@@ -727,10 +796,93 @@ function closeQuotaPopup() {
   shellView.webContents.send('quota:visibility', false)
 }
 
+// 打开 Dogfood Inbox 只叠加 overlay; 底层 activeTab 对应的 view 保持挂载,
+// 不 remove/recreate/reload。single-overlay: 打开前先关 quota。
+function toggleDogfoodInbox() {
+  if (dogfoodVisible) {
+    closeDogfoodInbox()
+    return
+  }
+  openDogfoodInbox()
+}
+
+function openDogfoodInbox() {
+  if (!mainWindow || !dogfoodView) return
+  if (dogfoodVisible) {
+    // 已打开时快捷键只聚焦输入框, 不切换可见性。
+    dogfoodView.webContents.focus()
+    dogfoodView.webContents.send('dogfood:focus-editor')
+    return
+  }
+  closeQuotaPopup()
+  dogfoodVisible = true
+  mainWindow.contentView.addChildView(dogfoodView)
+  layoutViews()
+  dogfoodView.webContents.focus()
+  sendDogfoodState()
+  dogfoodView.webContents.send('dogfood:focus-editor')
+  shellView.webContents.send('dogfood:visibility', true)
+}
+
+function closeDogfoodInbox() {
+  if (!dogfoodVisible || !mainWindow || !dogfoodView) return
+  dogfoodVisible = false
+  mainWindow.contentView.removeChildView(dogfoodView)
+  shellView.webContents.send('dogfood:visibility', false)
+  const views = {
+    kimi: activeEngineView(),
+    viewer: viewerView,
+    settings: settingsView
+  }
+  const focusTarget = views[activeTab]
+  if (focusTarget && !focusTarget.webContents.isDestroyed()) {
+    focusTarget.webContents.focus()
+  }
+}
+
+async function sendDogfoodState() {
+  if (!dogfoodView || dogfoodView.webContents.isDestroyed() || !dogfoodService) return
+  try {
+    const records = await dogfoodService.today()
+    dogfoodView.webContents.send('dogfood:state', { records })
+  } catch (error) {
+    console.error('[dogfood] 读取今日记录失败:', error)
+  }
+}
+
+// 只复用已经正向识别/已用于 Viewer arm 的上下文; 缺失一律 null,
+// 绝不为了一次"记录"触发新的 Kimi/CloudCLI session detector (#23 语义不变)。
+async function captureDogfoodContext() {
+  return {
+    activeEngine: activeEngine || null,
+    activeTab: activeTab || null,
+    appVersion: app.getVersion(),
+    sourceCommit: await readCachedBuildSourceCommit(),
+    projectRoot: viewerServer?.root || null,
+    sessionId: lastAppliedViewerContext?.engine === activeEngine
+      ? lastAppliedViewerContext.sessionId
+      : null
+  }
+}
+
+// build 溯源只读与 exe 相邻的确定性打包元数据 (见 build-info.js 与 #25
+// scripts/package-dev.ps1)。dev/非打包运行时该文件不存在, 返回 null, 不阻塞保存。
+async function readCachedBuildSourceCommit() {
+  if (dogfoodSourceCommit !== undefined) return dogfoodSourceCommit
+  dogfoodSourceCommit = await readBuildSourceCommit(app.getPath('exe'))
+  return dogfoodSourceCommit
+}
+
 function wireIpc() {
   ipcMain.removeHandler('shell:get-state')
   ipcMain.removeHandler('shell:set-tab')
   ipcMain.removeHandler('shell:toggle-quota')
+  ipcMain.removeHandler('shell:toggle-dogfood')
+  ipcMain.removeHandler('dogfood:get-state')
+  ipcMain.removeHandler('dogfood:create')
+  ipcMain.removeHandler('dogfood:update')
+  ipcMain.removeHandler('dogfood:delete')
+  ipcMain.removeHandler('dogfood:close')
   ipcMain.removeHandler('nav:back')
   ipcMain.removeHandler('nav:forward')
   ipcMain.removeHandler('nav:reload')
@@ -773,6 +925,40 @@ function wireIpc() {
   ipcMain.handle('shell:toggle-quota', event => {
     requireSender(event, shellView.webContents)
     toggleQuotaPopup()
+  })
+  ipcMain.handle('shell:toggle-dogfood', event => {
+    requireSender(event, shellView.webContents)
+    toggleDogfoodInbox()
+  })
+  ipcMain.handle('dogfood:get-state', async event => {
+    requireSender(event, dogfoodView.webContents)
+    return { records: await dogfoodService.today() }
+  })
+  ipcMain.handle('dogfood:create', async (event, input) => {
+    requireSender(event, dogfoodView.webContents)
+    const payload = normalizeDogfoodCreateInput(input)
+    const context = await captureDogfoodContext()
+    const record = await dogfoodService.create({ ...payload, context })
+    await sendDogfoodState()
+    return record
+  })
+  ipcMain.handle('dogfood:update', async (event, input) => {
+    requireSender(event, dogfoodView.webContents)
+    const { id, patch } = normalizeDogfoodUpdateInput(input)
+    const record = await dogfoodService.update({ id, patch })
+    await sendDogfoodState()
+    return record
+  })
+  ipcMain.handle('dogfood:delete', async (event, input) => {
+    requireSender(event, dogfoodView.webContents)
+    const { id } = normalizeDogfoodDeleteInput(input)
+    await dogfoodService.remove({ id })
+    await sendDogfoodState()
+    return true
+  })
+  ipcMain.handle('dogfood:close', event => {
+    requireSender(event, dogfoodView.webContents)
+    closeDogfoodInbox()
   })
   ipcMain.handle('nav:back', event => {
     requireSender(event, shellView.webContents)
@@ -1197,6 +1383,12 @@ async function applyViewerSessionContext(context, detection) {
   const label = engine === 'cloudcli' ? '当前 CloudCLI 会话' : '当前 Kimi 对话'
   const previousRoot = viewerServer.root
   const extraRoots = normalizeExtraRoots(context.touchedPaths, context.projectDirectory)
+  // 已正向 arm 的上下文同时作为 Dogfood 记录的 best-effort 来源(只复用, 不触发检测)。
+  lastAppliedViewerContext = {
+    engine,
+    projectDirectory: context.projectDirectory,
+    sessionId: context.sessionId || null
+  }
   await viewerServer.setConversationContext({
     id: context.sessionId ? `${prefix}:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
     label: context.sessionId ? label : '当前工作区',
