@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./docs/assets/kcc-workbench-logo-20260810.png" width="88" height="88" alt="KCC Workbench">
+  <img src="./arckeep/shell/assets/app-icon.png" width="88" height="88" alt="Arckeep">
 
-  <h1>KCC Workbench</h1>
+  <h1>Arckeep</h1>
 
   <p><a href="./README.md">简体中文</a> · <strong>English</strong></p>
 
@@ -82,7 +82,7 @@ Click the top-left logo or press `Alt+Q` to switch engines. Settings, Restart Ho
 
 ### 1. Download and run
 
-Download the Windows zip for the desired version from [Releases](https://github.com/Dylan5237/kcc-workbench/releases), extract it, and run `KCC Workbench.exe`. KCC builds use the name `KCC-Workbench-*-x64.zip`.
+Download the Windows zip for the desired version from [Releases](https://github.com/Dylan5237/kcc-workbench/releases), extract it, and run `Arckeep.exe`. Builds use the name `Arckeep-*-x64.zip`.
 
 > [!TIP]
 > On first launch, verify Kimi Home, then switch to CloudCLI and complete its account setup or sign-in. Quota is never synchronized automatically and is available only on Kimi Home.
@@ -189,7 +189,7 @@ Build an unpacked Windows app:
 
 ```powershell
 npm run build
-& ".\dist\win-unpacked\KCC Workbench.exe"
+& ".\dist\win-unpacked\Arckeep.exe"
 ```
 
 Build a zip release (one-click, recommended):
@@ -199,7 +199,7 @@ npm run pack          # one-click: test -> clean dist -> package -> report artif
 npm run pack -- fast  # fast: skip tests/zip compression -> dist-fast/win-unpacked
 ```
 
-Run `pack.bat fast` from the repository root for day-to-day validation, then launch `dist-fast/win-unpacked/KCC Workbench.exe`; double-clicking `pack.bat` still performs the full zip build. Use `pack.bat --no-test` when only the test phase should be skipped. Fast mode still cleans its own `dist-fast/` directory, so it does not reuse stale output.
+Run `pack.bat fast` from the repository root for day-to-day validation, then launch `dist-fast/win-unpacked/Arckeep.exe`; double-clicking `pack.bat` still performs the full zip build. Use `pack.bat --no-test` when only the test phase should be skipped. Fast mode still cleans its own `dist-fast/` directory, so it does not reuse stale output.
 
 Pushes and pull requests run tests and a Windows build in GitHub Actions. Tags matching `v*` trigger the zip release workflow.
 

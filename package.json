@@ -28,7 +28,7 @@
   },
   "build": {
     "appId": "com.local.kccworkbench",
-    "productName": "KCC Workbench",
+    "productName": "Arckeep",
     "npmRebuild": false,
     "asar": true,
     "asarUnpack": [
@@ -235,7 +235,7 @@
           ]
         }
       ],
-      "artifactName": "KCC-Workbench-${version}-${arch}.${ext}"
+      "artifactName": "Arckeep-${version}-${arch}.${ext}"
     }
   },
   "dependencies": {

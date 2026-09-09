@@ -141,7 +141,7 @@ test('Windows release builds a zip archive instead of a silent portable exe', as
       arch: ['x64']
     }
   ])
-  assert.equal(packageJson.build.win.artifactName, 'KCC-Workbench-${version}-${arch}.${ext}')
+  assert.equal(packageJson.build.win.artifactName, 'Arckeep-${version}-${arch}.${ext}')
 })
 
 test('CloudCLI startup failures are persisted before cleanup', async () => {

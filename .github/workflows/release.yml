@@ -37,14 +37,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $assets = Get-ChildItem -LiteralPath "dist" -Filter "KCC-Workbench-*.zip"
+          $assets = Get-ChildItem -LiteralPath "dist" -Filter "Arckeep-*.zip"
           if (-not $assets) {
             throw "Zip archive was not generated."
           }
           $arguments = @(
             "release", "create", "${{ github.ref_name }}",
             "--repo", "${{ github.repository }}",
-            "--title", "KCC Workbench ${{ github.ref_name }}",
+            "--title", "Arckeep ${{ github.ref_name }}",
             "--generate-notes"
           )
           if ("${{ github.ref_name }}" -match "-(alpha|beta|rc)") {
