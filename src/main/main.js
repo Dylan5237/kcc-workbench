@@ -679,6 +679,25 @@ function layoutViews() {
   }
 }
 
+// Dogfood overlay 必须始终位于 workspace 之上: contentView 没有显式 z-index,
+// 后 addChildView 的 view 在最上层, 所以 tab/engine 切换会把新 workspace 压到
+// drawer 上面。这里用同一个 dogfoodView 对象 remove+add 做 restack —
+// 不是 recreate: webContents 与 renderer 状态(草稿/列表)完全保留。
+// 只在 dogfood 已打开时执行, 绝不会把已关闭的 view 加回来。
+function ensureDogfoodOverlayOnTop() {
+  if (!dogfoodVisible || !mainWindow || !dogfoodView) return
+  mainWindow.contentView.removeChildView(dogfoodView)
+  mainWindow.contentView.addChildView(dogfoodView)
+}
+
+// 首次 attach 的 workspace view 的 native window 可能异步 show 并压到 drawer
+// 上面(K1-D0 R2 实测: viewer/settings/cloudcli 首次切换 drawer 被埋)。
+// 因此 restack 放在切换收尾(所有 await 之后), 并再补一拍 setImmediate。
+function restackDogfoodOverlay() {
+  ensureDogfoodOverlayOnTop()
+  setImmediate(() => ensureDogfoodOverlayOnTop())
+}
+
 async function switchTab(nextTab) {
   if (!mainWindow || !shellView || !kimiView || !cloudCliView || !viewerView || !settingsView) return
   if (!['kimi', 'viewer', 'settings'].includes(nextTab) || nextTab === activeTab) return
@@ -704,6 +723,7 @@ async function switchTab(nextTab) {
 
   layoutViews()
   nextView.webContents.focus()
+  restackDogfoodOverlay()
   shellView.webContents.send('shell:tab-changed', {
     activeTab,
     activeEngine,
@@ -729,6 +749,7 @@ async function switchEngine(nextEngine) {
   sendNavigationState()
   shellView?.webContents.send('engine:changed', { engine: activeEngine })
   await syncViewerConversationContext()
+  restackDogfoodOverlay()
   return { engine: activeEngine }
 }
 
