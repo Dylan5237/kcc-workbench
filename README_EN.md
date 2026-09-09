@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./docs/assets/kcc-workbench-logo-20260810.png" width="88" height="88" alt="KCC Workbench">
+  <img src="./arckeep/shell/assets/app-icon.png" width="88" height="88" alt="Arckeep">
 
-  <h1>KCC Workbench</h1>
+  <h1>Arckeep</h1>
 
   <p><a href="./README.md">简体中文</a> · <strong>English</strong></p>
 
