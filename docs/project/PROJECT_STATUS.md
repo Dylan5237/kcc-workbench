@@ -11,10 +11,7 @@ Current phase: **5-day real-work dogfood validation — Day 1 ACTIVE**.
 Accepted dogfood runtime baseline:
 `8a067fa29e32af68634660cfe24797c930a76584`
 
-Current `develop/kcc-1.0` includes one later docs-only control-plane commit:
-`4c0871e7162bb6c9d21bdda7baae6dab0c8dc1a0`
-
-That docs-only commit does not change runtime code and does not invalidate the already smoke-tested dogfood executable. Do not rebuild merely to absorb this status-document commit.
+The repository has later docs-only control-plane commits after the accepted runtime baseline. They do not change runtime behavior and do not require repackaging. The dogfood executable remains pinned to the already smoke-tested `8a067fa...` build.
 
 Execution history:
 
@@ -63,7 +60,7 @@ Watch closely:
 ## Long-lived branches
 
 - Stable / release: `main@c7afab44a9933cc9f32a27c26125479a6ff0b735`
-- Active KCC 1.0 development: `develop/kcc-1.0@4c0871e7162bb6c9d21bdda7baae6dab0c8dc1a0` (latest change is docs-only status)
+- Active KCC 1.0 development: `develop/kcc-1.0`
 - Accepted dogfood runtime: `8a067fa29e32af68634660cfe24797c930a76584`
 - Reserved Arckeep 2.0 development: `develop/arckeep-2.0@a2b0636c5d0b22855b68d4c8a51d2c4ce646b4e1`
 
