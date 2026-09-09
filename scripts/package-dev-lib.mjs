@@ -3,6 +3,7 @@
 // PowerShell orchestration calls these through the small CLI at the bottom so the
 // logic stays unit-testable with `node --test` (see test/package-dev-lib.test.js).
 import { readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -79,6 +80,24 @@ export function makeBuildInfo({ sourceBranch, sourceCommit, version, mode = 'dev
   }
 }
 
+// Dependency-reuse fingerprint (#19 R1): any change to package.json OR
+// package-lock.json OR the node/npm runtime must invalidate the stamp, so a
+// package.json edit that forgot to sync the lockfile still falls through to
+// `npm ci`, which then fails closed on the manifest/lockfile mismatch.
+export function makeDependencyFingerprint({ packageJsonPath, packageLockPath, nodeVersion, npmVersion, platform }) {
+  for (const [name, value] of [['nodeVersion', nodeVersion], ['npmVersion', npmVersion], ['platform', platform]]) {
+    if (typeof value !== 'string' || !value) throw new Error(`${name} is required`)
+  }
+  const sha256 = filePath => createHash('sha256').update(readFileSync(filePath)).digest('hex')
+  return [
+    `package=${sha256(packageJsonPath)}`,
+    `lock=${sha256(packageLockPath)}`,
+    `node=${nodeVersion}`,
+    `npm=${npmVersion}`,
+    `os=${platform}`
+  ].join('|')
+}
+
 function parseArgs(argv) {
   const args = {}
   for (let i = 0; i < argv.length; i++) {
@@ -116,7 +135,19 @@ function main() {
     }
     return
   }
-  console.error('usage: package-dev-lib.mjs <parse-worktrees|build-info> [--sha X --branch Y --pkg P --out Z --now ISO]')
+  if (command === 'dep-fingerprint') {
+    const args = parseArgs(rest)
+    // --pkg/--lock point at the *packaging* worktree's manifests (frozen source).
+    process.stdout.write(makeDependencyFingerprint({
+      packageJsonPath: args.pkg,
+      packageLockPath: args.lock,
+      nodeVersion: args.node,
+      npmVersion: args.npm,
+      platform: args.os
+    }))
+    return
+  }
+  console.error('usage: package-dev-lib.mjs <parse-worktrees|build-info|dep-fingerprint> [--sha X --branch Y --pkg P --lock L --node V --npm V --os O --out Z --now ISO]')
   process.exit(2)
 }
 

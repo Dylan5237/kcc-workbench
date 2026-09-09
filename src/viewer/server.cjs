@@ -71,7 +71,7 @@ const HTML_PREVIEW_CSP = [
   "base-uri 'self'"
 ].join('; ')
 
-function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto.randomBytes(32).toString('hex') }) {
+function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto.randomBytes(32).toString('hex'), onProfile = null }) {
   const configPath = path.join(configDir, 'viewer-config.json')
   const stored = readJson(configPath)
   let root = validDirectory(defaultRoot)
@@ -93,6 +93,9 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   let watcher = null
   let pollingTimer = null
   let debounceTimer = null
+  let closed = false
+  let watcherGeneration = 0
+  let pendingWatcher = null
   const artifactTimers = new Map()
   let artifactSnapshot = new Map()
   let artifactSession = createArtifactSession({ root })
@@ -102,10 +105,29 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     fs.writeFileSync(configPath, JSON.stringify({ root, extraRoots, recentRoots }, null, 2))
   }
 
+  // 跟踪在途的 watcher 启动, 使调用方能等待基线就绪; 完成/失败都会清理引用,
+  // 错误仍抛给显式 await 的调用方, 后台路径只记录日志, 不会 unhandled rejection。
+  function launchWatcher() {
+    const run = startWatcher()
+    pendingWatcher = run
+    run.then(
+      () => { if (pendingWatcher === run) pendingWatcher = null },
+      error => {
+        if (pendingWatcher === run) pendingWatcher = null
+        console.error('Viewer watcher startup failed:', error)
+      }
+    )
+    return run
+  }
+
   async function setRoot(nextRoot) {
     const resolved = validDirectory(nextRoot)
     if (!resolved) return false
-    if (resolved === root) return true
+    if (resolved === root) {
+      // 根未变也要保证初始后台扫描的基线已就绪, 否则变更可能静默丢失 (#23)
+      if (pendingWatcher) await pendingWatcher
+      return true
+    }
     root = resolved
     recentRoots = [root, ...recentRoots.filter(item => item !== root)].slice(0, 10)
     extraRoots = []
@@ -115,12 +137,13 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       label: '当前工作区',
       root
     })
-    await startWatcher()
+    await launchWatcher()
     broadcast({ type: 'root', root })
     return true
   }
 
   async function startWatcher() {
+    const generation = ++watcherGeneration
     watcher?.close()
     watcher = null
     clearInterval(pollingTimer)
@@ -129,7 +152,17 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     for (const timer of artifactTimers.values()) clearTimeout(timer)
     artifactTimers.clear()
     if (!root) return
-    artifactSnapshot = await snapshotAllDocuments(root, extraRoots)
+    const snapshotStart = performance.now()
+    const snapshotStats = { entries: 0 }
+    const snapshot = await snapshotAllDocuments(root, extraRoots, snapshotStats)
+    let snapshotBytes = 0
+    for (const document of snapshot.values()) snapshotBytes += document.size
+    onProfile?.(
+      'viewer-snapshot-ready',
+      `duration=${(performance.now() - snapshotStart).toFixed(1)}ms entries=${snapshotStats.entries} documents=${snapshot.size} bytes=${snapshotBytes}`
+    )
+    if (closed || generation !== watcherGeneration) return  // 扫描期间已被关闭或被更新的 watcher 取代
+    artifactSnapshot = snapshot
     const watchRoots = [root, ...extraRoots]
     const watchers = []
     for (const watchRoot of watchRoots) {
@@ -173,6 +206,7 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       }
     }
     pollingTimer = setInterval(() => pollArtifactSnapshot(), 3000)
+    onProfile?.('viewer-watcher-ready', `duration=${(performance.now() - snapshotStart).toFixed(1)}ms`)
   }
 
   function scheduleArtifact(relativePath) {
@@ -584,7 +618,11 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         })
         return
       }
-      await startWatcher()
+      onProfile?.('viewer-listener-ready')
+      // #19: 服务器就绪不再等待初始快照/监听就绪。HTTP/控制面立即可用,
+      // 存储根的初始扫描在后台完成; setRoot/setConversationContext 仍会
+      // await 各自 watcher 基线, 正向应用会话根之前不会静默丢变更 (#23)。
+      launchWatcher()
       resolve({
         port: server.address().port,
         bootstrapToken: authToken,
@@ -592,6 +630,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
           return root
         },
         setRoot,
+        // 初始后台 watcher 的就绪句柄: HTTP 面先可用, 需要基线保证的调用方显式等待 (#19)
+        whenWatcherReady() {
+          return pendingWatcher || Promise.resolve()
+        },
         forkCheckpoint(input) {
           return timeMachine.forkCheckpoint(input)
         },
@@ -608,14 +650,18 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
           extraRoots = nextExtraRoots
           if (rootChanged || extraChanged) {
             saveState()
-            await startWatcher()
+            await launchWatcher()
             broadcast({ type: 'root', root })
+          } else if (pendingWatcher) {
+            // 根未变: 等待初始后台扫描的基线就绪后再视为会话已武装 (#23)
+            await pendingWatcher
           }
           const nextId = context?.id || (root ? `workspace:${root.toLowerCase()}` : 'workspace:empty')
           if (artifactSession.id === nextId && artifactSession.root === root) return true
           return resetArtifactSession(context)
         },
         async close() {
+          closed = true
           watcher?.close()
           clearTimeout(debounceTimer)
           clearInterval(pollingTimer)
@@ -759,17 +805,17 @@ function createArtifactSession({ id, label, root } = {}) {
   }
 }
 
-async function snapshotAllDocuments(primaryRoot, extraRootsParam = []) {
+async function snapshotAllDocuments(primaryRoot, extraRootsParam = [], stats = null) {
   const snapshot = new Map()
   const allRoots = [primaryRoot, ...extraRootsParam]
   if (!allRoots.length) return snapshot
   for (const snapshotRoot of allRoots) {
-    await snapshotRootDocuments(snapshot, snapshotRoot, path.normalize(snapshotRoot) === path.normalize(primaryRoot))
+    await snapshotRootDocuments(snapshot, snapshotRoot, path.normalize(snapshotRoot) === path.normalize(primaryRoot), stats)
   }
   return snapshot
 }
 
-async function snapshotRootDocuments(snapshot, snapshotRoot, isPrimary) {
+async function snapshotRootDocuments(snapshot, snapshotRoot, isPrimary, stats = null) {
   const budget = { entries: 0, documents: 0, bytes: 0 }
   const visit = async (directory, relativeDirectory = '') => {
     let entries = []
@@ -802,6 +848,7 @@ async function snapshotRootDocuments(snapshot, snapshotRoot, isPrimary) {
     }
   }
   await visit(snapshotRoot)
+  if (stats) stats.entries += budget.entries
 }
 
 async function readArtifactDocument(root, relativePath) {

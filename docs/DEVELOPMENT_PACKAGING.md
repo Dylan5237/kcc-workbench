@@ -18,15 +18,25 @@ Optional parameters:
 - `-PackagingWorktree <path>` — default: sibling of the control repo named
   `kcc-workbench-wt-package-dev`.
 - `-SkipTests` — skip `npm test` before packaging (not recommended).
+- `-Fast` — local iteration mode (#19): unpacked runnable app in `dist-fast/` via
+  `npm run pack -- fast`, no zip, no test phase; the frozen source, detached
+  packaging worktree, and adjacent `build-info.json` are unchanged. The full zip
+  path remains the default.
+- `-ForceInstall` — run `npm ci` even when the validated dependency stamp matches.
 
 The development source is **not** a parameter. It is hardcoded to
 `origin/develop/kcc-1.0` (metadata branch `develop/kcc-1.0`) so a caller can never
 package a feature ref while labeling it as develop. Future release packaging will
 ship as a separate `package-release.ps1` rather than a generic source override here.
 
-Likewise there is no install skip: `npm ci` runs unconditionally on every run,
-because an existing `node_modules` cannot prove it matches the frozen SHA's
-lockfile. A source/lockfile-aware validated cache is #19 scope.
+Dependency reuse (#19): `npm ci` remains the source of truth. A successful `npm ci`
+writes `node_modules/.kcc-dep-stamp` with SHA-256(`package.json`) +
+SHA-256(`package-lock.json`) plus the node/npm versions and os/arch; later runs
+skip the install only when the stamp matches the frozen source exactly. A
+`package.json`-only drift (lockfile untouched) therefore still invalidates the
+stamp and falls back to `npm ci`, which fails closed if the two manifests are
+inconsistent. A bare "node_modules exists" check is never
+sufficient, and `-ForceInstall` always forces a clean `npm ci`.
 
 ## Architecture
 
@@ -39,10 +49,11 @@ build path, not a new packager. Per run it:
    (if develop advances mid-build, this run still packages the frozen SHA);
 4. prepares the dedicated packaging worktree (see lifecycle below), detached at the
    frozen SHA;
-5. runs `npm ci` (deterministic lockfile install), `npm test`, and
-   `npm run pack -- --no-test` (reuses `scripts/pack.mjs` / electron-builder zip);
-6. writes `dist/build-info.json` next to the artifact and prints a summary with
-   per-phase timings.
+5. installs dependencies (`npm ci`, or stamp-validated reuse), runs `npm test`
+   (skipped in `-Fast`), and packages via `scripts/pack.mjs` / electron-builder —
+   full zip by default, unpacked `dist-fast/` with `-Fast`;
+6. writes `build-info.json` next to the artifact (`dist/` or `dist-fast/`) and
+   prints a summary with per-phase timings.
 
 Pure, testable logic (worktree porcelain parsing, SHA validation, build-info
 construction) lives in `scripts/package-dev-lib.mjs` and is covered by
@@ -98,9 +109,11 @@ The script never silently repairs user Git state.
 ## Performance boundary (#19)
 
 Per-phase timings (`fetch`, `worktree`, `install`, `test`, `pack`, `total`) are
-printed on every run as measurement input for #19. No install caching, dependency
-pruning, `asarUnpack` changes, or package-size optimization is done here —
-correctness comes first; #19 owns optimization.
+printed on every run. #19 (K1-S0.4) added the `-Fast` unpacked iteration mode and
+stamp-validated dependency reuse described above; measured before/after numbers
+live in `docs/performance/K1-S0.4-performance-report.md`. The full zip path keeps
+its release semantics (normal compression, tests on by default); no `asarUnpack`
+or package-content changes are made here.
 
 ## Future release packaging (contract only, not implemented)
 

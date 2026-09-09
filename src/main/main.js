@@ -49,6 +49,17 @@ import { createViewerSessionArm } from './viewer-session-arm.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 const { startServer: startViewerServer } = require('../viewer/server.cjs')
+
+// Opt-in startup profiling seam (K1-S0.4 / #19): set KCC_PROFILE_STARTUP=1 to emit
+// '[kcc-profile] <label> <ms>ms' marks on stdout. No telemetry, local diagnostics only.
+const STARTUP_PROFILE = process.env.KCC_PROFILE_STARTUP === '1'
+const startupT0 = performance.now()
+function startupMark(label, details = '') {
+  if (!STARTUP_PROFILE) return
+  const elapsed = (performance.now() - startupT0).toFixed(1)
+  console.log(`[kcc-profile] ${label} ${elapsed}ms${details ? ` ${details}` : ''}`)
+}
+startupMark('main-module-start')
 const rendererRoot = path.resolve(__dirname, '../renderer')
 const TITLEBAR_HEIGHT = 44
 const POPUP_WIDTH = 382
@@ -125,6 +136,7 @@ const selfTestRequested = process.argv.some(value =>
   value.startsWith('--self-test-quota=')
 )
 const hasSingleInstanceLock = selfTestRequested || app.requestSingleInstanceLock()
+startupMark('single-instance-lock', `acquired=${hasSingleInstanceLock}`)
 if (!hasSingleInstanceLock) {
   app.quit()
 }
@@ -155,8 +167,11 @@ async function migrateLegacyUserData() {
 }
 
 app.whenReady().then(async () => {
+  startupMark('when-ready-entered')
   await migrateLegacyUserData()
+  startupMark('legacy-migration-done')
   await registerAppProtocol()
+  startupMark('app-protocol-registered')
 
   const selfTestPath = argumentValue('--self-test-quota=')
   if (selfTestPath) {
@@ -184,6 +199,7 @@ app.whenReady().then(async () => {
       forceFallback: demoMode || settingsSandboxed
     })
     await workbenchConfigService.initialize()
+    startupMark('workbench-config-initialized')
     activeEngine = resolveStartupEngine(await workbenchConfigService.get())
   quotaService = new QuotaService({
     userDataPath: app.getPath('userData'),
@@ -193,6 +209,7 @@ app.whenReady().then(async () => {
     onStateChange: broadcastQuotaState
   })
   await quotaService.initialize()
+  startupMark('quota-initialized')
   localKimiService = new LocalKimiService({
     homePath: app.getPath('home'),
     logPath: path.join(app.getPath('userData'), 'kimi-web.log'),
@@ -202,10 +219,13 @@ app.whenReady().then(async () => {
   cloudCliService = new CloudCliService({
     logPath: path.join(app.getPath('userData'), 'cloudcli-web.log')
   })
+  startupMark('viewer-server-start')
   viewerServer = await startViewerServer({
     port: 0,
-    configDir: app.getPath('userData')
+    configDir: app.getPath('userData'),
+    onProfile: startupMark
   })
+  startupMark('viewer-server-ready')
   viewerSessionArm = createViewerSessionArm({
     observe: observeViewerSessionState,
     detect: detectViewerSessionContext,
@@ -213,7 +233,9 @@ app.whenReady().then(async () => {
     onEvent: (event, details) => logViewerContext(event, details)
   })
   configureRemoteSession()
+  startupMark('create-main-window-start')
   await createMainWindow()
+  startupMark('main-window-ready')
 }).catch(async error => {
   const detail = error instanceof Error ? error.stack || error.message : String(error)
   console.error(detail)
@@ -324,6 +346,7 @@ async function createMainWindow() {
   createShellView()
   wireIpc()
   await shellView.webContents.loadURL('app://shell/shell.html')
+  startupMark('shell-loaded')
   viewerContextSync = createBackgroundContextSync({
     sync: syncViewerConversationContext,
     pollMs: 3000,
@@ -351,6 +374,7 @@ async function createMainWindow() {
   }
 
   mainWindow.show()
+  startupMark('main-window-shown')
   layoutViews()
   setImmediate(() => {
     if (mainWindow && !mainWindow.isDestroyed()) layoutViews()

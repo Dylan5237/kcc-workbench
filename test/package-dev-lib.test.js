@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import {
   isFullSha,
   makeBuildInfo,
+  makeDependencyFingerprint,
   normalizeWorktreePath,
   parseWorktreePorcelain,
   shortSha
@@ -130,4 +131,82 @@ test('CLI parse-worktrees reads porcelain from stdin', () => {
   const worktrees = JSON.parse(output)
   assert.equal(worktrees.length, 1)
   assert.equal(worktrees[0].detached, true)
+})
+
+// #19 R1 dependency-reuse fingerprint contract:
+// Case A: identical manifests + runtime -> stamp reusable (same fingerprint);
+// Case B: package.json changed, lockfile unchanged -> stamp MUST invalidate;
+// Case C: package-lock.json changed -> stamp MUST invalidate.
+test('dependency fingerprint covers package.json, lockfile and runtime (cases A/B/C)', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'kcc-dep-fingerprint-'))
+  try {
+    const pkgPath = path.join(dir, 'package.json')
+    const lockPath = path.join(dir, 'package-lock.json')
+    writeFileSync(pkgPath, '{"name":"fixture","version":"1.0.0"}')
+    writeFileSync(lockPath, '{"name":"fixture","lockfileVersion":3}')
+    const runtime = { nodeVersion: 'v22.22.1', npmVersion: '10.9.4', platform: 'win32-x64' }
+    const fingerprint = overrides => makeDependencyFingerprint({
+      packageJsonPath: pkgPath,
+      packageLockPath: lockPath,
+      ...runtime,
+      ...overrides
+    })
+
+    // Case A: unchanged inputs produce an identical fingerprint (stamp reusable)
+    const baseline = fingerprint()
+    assert.equal(fingerprint(), baseline)
+
+    // Case B: package.json-only drift invalidates the stamp
+    writeFileSync(pkgPath, '{"name":"fixture","version":"1.0.1"}')
+    assert.notEqual(fingerprint(), baseline)
+
+    // Case C: lockfile change invalidates the stamp
+    writeFileSync(pkgPath, '{"name":"fixture","version":"1.0.0"}')
+    assert.equal(fingerprint(), baseline)
+    writeFileSync(lockPath, '{"name":"fixture","lockfileVersion":3,"packages":{}}')
+    assert.notEqual(fingerprint(), baseline)
+
+    // runtime drift also invalidates
+    writeFileSync(lockPath, '{"name":"fixture","lockfileVersion":3}')
+    assert.notEqual(fingerprint({ nodeVersion: 'v20.0.0' }), baseline)
+    assert.notEqual(fingerprint({ npmVersion: '11.0.0' }), baseline)
+    assert.notEqual(fingerprint({ platform: 'linux-x64' }), baseline)
+
+    // fingerprint shape exposes both manifest hashes explicitly
+    const parts = Object.fromEntries(baseline.split('|').map(entry => entry.split('=')))
+    assert.match(parts.package, /^[0-9a-f]{64}$/)
+    assert.match(parts.lock, /^[0-9a-f]{64}$/)
+    assert.equal(parts.node, 'v22.22.1')
+    assert.equal(parts.npm, '10.9.4')
+    assert.equal(parts.os, 'win32-x64')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('CLI dep-fingerprint prints the same fingerprint as the library', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'kcc-dep-fp-cli-'))
+  try {
+    const pkgPath = path.join(dir, 'package.json')
+    const lockPath = path.join(dir, 'package-lock.json')
+    writeFileSync(pkgPath, '{"name":"fixture"}')
+    writeFileSync(lockPath, '{"lockfileVersion":3}')
+    const output = execFileSync(process.execPath, [
+      'scripts/package-dev-lib.mjs', 'dep-fingerprint',
+      '--pkg', pkgPath,
+      '--lock', lockPath,
+      '--node', 'v22.22.1',
+      '--npm', '10.9.4',
+      '--os', 'win32-x64'
+    ], { cwd: new URL('..', import.meta.url), encoding: 'utf8' })
+    assert.equal(output, makeDependencyFingerprint({
+      packageJsonPath: pkgPath,
+      packageLockPath: lockPath,
+      nodeVersion: 'v22.22.1',
+      npmVersion: '10.9.4',
+      platform: 'win32-x64'
+    }))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

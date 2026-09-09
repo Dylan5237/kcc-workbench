@@ -9,10 +9,18 @@
   inside a dedicated detached packaging worktree -- never the caller's branch,
   worktree, or uncommitted changes.
 
+  Modes:
+    default  full deterministic zip (npm ci [stamp-validated], npm test, zip pack)
+    -Fast    local iteration: unpacked app in dist-fast/, no tests, no zip;
+             same frozen source, detached worktree, and build-info provenance
+
   Safety contract:
     - never checkout/switch/reset/clean/stash the control repo or any feature worktree
     - never git pull; fetch only
     - a dirty registered packaging worktree stops the run (fail-closed)
+    - dependency reuse is keyed on package.json + package-lock.json SHA-256 and
+      node/npm versions, never on a bare node_modules-exists check
+      (-ForceInstall bypasses)
 
   Stop conditions (exit codes):
     10  STOP PACKAGING_WORKTREE_DIRTY
@@ -35,7 +43,19 @@ param(
   [string]$PackagingWorktree = '',
 
   # Skip 'npm test' before packaging. Not recommended; acceptance runs tests.
-  [switch]$SkipTests
+  [switch]$SkipTests,
+
+  # Fast local iteration (K1-S0.4 / #19): produce an unpacked runnable app in
+  # dist-fast/ instead of the full zip, skipping the separate test phase (the
+  # fast pack path never runs tests). The deterministic source freeze, detached
+  # packaging worktree, and build-info provenance are unchanged. The full zip
+  # path remains the default.
+  [switch]$Fast,
+
+  # Force 'npm ci' even when the validated dependency stamp matches. Reuse is
+  # keyed on the exact package.json + package-lock.json content plus node/npm
+  # runtime versions, never on a bare "node_modules exists" check.
+  [switch]$ForceInstall
 )
 
 # Development package source is mechanically fixed. No CLI override exists on
@@ -195,18 +215,36 @@ if ($wtDirty) {
 Write-Host "worktree HEAD: $wtHead (detached, clean)"
 
 # --- Dependencies: deterministic install from the lockfile ---------------------------
-# npm ci runs on every run, unconditionally. Reusing an existing node_modules cannot
-# prove it matches the frozen source SHA's package-lock.json, so no skip escape hatch
-# exists. A source/lockfile-aware validated cache is #19 scope, not this script.
+# npm ci remains the default. A validated reuse stamp (#19) may skip it: the stamp is
+# written only by a successful npm ci and is matched against a fingerprint of the
+# frozen source's package.json AND package-lock.json (SHA-256 each) plus the node/npm
+# runtime versions -- so a package.json edit that forgot to sync the lockfile still
+# invalidates the stamp and lets npm ci fail closed. A bare "node_modules exists"
+# check is never sufficient; -ForceInstall bypasses the stamp.
 Measure-Phase 'install' {
-  Write-Host "`n> npm ci (deterministic install from package-lock.json)"
-  & npm ci --prefix $PackagingWorktree | Out-Host
-  if ($LASTEXITCODE -ne 0) { throw "npm ci failed (exit $LASTEXITCODE)" }
+  $stampPath = Join-Path $PackagingWorktree 'node_modules\.kcc-dep-stamp'
+  $nodeVersion = (& node --version)
+  $npmVersion = (& npm --version)
+  $fingerprint = (& node $LibPath dep-fingerprint `
+    --pkg (Join-Path $PackagingWorktree 'package.json') `
+    --lock (Join-Path $PackagingWorktree 'package-lock.json') `
+    --node $nodeVersion --npm $npmVersion --os 'win32-x64') | Select-Object -First 1
+  if ($LASTEXITCODE -ne 0) { throw "dep-fingerprint failed: $fingerprint" }
+  $stamp = if (Test-Path $stampPath) { (Get-Content $stampPath -Raw).Trim() } else { '' }
+  if (-not $ForceInstall -and $stamp -eq $fingerprint) {
+    Write-Host "`n> reusing node_modules (package.json+package-lock SHA-256 + node/npm runtime fingerprint match; -ForceInstall to override)"
+  } else {
+    Write-Host "`n> npm ci (deterministic install from package-lock.json)"
+    & npm ci --prefix $PackagingWorktree | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "npm ci failed (exit $LASTEXITCODE)" }
+    Set-Content -Path $stampPath -Value $fingerprint -NoNewline -Encoding ascii
+  }
 }
 
 # --- Tests ----------------------------------------------------------------------------
-if ($SkipTests) {
-  Write-Host "`n> skipping npm test (-SkipTests)"
+# Fast mode never runs tests here or in pack.mjs; it is the local iteration path.
+if ($SkipTests -or $Fast) {
+  Write-Host "`n> skipping npm test$(if ($Fast) { ' (-Fast)' } else { ' (-SkipTests)' })"
   $script:Timings['test'] = 0
 } else {
   Measure-Phase 'test' {
@@ -217,20 +255,30 @@ if ($SkipTests) {
 }
 
 # --- Package via the existing pack.mjs path (test step already handled above) --------
+$distDir = Join-Path $PackagingWorktree $(if ($Fast) { 'dist-fast' } else { 'dist' })
 Measure-Phase 'pack' {
-  Write-Host "`n> npm run pack -- --no-test"
-  & npm run pack --prefix $PackagingWorktree -- --no-test | Out-Host
+  if ($Fast) {
+    Write-Host "`n> npm run pack -- fast (unpacked local iteration build)"
+    & npm run pack --prefix $PackagingWorktree -- fast | Out-Host
+  } else {
+    Write-Host "`n> npm run pack -- --no-test"
+    & npm run pack --prefix $PackagingWorktree -- --no-test | Out-Host
+  }
   if ($LASTEXITCODE -ne 0) { throw "npm run pack failed (exit $LASTEXITCODE)" }
 }
 
 # --- Build metadata -------------------------------------------------------------------
-$distDir = Join-Path $PackagingWorktree 'dist'
 $buildInfoPath = Join-Path $distDir 'build-info.json'
 & node $LibPath build-info --sha $SourceCommit --branch $SourceBranch --pkg (Join-Path $PackagingWorktree 'package.json') --out $buildInfoPath
 if ($LASTEXITCODE -ne 0) { throw 'failed to write build-info.json' }
 
-$artifact = Get-ChildItem -Path $distDir -Recurse -Filter *.zip -File -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $artifact) { throw "no zip artifact found under $distDir" }
+if ($Fast) {
+  $artifact = Get-ChildItem -Path (Join-Path $distDir 'win-unpacked') -Filter *.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $artifact) { throw "no exe artifact found under $distDir\win-unpacked" }
+} else {
+  $artifact = Get-ChildItem -Path $distDir -Recurse -Filter *.zip -File -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $artifact) { throw "no zip artifact found under $distDir" }
+}
 
 $wtHeadAfter = (Invoke-Git $PackagingWorktree @('rev-parse', 'HEAD')) | Select-Object -First 1
 
@@ -242,6 +290,7 @@ Write-Host ''
 Write-Host '================ package-dev summary ================'
 Write-Host "source      : $SourceBranch @ $SourceCommit"
 Write-Host "worktree    : $PackagingWorktree (detached, HEAD $wtHeadAfter)"
+Write-Host "mode        : $(if ($Fast) { 'fast (unpacked local iteration)' } else { 'full (zip)' })"
 Write-Host "output      : $distDir"
 Write-Host "artifact    : $($artifact.Name) ($artifactMb MB)"
 Write-Host "build-info  : $buildInfoPath"
