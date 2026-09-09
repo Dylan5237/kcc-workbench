@@ -121,7 +121,10 @@ function isTrustedCloudCliUrl(url) {
   }
 }
 
-app.setName('KCC Workbench')
+app.setName('Arckeep')
+// K1-S0.5 (#20): 可见身份改为 Arckeep, 但持久化 userData 目录保持原 "KCC Workbench"
+// 名称不变 — 已有 profile/会话/Viewer 状态原路径继续可用, 不做迁移。
+app.setPath('userData', path.join(app.getPath('appData'), 'KCC Workbench'))
 const isDemoLaunch = process.argv.includes('--demo')
 if (isDemoLaunch) {
   const demoProfile = (argumentValue('--demo-profile=') || 'default')
@@ -245,7 +248,7 @@ app.whenReady().then(async () => {
   } catch {
     // The dialog below is the final fallback when the diagnostic file cannot be written.
   }
-  dialog.showErrorBox('KCC Workbench 无法启动', detail)
+  dialog.showErrorBox('Arckeep 无法启动', detail)
   app.quit()
 })
 
@@ -333,8 +336,8 @@ async function createMainWindow() {
     minHeight: 640,
     show: false,
     backgroundColor: '#ffffff',
-    icon: path.join(__dirname, '../renderer/assets/kimi-code-logo.png'),
-    title: 'KCC Workbench',
+    icon: path.join(__dirname, '../renderer/assets/arckeep-app-icon.png'),
+    title: 'Arckeep',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#fafafa',

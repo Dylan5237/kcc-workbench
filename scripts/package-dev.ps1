@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-  Deterministic KCC Workbench development packaging (K1-S0.3, issue #25).
+  Deterministic Arckeep development packaging (K1-S0.3, issue #25).
 
 .DESCRIPTION
   Orchestration wrapper around the existing build path (npm test + scripts/pack.mjs).

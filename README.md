@@ -82,7 +82,7 @@ Kimi 专属：Coding Plan 额度 / 重启首页 / 系统设置
 
 ### 1. 下载并运行
 
-前往 [Releases](https://github.com/Dylan5237/kcc-workbench/releases) 下载对应版本的 Windows zip 包，解压后运行 `KCC Workbench.exe`。
+前往 [Releases](https://github.com/Dylan5237/kcc-workbench/releases) 下载对应版本的 Windows zip 包，解压后运行 `Arckeep.exe`。
 
 > [!TIP]
 > 首次进入后先确认 Kimi 首页可用，再切到 CloudCLI 完成其账号设置或登录。额度信息不会自动同步，只在 Kimi 首页手动更新。
@@ -189,7 +189,7 @@ npm run demo -- --demo-profile=manual-test
 
 ```powershell
 npm run build
-& ".\dist\win-unpacked\KCC Workbench.exe"
+& ".\dist\win-unpacked\Arckeep.exe"
 ```
 
 构建 zip 发布包（推荐一键打包）：
@@ -199,7 +199,7 @@ npm run pack          # 一键：跑测试 -> 清理 dist -> 打包 -> 报告产
 npm run pack -- fast  # 快速：跳过测试/zip 压缩 -> dist-fast/win-unpacked
 ```
 
-也可在仓库根目录运行 `pack.bat fast` 做日常快速验证，直接启动 `dist-fast/win-unpacked/KCC Workbench.exe`；双击 `pack.bat` 执行正式 zip 打包。完整打包仅需跳过测试时可用 `pack.bat --no-test`。快速模式仍会清理自己的 `dist-fast/`，不会复用陈旧产物。
+也可在仓库根目录运行 `pack.bat fast` 做日常快速验证，直接启动 `dist-fast/win-unpacked/Arckeep.exe`；双击 `pack.bat` 执行正式 zip 打包。完整打包仅需跳过测试时可用 `pack.bat --no-test`。快速模式仍会清理自己的 `dist-fast/`，不会复用陈旧产物。
 
 推送和 Pull Request 会在 GitHub Actions 的 Windows 环境中执行测试与构建；推送 `v*` 标签会触发 zip Release 工作流。
 
