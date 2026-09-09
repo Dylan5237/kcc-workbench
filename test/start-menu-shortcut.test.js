@@ -76,3 +76,61 @@ test('shortcut helper supports a custom name and fails for a missing executable'
     /executable does not exist/
   )
 })
+
+test('machine-wide guard: exact root and descendants fail closed, per-user and siblings allowed', { skip: process.platform !== 'win32' }, async () => {
+  const { stdout: commonStartMenuRaw } = await execFileAsync('powershell', [
+    '-NoProfile', '-Command',
+    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; [Environment]::GetFolderPath('CommonStartMenu')"
+  ], { windowsHide: true })
+  const machinePrograms = path.join(commonStartMenuRaw.trim(), 'Programs')
+  const { stdout: userStartMenuRaw } = await execFileAsync('powershell', [
+    '-NoProfile', '-Command',
+    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; [Environment]::GetFolderPath('StartMenu')"
+  ], { windowsHide: true })
+  const userPrograms = path.join(userStartMenuRaw.trim(), 'Programs')
+
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kcc-shortcut-test-'))
+  const fakeExe = path.join(tempRoot, 'Arckeep.exe')
+  await fs.writeFile(fakeExe, 'MZ fake', 'utf8')
+
+  // Case A: exact machine-wide Programs root -> reject (不写任何文件)。
+  await assert.rejects(
+    () => runScript(['-ExecutablePath', fakeExe, '-StartMenuRoot', machinePrograms]),
+    /machine-wide/
+  )
+  // Case B: machine-wide descendant -> reject。
+  await assert.rejects(
+    () => runScript(['-ExecutablePath', fakeExe, '-StartMenuRoot', path.join(machinePrograms, 'Arckeep')]),
+    /machine-wide/
+  )
+  await assert.rejects(
+    () => runScript(['-ExecutablePath', fakeExe, '-StartMenuRoot', path.join(machinePrograms, 'Foo', 'Bar')]),
+    /machine-wide/
+  )
+  // 大小写不敏感: 全小写变体同样拒绝。
+  await assert.rejects(
+    () => runScript(['-ExecutablePath', fakeExe, '-StartMenuRoot', machinePrograms.toLowerCase()]),
+    /machine-wide/
+  )
+  // 前缀相似的 sibling (...\Programs2) 不得被误伤 — DryRun 只验证守卫, 不写盘。
+  const sibling = await runScript([
+    '-ExecutablePath', fakeExe,
+    '-StartMenuRoot', `${machinePrograms}2`,
+    '-DryRun'
+  ])
+  assert.match(sibling.stdout, /dry-run/)
+  // Case D: 当前用户 Start Menu Programs -> allow (DryRun, 不碰真实目录)。
+  const perUser = await runScript([
+    '-ExecutablePath', fakeExe,
+    '-StartMenuRoot', userPrograms,
+    '-DryRun'
+  ])
+  assert.match(perUser.stdout, /dry-run/)
+  assert.match(perUser.stdout, /Arckeep\.lnk/)
+  // Case C: 普通 TEMP StartMenuRoot -> allow (真实创建, 见首个用例)。
+  const temp = await runScript([
+    '-ExecutablePath', fakeExe,
+    '-StartMenuRoot', path.join(tempRoot, 'sm-root')
+  ])
+  assert.match(temp.stdout, /Arckeep\.lnk/)
+})

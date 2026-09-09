@@ -41,6 +41,7 @@ import {
 } from './skills-service.js'
 import { copyPathsToWindowsClipboard } from './windows-file-clipboard.js'
 import { createDogfoodService } from './dogfood-service.js'
+import { selectDogfoodCaptureContext } from './dogfood-context.js'
 import { readBuildSourceCommit } from './build-info.js'
 import {
   requireSender,
@@ -850,18 +851,21 @@ async function sendDogfoodState() {
   }
 }
 
-// 只复用已经正向识别/已用于 Viewer arm 的上下文; 缺失一律 null,
+// 只复用"已经成功用于 Viewer arm"的上下文, 且 projectRoot/sessionId 必须
+// 来自同一个 last-successful apply (见 dogfood-context.js); 缺失一律 null,
 // 绝不为了一次"记录"触发新的 Kimi/CloudCLI session detector (#23 语义不变)。
 async function captureDogfoodContext() {
+  const { projectRoot, sessionId } = selectDogfoodCaptureContext(
+    lastAppliedViewerContext,
+    activeEngine
+  )
   return {
     activeEngine: activeEngine || null,
     activeTab: activeTab || null,
     appVersion: app.getVersion(),
     sourceCommit: await readCachedBuildSourceCommit(),
-    projectRoot: viewerServer?.root || null,
-    sessionId: lastAppliedViewerContext?.engine === activeEngine
-      ? lastAppliedViewerContext.sessionId
-      : null
+    projectRoot,
+    sessionId
   }
 }
 
@@ -1383,18 +1387,20 @@ async function applyViewerSessionContext(context, detection) {
   const label = engine === 'cloudcli' ? '当前 CloudCLI 会话' : '当前 Kimi 对话'
   const previousRoot = viewerServer.root
   const extraRoots = normalizeExtraRoots(context.touchedPaths, context.projectDirectory)
-  // 已正向 arm 的上下文同时作为 Dogfood 记录的 best-effort 来源(只复用, 不触发检测)。
-  lastAppliedViewerContext = {
-    engine,
-    projectDirectory: context.projectDirectory,
-    sessionId: context.sessionId || null
-  }
   await viewerServer.setConversationContext({
     id: context.sessionId ? `${prefix}:${context.sessionId}` : `workspace:${context.projectDirectory.toLowerCase()}`,
     label: context.sessionId ? label : '当前工作区',
     root: context.projectDirectory,
     extraRoots
   })
+  // Dogfood capture 只允许复用"已经成功用于 Viewer arm"的上下文(#34 R1):
+  // 必须在 setConversationContext 成功返回之后写入; apply 失败时保持
+  // 上一次 successful context, 失败 candidate 绝不进入 capture provenance。
+  lastAppliedViewerContext = {
+    engine,
+    projectDirectory: context.projectDirectory,
+    sessionId: context.sessionId || null
+  }
   await logViewerContext('context-applied', {
     engine,
     source: context.source || (engine === 'cloudcli' ? 'jsonl-activity' : 'kimi-api'),

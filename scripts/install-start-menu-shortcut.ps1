@@ -30,12 +30,26 @@ param(
   [string]$ShortcutName = 'Arckeep',
 
   # Test seam. Production default: current user's Start Menu\Programs.
-  [string]$StartMenuRoot = ''
+  [string]$StartMenuRoot = '',
+
+  # Test seam: run all validation and report the would-be shortcut, but write
+  # nothing. Lets tests exercise allow-paths (e.g. the real per-user Start
+  # Menu) without touching them.
+  [switch]$DryRun
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
+
+# Canonical path containment with a real separator boundary: '...\Programs2'
+# must NOT count as inside '...\Programs'. Windows paths are case-insensitive.
+function Test-PathWithin([string]$Root, [string]$Candidate) {
+  $r = ([IO.Path]::GetFullPath($Root)).TrimEnd('\', '/')
+  $c = ([IO.Path]::GetFullPath($Candidate)).TrimEnd('\', '/')
+  if ($c.Equals($r, [StringComparison]::OrdinalIgnoreCase)) { return $true }
+  return $c.StartsWith("$r\", [StringComparison]::OrdinalIgnoreCase)
+}
 
 if (-not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf)) {
   throw "executable does not exist: $ExecutablePath"
@@ -54,14 +68,25 @@ $resolvedRoot = [IO.Path]::GetFullPath($StartMenuRoot)
 $machinePrograms = [IO.Path]::GetFullPath(
   [Environment]::GetFolderPath('CommonStartMenu') + '\Programs'
 )
-if ($resolvedRoot.TrimEnd('\').Equals($machinePrograms.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
-  throw 'refusing to write the machine-wide Start Menu; use the current-user Start Menu or a test -StartMenuRoot'
-}
-if (-not (Test-Path -LiteralPath $resolvedRoot -PathType Container)) {
-  New-Item -ItemType Directory -Path $resolvedRoot -Force | Out-Null
+# Fail closed on the machine-wide Programs root AND any descendant of it
+# (e.g. ...\Programs\Arckeep); a similarly-prefixed sibling like
+# ...\Programs2 is unaffected.
+if (Test-PathWithin $machinePrograms $resolvedRoot) {
+  throw "refusing to write inside the machine-wide Start Menu ($machinePrograms); use the current-user Start Menu or a test -StartMenuRoot"
 }
 
 $shortcutPath = Join-Path $resolvedRoot "$ShortcutName.lnk"
+if ($DryRun) {
+  Write-Host "dry-run  : would create/update shortcut"
+  Write-Host "shortcut : $shortcutPath"
+  Write-Host "target   : $resolvedExe"
+  Write-Host "workdir  : $exeDir"
+  return
+}
+
+if (-not (Test-Path -LiteralPath $resolvedRoot -PathType Container)) {
+  New-Item -ItemType Directory -Path $resolvedRoot -Force | Out-Null
+}
 $wsh = New-Object -ComObject WScript.Shell
 try {
   $shortcut = $wsh.CreateShortcut($shortcutPath)
