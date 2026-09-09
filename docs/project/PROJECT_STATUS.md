@@ -8,8 +8,13 @@ KCC 1.0 remains the active product/runtime line under the **Arckeep** user-visib
 
 Current phase: **5-day real-work dogfood validation — Day 1 ACTIVE**.
 
-Dogfood baseline:
-`develop/kcc-1.0@8a067fa29e32af68634660cfe24797c930a76584`
+Accepted dogfood runtime baseline:
+`8a067fa29e32af68634660cfe24797c930a76584`
+
+Current `develop/kcc-1.0` includes one later docs-only control-plane commit:
+`4c0871e7162bb6c9d21bdda7baae6dab0c8dc1a0`
+
+That docs-only commit does not change runtime code and does not invalidate the already smoke-tested dogfood executable. Do not rebuild merely to absorb this status-document commit.
 
 Execution history:
 
@@ -24,7 +29,7 @@ Execution history:
 Post-merge activation completed on 2026-09-09.
 
 Accepted dogfood build:
-- source branch: `develop/kcc-1.0`;
+- source branch at build time: `develop/kcc-1.0`;
 - source commit: `8a067fa29e32af68634660cfe24797c930a76584`;
 - executable: `D:\_projects\tools\kcc-workbench-wt-package-dev\dist-fast\win-unpacked\Arckeep.exe`;
 - Start Menu shortcut: current-user `Arckeep.lnk` pointing exactly to that executable;
@@ -32,7 +37,7 @@ Accepted dogfood build:
 - Kimi loaded normally;
 - Dogfood note button and icon-only refresh present;
 - Dogfood Inbox persisted to `%APPDATA%\KCC Workbench\dogfood\`;
-- capture provenance correctly recorded the merged source commit.
+- capture provenance correctly recorded the accepted runtime SHA.
 
 The earlier pre-#34 Day-1 marker is not counted. Day 1 starts from this activation-complete state.
 
@@ -58,7 +63,8 @@ Watch closely:
 ## Long-lived branches
 
 - Stable / release: `main@c7afab44a9933cc9f32a27c26125479a6ff0b735`
-- Active KCC 1.0 development / dogfood source: `develop/kcc-1.0@8a067fa29e32af68634660cfe24797c930a76584`
+- Active KCC 1.0 development: `develop/kcc-1.0@4c0871e7162bb6c9d21bdda7baae6dab0c8dc1a0` (latest change is docs-only status)
+- Accepted dogfood runtime: `8a067fa29e32af68634660cfe24797c930a76584`
 - Reserved Arckeep 2.0 development: `develop/arckeep-2.0@a2b0636c5d0b22855b68d4c8a51d2c4ce646b4e1`
 
 Branch model:
