@@ -2,6 +2,7 @@ const quotaButton = document.querySelector('#quotaButton')
 const quotaPercent = document.querySelector('#quotaPercent')
 const quotaStatusDot = document.querySelector('#quotaStatusDot')
 const restartKimiBtn = document.querySelector('#restartKimiBtn')
+const dogfoodBtn = document.querySelector('#dogfoodBtn')
 const engineToggle = document.querySelector('#engineToggle')
 const brandEngine = document.querySelector('#brandEngine')
 const workspaceTabs = [...document.querySelectorAll('.workspace-tab')]
@@ -10,6 +11,7 @@ let activeTab = 'kimi'
 let activeEngine = 'kimi'
 
 quotaButton.addEventListener('click', () => window.desktopShell.toggleQuota())
+dogfoodBtn.addEventListener('click', () => window.desktopShell.toggleDogfood())
 restartKimiBtn.addEventListener('click', async () => {
   restartKimiBtn.disabled = true
   try {
@@ -39,6 +41,9 @@ window.desktopShell.onTabChanged(state => {
 window.desktopShell.onEngineChanged(state => renderEngine(state.engine))
 window.desktopShell.onQuotaVisibility(visible => {
   quotaButton.setAttribute('aria-expanded', String(Boolean(visible)))
+})
+window.desktopShell.onDogfoodVisibility(visible => {
+  dogfoodBtn.setAttribute('aria-expanded', String(Boolean(visible)))
 })
 
 window.desktopShell.getState().then(state => {

@@ -1,0 +1,300 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --border: #e5e5e5;
+  --text: #1d1d1f;
+  --muted: #757575;
+  --blue: #377cf6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.drawer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  color: var(--text);
+  background: #fff;
+  border-left: 1px solid var(--border);
+  box-shadow: -6px 0 18px rgb(0 0 0 / 8%);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-header h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.close-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: #666;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.close-btn:hover {
+  color: #171717;
+  background: #f0f0f0;
+}
+
+.capture-form {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.type-picker {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.type-option {
+  flex: 1;
+}
+
+.type-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.type-option span {
+  display: block;
+  padding: 6px 0;
+  color: #555;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+  background: #f3f3f3;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+
+.type-option input:checked + span {
+  color: #17479e;
+  font-weight: 600;
+  background: #e8f0fe;
+  border-color: #c2d6f8;
+}
+
+.type-option input:focus-visible + span {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+#captureText {
+  width: 100%;
+  min-height: 110px;
+  padding: 8px 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+}
+
+#captureText:focus {
+  border-color: var(--blue);
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(55 124 246 / 18%);
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.form-error {
+  flex: 1;
+  color: #c0392b;
+  font-size: 12px;
+}
+
+.save-btn {
+  padding: 7px 22px;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--blue);
+  border: 0;
+  border-radius: 8px;
+}
+
+.save-btn:hover {
+  background: #2b6ae0;
+}
+
+.save-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.today {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px 14px 14px;
+  overflow: hidden;
+}
+
+.today h2 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.today-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.record {
+  padding: 10px 10px 8px;
+  margin-bottom: 8px;
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.record-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.record-type {
+  padding: 1px 8px;
+  font-size: 11px;
+  border-radius: 999px;
+}
+
+.record-type-问题 {
+  color: #a13328;
+  background: #fdecea;
+}
+
+.record-type-想法 {
+  color: #17479e;
+  background: #e8f0fe;
+}
+
+.record-type-正向反馈 {
+  color: #1e7a3c;
+  background: #e6f6ec;
+}
+
+.record-time {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.record-meta {
+  margin: 6px 0 0;
+  color: #9a9a9a;
+  font-size: 11px;
+}
+
+.record-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.record-actions button {
+  padding: 3px 10px;
+  color: #666;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+}
+
+.record-actions button:hover {
+  background: #f3f5f8;
+}
+
+.record-actions .danger:hover,
+.record-actions .danger.confirming {
+  color: #c0392b;
+  border-color: #e0b4ae;
+  background: #fdf1ef;
+}
+
+.edit-area {
+  width: 100%;
+  min-height: 70px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+}
+
+.edit-type {
+  padding: 4px 6px;
+  margin-top: 6px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+}
+
+.empty-hint {
+  color: var(--muted);
+  font-size: 12px;
+}

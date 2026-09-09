@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self' app:; script-src 'self' app:; style-src 'self' app:; img-src 'self' app: data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dogfood 记录</title>
+  <link rel="stylesheet" href="dogfood.css">
+</head>
+<body>
+  <aside class="drawer" aria-label="Dogfood 记录">
+    <header class="drawer-header">
+      <h1>Dogfood 记录</h1>
+      <button id="closeBtn" class="close-btn" type="button" title="关闭（Esc）" aria-label="关闭 Dogfood 记录">×</button>
+    </header>
+
+    <form id="captureForm" class="capture-form">
+      <div class="type-picker" role="radiogroup" aria-label="记录类型">
+        <label class="type-option">
+          <input type="radio" name="captureType" value="问题" checked>
+          <span>问题</span>
+        </label>
+        <label class="type-option">
+          <input type="radio" name="captureType" value="想法">
+          <span>想法</span>
+        </label>
+        <label class="type-option">
+          <input type="radio" name="captureType" value="正向反馈">
+          <span>正向反馈</span>
+        </label>
+      </div>
+      <textarea
+        id="captureText"
+        rows="6"
+        placeholder="随手记：问题、想法、觉得顺的地方……支持 Markdown 纯文本"
+        aria-label="记录内容"
+      ></textarea>
+      <div class="form-footer">
+        <span id="formError" class="form-error" role="alert" hidden></span>
+        <button id="saveBtn" class="save-btn" type="submit">记录</button>
+      </div>
+    </form>
+
+    <section class="today" aria-label="今天的记录">
+      <h2 id="todayHeading">今天</h2>
+      <ul id="todayList" class="today-list"></ul>
+      <p id="emptyHint" class="empty-hint" hidden>今天还没有记录。</p>
+    </section>
+  </aside>
+  <script src="dogfood.js"></script>
+</body>
+</html>

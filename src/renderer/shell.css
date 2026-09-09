@@ -137,16 +137,17 @@ body {
   display: none !important;
 }
 
-.restart-btn {
+.icon-btn {
   -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  width: 30px;
   height: 30px;
-  padding: 0 12px;
+  padding: 0;
   color: #555;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   background: #fff;
   border: 1px solid #d8d8d8;
@@ -155,14 +156,19 @@ body {
   line-height: 1;
 }
 
-.restart-btn:hover {
+.icon-btn:hover,
+.icon-btn[aria-expanded="true"] {
   background: #f3f5f8;
   border-color: #bfc7d2;
 }
 
-.restart-btn:disabled {
+.icon-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.restart-btn {
+  font-size: 15px;
 }
 
 .quota-pill {
