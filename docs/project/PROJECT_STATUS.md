@@ -4,18 +4,19 @@ Updated: 2026-09-09
 
 ## Executive status
 
-KCC 1.0 remains the active product/runtime line. Arckeep 2.0 remains reserved/frozen.
+KCC 1.0 remains the active product/runtime line under the **Arckeep** user-visible identity. Arckeep 2.0 remains reserved/frozen.
 
-Current phase: **KCC 1.0 stabilization before 5-day dogfood**.
+Current phase: **pre-dogfood tooling insert before 5-day real-work validation**.
 
-Frozen execution order:
+Execution order:
 
 1. #25 deterministic development packaging — **CLOSED / PASS / MERGED**;
 2. #19 startup/development package performance — **CLOSED / PASS / MERGED**;
-3. #20 application identity swap to Arckeep — **RELEASED**;
-4. 5-day dogfood — NOT STARTED.
+3. #20 application identity swap to Arckeep — **CLOSED / PASS / MERGED**;
+4. #34 Dogfood Quick Capture + Start Menu launcher — **RELEASED / ACTIVE**;
+5. #33 5-day dogfood — **PAUSED BEFORE DAY 1**.
 
-Do not begin dogfood or resume Arckeep 2.0 until #20 is reviewed/merged unless the user explicitly changes sequence.
+Do not count the five-day dogfood window until #34 is reviewed/merged, a deterministic merged Arckeep dogfood build exists, and the Start Menu shortcut points at that stable build.
 
 ## Long-lived branches
 
@@ -54,7 +55,6 @@ Merge SHA:
 `48f435af797329d62fe552d5876e27bacd112465`
 
 Accepted contract:
-
 > Viewer recording is armed by the active Agent session/project, not Viewer visibility. Opening Viewer is review-only.
 
 ### #25 Deterministic development packaging — CLOSED / PASS / MERGED
@@ -80,51 +80,67 @@ Merge SHA:
 `efaee29b81eadc97812d4bc75b505a85f2dc8efb`
 
 Accepted results:
-- startup median 708ms -> 622ms (-86ms / -12.1%); larger stored Viewer roots benefit more because initial snapshot/watcher no longer blocks shell creation;
-- deterministic fast local iteration path 278.5s -> 153.4–196.1s (-45% / -30%);
-- full zip path remains available and is not falsely claimed as optimized;
-- dependency reuse fingerprint covers `package.json` + `package-lock.json` + Node/npm/platform and fails closed on manifest-only drift;
-- real fresh Kimi session E2E passed after the startup-order change with Viewer never opened during work and artifact changes already present before first inspection.
+- startup median 708ms -> 622ms (-86ms / -12.1%);
+- deterministic fast local iteration 278.5s -> 153.4–196.1s (-45% / -30%);
+- full zip path remains available;
+- dependency reuse fingerprint covers `package.json` + `package-lock.json` + Node/npm/platform;
+- real fresh Kimi session E2E passed after the startup-order change with Viewer never opened during work.
 
-Process safety rule from #19:
-- Agents may terminate only PIDs spawned and explicitly tracked in the current probe;
-- pre-existing KCC/Electron/Node/Kimi/CloudCLI/Agent processes and single-instance/profile locks require `HUMAN_ACTION_REQUIRED`.
+### #20 Arckeep application identity swap — CLOSED / PASS / MERGED
 
-## Active WorkPackage — #20 / K1-S0.5
+Reviewed R1 HEAD:
+`efc550584cf34cbfb9460c51a12dec280f5b2c81`
 
-### Arckeep application identity swap — RELEASED
+Merge SHA:
+`db8b3cf320be1407eb417313b6e2744f85410af2`
+
+Accepted:
+- user-visible identity is Arckeep;
+- accepted Arckeep icon is used;
+- stable `appId` and `%APPDATA%\\KCC Workbench` userData compatibility path remain internal identifiers;
+- explicit `--user-data-dir` isolation takes precedence over the normal compatibility pin;
+- Kimi / CloudCLI / Viewer state continuity preserved;
+- Human Visual Gate passed on 2026-09-09: Arckeep name/icon correct, no residual primary KCC branding, no layout redesign.
+
+## Active WorkPackage — #34 / K1-D0
+
+### Dogfood Quick Capture + Start Menu launcher — RELEASED
 
 Frozen taskbook:
-`docs/tasks/kimicode/K1-S0.5-arckeep-identity.md`
+`docs/tasks/kimicode/K1-D0-dogfood-quick-capture.md`
 
 Implementation branch:
-`feat/k1-arckeep-identity`
+`feat/k1-dogfood-quick-capture`
 
 Dedicated worktree:
-`D:\_projects\tools\kcc-workbench-wt-k1-identity`
+`D:\\_projects\\tools\\kcc-workbench-wt-k1-dogfood-capture`
 
 PR target:
 `develop/kcc-1.0`
 
 Product contract:
-- keep the accepted KCC 1.0 Electron runtime/product shape;
-- replace user-visible application identity with `Arckeep`;
-- use the accepted repository Arckeep icon assets;
-- do not redesign layout/colors/navigation;
-- preserve Kimi / CloudCLI / Viewer behavior;
-- preserve the **exact existing production KCC userData path** as an internal compatibility path rather than silently starting an empty Arckeep profile;
-- do not perform a live-profile copy/move migration unless architecture review explicitly approves it.
+- titlebar restart action becomes refresh-icon-only;
+- a global note button opens a lightweight right-side Dogfood Inbox without reloading the active Agent surface;
+- capture types are `问题` / `想法` / `正向反馈` with Markdown-friendly text;
+- records persist locally under `<userData>/dogfood/` and capture timestamp + best-effort runtime/build context;
+- `Ctrl+Shift+N` opens/focuses capture from primary workspaces;
+- no GitHub sync, AI classification, task system, rich-text editor or shell redesign;
+- add a user-level Start Menu shortcut helper, but the real shortcut must only be installed after merge and must target the deterministic merged packaging-worktree build, never the feature worktree.
 
-Accepted Arckeep source assets:
-- `arckeep/shell/assets/app-icon.png`
-- `arckeep/shell/assets/app.ico`
+## 5-day dogfood — #33
 
-Important stable internal identifiers unless proven necessary to change:
-- repository/npm package name `kcc-workbench`;
-- branch taxonomy `k1-*`;
-- diagnostic names such as `KCC_PROFILE_STARTUP`;
-- existing `appId` if not required for visible identity;
-- legacy KCC userData directory name/path as compatibility storage.
+Status: **PAUSED BEFORE DAY 1**.
+
+The previously created Day-1 marker is not counted. Restart Day 1 only after #34 passes Architecture Review, merges, deterministic `develop/kcc-1.0` packaging succeeds, and the real Start Menu shortcut points to that merged Arckeep build.
+
+During dogfood, record friction first and only interrupt for P0/P1 or integrity-risk defects.
+
+## Process safety
+
+- destructive mutation of real user auth/profile data requires explicit HUMAN_ACTION approval;
+- Agents may terminate only PIDs spawned and explicitly tracked in the current probe;
+- pre-existing Arckeep/KCC/Electron/Node/Kimi/CloudCLI/Agent processes and single-instance/profile locks require `HUMAN_ACTION_REQUIRED`;
+- no force-kill of unknown/pre-existing process trees.
 
 ## Repository normalization
 
@@ -141,24 +157,8 @@ Status: **RESERVED / FROZEN**.
 
 The C# + WebView2 line remains preserved as architecture evidence but is not the active product line. Do not resume D0-05/D0-V or new 2.0 implementation without explicit user decision.
 
-## Next gate
-
-### 5-day dogfood — NOT STARTED
-
-Begin only after #20 passes Architecture Review and the identity/user-state human gate. Then use the stabilized KCC 1.0 runtime under the Arckeep identity in real work for five days and record recurring friction before deciding whether to continue KCC 1.x evolution, resume Arckeep 2.0, or stop.
-
-## Stabilization exit gate
-
-Dogfood may begin only when:
-- no known P0 blocker remains;
-- Viewer passive recording remains proven in normal use;
-- deterministic development packaging is available;
-- startup/update loop is materially usable;
-- Arckeep identity is correct without losing existing user state;
-- Kimi / CloudCLI / Viewer switching and persistence work without debugging the shell.
-
 ## Current execution gate
 
-**#20 / K1-S0.5 RELEASED.**
+**#34 / K1-D0 RELEASED.**
 
-Do not begin 5-day dogfood or Arckeep 2.0 work until #20 is reviewed/merged.
+Do not begin the five-day dogfood clock or Arckeep 2.0 work until #34 is reviewed/merged and post-merge deterministic launcher activation is complete.
