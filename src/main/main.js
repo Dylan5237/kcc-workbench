@@ -124,7 +124,11 @@ function isTrustedCloudCliUrl(url) {
 app.setName('Arckeep')
 // K1-S0.5 (#20): 可见身份改为 Arckeep, 但持久化 userData 目录保持原 "KCC Workbench"
 // 名称不变 — 已有 profile/会话/Viewer 状态原路径继续可用, 不做迁移。
-app.setPath('userData', path.join(app.getPath('appData'), 'KCC Workbench'))
+// 显式 --user-data-dir 受控 probe 语义优先: 该 switch 存在时不 pin, 交给 Electron
+// 原生 switch 解析, 精确使用调用者指定路径。
+if (!app.commandLine.hasSwitch('user-data-dir')) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'KCC Workbench'))
+}
 const isDemoLaunch = process.argv.includes('--demo')
 if (isDemoLaunch) {
   const demoProfile = (argumentValue('--demo-profile=') || 'default')
