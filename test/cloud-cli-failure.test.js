@@ -57,9 +57,12 @@ test('asarUnpack whitelist covers the CloudCLI runtime and its native/platform b
 
   // Native modules that cannot live inside asar (system Node ABI mismatch)
   const nativeRequired = [
+    'node_modules/@nut-tree-fork/libnut-win32/**',
+    'node_modules/@nut-tree-fork/nut-js/**',
     'node_modules/better-sqlite3/**',
     'node_modules/bcrypt/**',
-    'node_modules/node-pty/**'
+    'node_modules/node-pty/**',
+    'node_modules/screenshot-desktop/**'
   ]
   for (const glob of nativeRequired) {
     assert.ok(whitelist.includes(glob), `native runtime dep must be unpacked: ${glob}`)

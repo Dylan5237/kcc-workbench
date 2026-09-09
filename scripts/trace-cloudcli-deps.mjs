@@ -12,6 +12,12 @@
 // the test asserts that every package reported here is present in the whitelist,
 // so a missing runtime dependency fails the build instead of breaking CloudCLI
 // at launch.
+//
+// CloudCLI optionalDependencies (e.g. @nut-tree-fork/nut-js, screenshot-desktop
+// for the lazily loaded browser-use runtime) are seeded even when they are not
+// reachable from static imports in cli.js. Regular CloudCLI dependencies are
+// not seeded, because that graph includes Electron UI packages that must stay
+// inside asar.
 import fs from 'node:fs';
 import path from 'node:path';
 import { builtinModules } from 'node:module';
@@ -106,6 +112,23 @@ function followPackageJsonDeps(pkg) {
   }
 }
 
+// Lazily loaded optional runtimes (browser-use) are not imported from cli.js.
+// Seed only CloudCLI optionalDependencies so Electron UI packages stay packed.
+function seedCloudCliOptionalRuntime() {
+  const pj = path.join(pkgDir('@cloudcli-ai/cloudcli'), 'package.json');
+  if (!fs.existsSync(pj)) return;
+  let j;
+  try { j = JSON.parse(fs.readFileSync(pj, 'utf8')); } catch { return; }
+  for (const dep of Object.keys(j.optionalDependencies || {})) {
+    const depPkg = pkgName(dep);
+    if (!depPkg || !pkgJsonExists(depPkg)) continue;
+    if (!externalPkgs.has(depPkg)) {
+      externalPkgs.add(depPkg);
+      followPackageJsonDeps(depPkg);
+    }
+  }
+}
+
 function trace(file) {
   const key = path.resolve(file);
   if (visited.has(key)) return;
@@ -135,6 +158,7 @@ function trace(file) {
 }
 
 trace(entry);
+seedCloudCliOptionalRuntime();
 
 const pkgs = [...externalPkgs].sort();
 
