@@ -1,21 +1,21 @@
 # Project Status — Arckeep / KCC
 
-Updated: 2026-09-08
+Updated: 2026-09-09
 
 ## Executive status
 
-KCC 1.0 is the active product line. Arckeep 2.0 is reserved/frozen.
+KCC 1.0 remains the active product/runtime line. Arckeep 2.0 remains reserved/frozen.
 
 Current phase: **KCC 1.0 stabilization before 5-day dogfood**.
 
 Frozen execution order:
 
 1. #25 deterministic development packaging — **CLOSED / PASS / MERGED**;
-2. #19 startup/development package performance — **RELEASED**;
-3. #20 application identity swap to Arckeep — NOT RELEASED;
+2. #19 startup/development package performance — **CLOSED / PASS / MERGED**;
+3. #20 application identity swap to Arckeep — **RELEASED**;
 4. 5-day dogfood — NOT STARTED.
 
-Do not start #20 or dogfood until #19 is reviewed/merged unless the user explicitly changes sequence.
+Do not begin dogfood or resume Arckeep 2.0 until #20 is reviewed/merged unless the user explicitly changes sequence.
 
 ## Long-lived branches
 
@@ -26,7 +26,7 @@ Do not start #20 or dogfood until #19 is reviewed/merged unless the user explici
 Branch model:
 `main <- develop/kcc-1.0 <- feat/k1-* | fix/k1-*`
 
-Parallel Agent work uses one short-lived branch + one dedicated sibling worktree per WorkPackage. Short-lived branches are deleted after merge/closure.
+Parallel Agent work uses one short-lived branch + one dedicated sibling worktree per WorkPackage. Historical dirty local worktrees must not be destructively cleaned.
 
 ## Completed KCC 1.0 stabilization
 
@@ -34,33 +34,28 @@ Parallel Agent work uses one short-lived branch + one dedicated sibling worktree
 
 Accepted behavior:
 - MD / JSON artifact changes propagate in realtime;
-- file tree refresh and active preview refresh from Viewer change events;
 - watcher and polling fallback share coherent change delivery.
 
 ### #18 CloudCLI auth/origin continuity — CLOSED / PASS
 
 Accepted behavior:
-- CloudCLI legitimate local auth state persists across normal KCC restarts;
-- KCC positively identifies and reuses an existing compatible CloudCLI endpoint;
-- KCC does not attach to an unrelated listener merely because a port is open;
-- Claude provider auth continues to reuse the user's existing local Claude state.
+- stable legitimate CloudCLI endpoint/origin reuse across normal KCC restarts;
+- no false attach to unrelated listeners;
+- existing local Claude/provider state remains reused.
 
-Known upstream limitation: CloudCLI local JWT still has its own expiry semantics.
+Known upstream limitation: CloudCLI local JWT retains its own expiry semantics.
 
 ### #23 Viewer passive recording / session auto-arm — CLOSED / PASS / MERGED
 
-Reviewed implementation HEAD:
+Reviewed HEAD:
 `e2624fa5cd18b5f4ad3bb140f66fc6a34471d090`
 
 Merge SHA:
 `48f435af797329d62fe552d5876e27bacd112465`
 
-Accepted product contract:
+Accepted contract:
 
-> Viewer recording is armed by the active Agent session/project, not by Viewer visibility. Opening Viewer is review-only.
-
-Known acceptance limitation:
-- signed-in CloudCLI UI route-API detection was not exercised in the isolated test profile; CloudCLI fallback end-to-end passed. This remains a normal user smoke item, not a merge blocker.
+> Viewer recording is armed by the active Agent session/project, not Viewer visibility. Opening Viewer is review-only.
 
 ### #25 Deterministic development packaging — CLOSED / PASS / MERGED
 
@@ -71,56 +66,69 @@ Merge SHA:
 `a6e0994362d9cc30919e0124ce2b42f391b7a83c`
 
 Accepted contract:
-- development source is mechanically fixed to exact fetched `origin/develop/kcc-1.0`;
-- build runs in a dedicated detached packaging worktree;
-- user/Agent control and feature worktrees are not mutated or used as package source;
+- source fixed to exact fetched `origin/develop/kcc-1.0`;
+- dedicated detached packaging worktree;
 - dirty/conflicting packaging worktree fails closed;
-- `npm ci` is unconditional until a later source/lockfile-aware cache is proven;
-- adjacent `build-info.json` records exact source SHA/version/time/mode.
+- exact build provenance via `build-info.json`.
 
-Captured performance baseline for #19:
-- total package run: ~334–418s;
-- `npm ci`: ~28–62s;
-- tests: ~13–20s;
-- pack/electron-builder + zip: ~290–338s (dominant);
-- zip: ~416.3 MB.
+### #19 Startup & development package performance — CLOSED / PASS / MERGED
 
-## Active WorkPackage — #19 / K1-S0.4
+Reviewed R1 HEAD:
+`1717714d833740a8edee6371b136521f73fac6a3`
 
-### Startup & development package performance — RELEASED
+Merge SHA:
+`efaee29b81eadc97812d4bc75b505a85f2dc8efb`
+
+Accepted results:
+- startup median 708ms -> 622ms (-86ms / -12.1%); larger stored Viewer roots benefit more because initial snapshot/watcher no longer blocks shell creation;
+- deterministic fast local iteration path 278.5s -> 153.4–196.1s (-45% / -30%);
+- full zip path remains available and is not falsely claimed as optimized;
+- dependency reuse fingerprint covers `package.json` + `package-lock.json` + Node/npm/platform and fails closed on manifest-only drift;
+- real fresh Kimi session E2E passed after the startup-order change with Viewer never opened during work and artifact changes already present before first inspection.
+
+Process safety rule from #19:
+- Agents may terminate only PIDs spawned and explicitly tracked in the current probe;
+- pre-existing KCC/Electron/Node/Kimi/CloudCLI/Agent processes and single-instance/profile locks require `HUMAN_ACTION_REQUIRED`.
+
+## Active WorkPackage — #20 / K1-S0.5
+
+### Arckeep application identity swap — RELEASED
 
 Frozen taskbook:
-`docs/tasks/kimicode/K1-S0.4-performance-stabilization.md`
+`docs/tasks/kimicode/K1-S0.5-arckeep-identity.md`
 
 Implementation branch:
-`fix/k1-startup-package-performance`
+`feat/k1-arckeep-identity`
 
 Dedicated worktree:
-`D:\_projects\tools\kcc-workbench-wt-k1-performance`
+`D:\_projects\tools\kcc-workbench-wt-k1-identity`
 
 PR target:
 `develop/kcc-1.0`
 
-Execution discipline:
-- measure real Windows startup and package phases before changing behavior;
-- classify dominant causes mechanically;
-- implement only measured low-risk wins;
-- preserve #25 deterministic provenance;
-- preserve #17 realtime Viewer, #18 CloudCLI auth/origin continuity, and #23 passive Viewer recording.
+Product contract:
+- keep the accepted KCC 1.0 Electron runtime/product shape;
+- replace user-visible application identity with `Arckeep`;
+- use the accepted repository Arckeep icon assets;
+- do not redesign layout/colors/navigation;
+- preserve Kimi / CloudCLI / Viewer behavior;
+- preserve the **exact existing production KCC userData path** as an internal compatibility path rather than silently starting an empty Arckeep profile;
+- do not perform a live-profile copy/move migration unless architecture review explicitly approves it.
 
-Current startup hypothesis to test:
-- `app.whenReady()` awaits Viewer server startup before `createMainWindow()`;
-- Viewer server startup currently waits for initial watcher/snapshot of the stored root;
-- this work may be blocking first-shell visibility.
+Accepted Arckeep source assets:
+- `arckeep/shell/assets/app-icon.png`
+- `arckeep/shell/assets/app.ico`
 
-Current packaging hypothesis to test:
-- the ~290–338s `pack` stage is the dominant cost;
-- existing unpacked fast mode and zip/staging composition should be measured before any dependency/package pruning.
+Important stable internal identifiers unless proven necessary to change:
+- repository/npm package name `kcc-workbench`;
+- branch taxonomy `k1-*`;
+- diagnostic names such as `KCC_PROFILE_STARTUP`;
+- existing `appId` if not required for visible identity;
+- legacy KCC userData directory name/path as compatibility storage.
 
 ## Repository normalization
 
-Remote repository is organized around three long-lived lines:
-
+Remote repository is organized around:
 - `main`
 - `develop/kcc-1.0`
 - `develop/arckeep-2.0`
@@ -131,36 +139,26 @@ Legacy development refs are retired as baselines. Local historical worktrees/bra
 
 Status: **RESERVED / FROZEN**.
 
-The 2.0 line preserves the latest C# + WebView2 architecture candidate and associated evidence, but product development is paused.
+The C# + WebView2 line remains preserved as architecture evidence but is not the active product line. Do not resume D0-05/D0-V or new 2.0 implementation without explicit user decision.
 
-Current product judgement: KCC 1.0 Electron shell is the better day-to-day baseline. Do not resume D0-05/D0-V or new 2.0 implementation without explicit user decision.
-
-## Next gates
-
-### #20 Application identity swap — NOT RELEASED
-
-After #19:
-- change KCC Workbench identity to Arckeep;
-- use Arckeep name/logo;
-- preserve existing sessions/settings/auth/user state across the identity transition.
+## Next gate
 
 ### 5-day dogfood — NOT STARTED
 
-Begin only after stabilization exit gate is satisfied. Use KCC 1.0 in real work, record recurring friction, then decide whether to continue KCC 1.x evolution, resume Arckeep 2.0, or stop the broader project.
+Begin only after #20 passes Architecture Review and the identity/user-state human gate. Then use the stabilized KCC 1.0 runtime under the Arckeep identity in real work for five days and record recurring friction before deciding whether to continue KCC 1.x evolution, resume Arckeep 2.0, or stop.
 
 ## Stabilization exit gate
 
-KCC 1.0 is dogfood-ready only when:
-
+Dogfood may begin only when:
 - no known P0 blocker remains;
-- #23 passive Viewer recording passes normal user smoke;
+- Viewer passive recording remains proven in normal use;
 - deterministic development packaging is available;
-- startup/update loop is materially usable or has a measured stable workaround;
-- identity swap preserves existing user state;
+- startup/update loop is materially usable;
+- Arckeep identity is correct without losing existing user state;
 - Kimi / CloudCLI / Viewer switching and persistence work without debugging the shell.
 
 ## Current execution gate
 
-**#19 / K1-S0.4 RELEASED.**
+**#20 / K1-S0.5 RELEASED.**
 
-Do not start #20, dogfood, or Arckeep 2.0 until #19 is reviewed/merged.
+Do not begin 5-day dogfood or Arckeep 2.0 work until #20 is reviewed/merged.
