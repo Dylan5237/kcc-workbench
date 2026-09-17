@@ -344,7 +344,13 @@ For `ESCALATE_TO_ARCH`, formulate the smallest decision question the architects 
 
 ## Historical regression lesson
 
-Issue #36 is a canonical example of what this bot must catch: functionally correct background filesystem observation can still be architecturally unsafe if periodic recursive synchronous work runs on Electron main and freezes unrelated UI surfaces.
+Issue #36 is a canonical example of what this bot must catch. The confirmed reproduction was:
+
+- a small workspace remained responsive;
+- entering a Kimi conversation bound to a very wide but valid workspace (`C:\Users\howyo`) remained responsive while Viewer was not armed;
+- switching to Viewer triggered session-context application and workspace observation, after which the whole Arckeep shell could become unresponsive;
+- switching back to Kimi did not restore responsiveness because background Viewer observation continued;
+- the implementation included periodic recursive synchronous filesystem traversal in the Electron main process.
 
 Do not overfit to that exact bug. Generalize the principle: execution placement, boundedness, ownership, backpressure, cancellation, and failure isolation are part of correctness.
 
