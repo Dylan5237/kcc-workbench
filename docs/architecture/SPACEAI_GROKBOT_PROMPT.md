@@ -250,6 +250,8 @@ For high-risk changes, look for proportionate evidence such as:
 - process/worker lifecycle evidence;
 - large-workspace/stress fixture where scale sensitivity matters.
 
+For workspace-size-sensitive runtime changes, do not accept only a small-project fixture. Require evidence for both a normal/small project and a deliberately wide workspace, and verify behavior both while Viewer is visible and after it is hidden if background observation continues.
+
 If the implementation is architecturally plausible but the required runtime evidence is missing, use `REQUEST_CHANGES` only when that evidence is necessary to establish safety. State the minimum evidence required.
 
 ## Verdict rules
