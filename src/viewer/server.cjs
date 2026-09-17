@@ -4,34 +4,25 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { createLineDiff } = require('./diff.cjs')
 const { createTimeMachine } = require('./time-machine.cjs')
+const { createWorkspaceObserver } = require('./workspace-observer.cjs')
+const {
+  WATCHED_EXTENSIONS,
+  CODE_EXTENSIONS,
+  IMAGE_EXTENSIONS,
+  HTML_ASSET_EXTENSIONS,
+  isIgnoredRelativePath,
+  classifyFileKind,
+  isTextFileExtension,
+  normalizeWebPath,
+  readArtifactDocument
+} = require('./workspace-scan.cjs')
 
 const PUBLIC_ROOT = path.join(__dirname, 'public')
-const WATCHED_EXTENSIONS = new Set(['.md', '.json', '.html', '.htm', '.mmd', '.mermaid'])
-const CODE_EXTENSIONS = new Set([
-  '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.css', '.scss', '.less',
-  '.sh', '.bash', '.zsh', '.ps1', '.yml', '.yaml', '.toml', '.xml', '.sql',
-  '.java', '.go', '.rs', '.c', '.h', '.cpp', '.hpp', '.rb', '.php', '.vue',
-  '.txt', '.log', '.ini', '.conf'
-])
-const IMAGE_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp'
-])
-const HTML_ASSET_EXTENSIONS = new Set([
-  '.css', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico',
-  '.woff', '.woff2', '.ttf', '.otf'
-])
 const MAX_FILE_BYTES = 10 * 1024 * 1024
 const MAX_ASSET_BYTES = 20 * 1024 * 1024
-const MAX_ARTIFACT_CONTENT_BYTES = 512 * 1024
 const MAX_ARTIFACTS = 100
-const MAX_SCANNED_ENTRIES = 20_000
-const MAX_SNAPSHOT_DOCUMENTS = 2_000
-const MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024
-const IGNORED_DIRECTORY_NAMES = new Set([
-  'node_modules', 'dist', 'build', 'coverage', 'out', 'tmp'
-])
-const TRANSIENT_DIR_PREFIXES = ['tmp-', 'temp-', 'tmp_', 'temp_']
-const TRANSIENT_FILE_SUFFIXES = ['.tmp', '.draft.md', '.draft.json', '.draft.html']
+const MAX_PENDING_ARTIFACT_PATHS = 1000
+const MAX_ADOPTED_PATHS = 20_000
 const RESTRICTED_BROWSER_PORTS = new Set([
   1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
   87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
@@ -71,7 +62,7 @@ const HTML_PREVIEW_CSP = [
   "base-uri 'self'"
 ].join('; ')
 
-function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto.randomBytes(32).toString('hex'), onProfile = null }) {
+function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto.randomBytes(32).toString('hex'), onProfile = null, createObserver = null }) {
   const configPath = path.join(configDir, 'viewer-config.json')
   const stored = readJson(configPath)
   let root = validDirectory(defaultRoot)
@@ -91,7 +82,6 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
   })
   let watcher = null
-  let pollingTimer = null
   let debounceTimer = null
   let closed = false
   let watcherGeneration = 0
@@ -99,6 +89,23 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   const artifactTimers = new Map()
   let artifactSnapshot = new Map()
   let artifactSession = createArtifactSession({ root })
+  let burstOverflowed = false
+  let currentArmStart = 0
+  let currentArmWallClock = 0
+  // 恢复扫描的静默纳入表: 截断基线未覆盖的既有文件只存 mtime/size,
+  // 使"已知集合"不再等同于"基线内容集合", !prev 不再被误判为 created。
+  const adoptedMtimes = new Map()
+  // 工作区级遍历(基线/恢复/树)全部委托观察运行时: 生产为 worker 线程适配,
+  // 测试可经 createObserver 注入假实现并捕获下列 handlers 驱动回调。
+  const observerHandlers = {
+    onBaseline: applyBaseline,
+    onRecovery: handleRecoveryBatch,
+    onError: (stage, error) => console.error(`Viewer observation ${stage}:`, error),
+    onProfile: onProfile || undefined
+  }
+  const observer = createObserver
+    ? createObserver(observerHandlers)
+    : createWorkspaceObserver(observerHandlers)
 
   function saveState() {
     fs.mkdirSync(configDir, { recursive: true })
@@ -132,12 +139,14 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     recentRoots = [root, ...recentRoots.filter(item => item !== root)].slice(0, 10)
     extraRoots = []
     saveState()
+    // 先武装新根的观察基线(arm 内应用 onBaseline), 再重建产物会话,
+    // 保证 resetArtifactSession 读到的 artifactSnapshot 就是新根基线。
+    await launchWatcher()
     await resetArtifactSession({
       id: `workspace:${root.toLowerCase()}`,
       label: '当前工作区',
       root
     })
-    await launchWatcher()
     broadcast({ type: 'root', root })
     return true
   }
@@ -146,23 +155,19 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     const generation = ++watcherGeneration
     watcher?.close()
     watcher = null
-    clearInterval(pollingTimer)
-    pollingTimer = null
     clearTimeout(debounceTimer)
     for (const timer of artifactTimers.values()) clearTimeout(timer)
     artifactTimers.clear()
+    burstOverflowed = false
+    adoptedMtimes.clear()
     if (!root) return
     const snapshotStart = performance.now()
-    const snapshotStats = { entries: 0 }
-    const snapshot = await snapshotAllDocuments(root, extraRoots, snapshotStats)
-    let snapshotBytes = 0
-    for (const document of snapshot.values()) snapshotBytes += document.size
-    onProfile?.(
-      'viewer-snapshot-ready',
-      `duration=${(performance.now() - snapshotStart).toFixed(1)}ms entries=${snapshotStats.entries} documents=${snapshot.size} bytes=${snapshotBytes}`
-    )
+    currentArmStart = snapshotStart
+    currentArmWallClock = Date.now()
+    // 基线全量遍历在观察运行时(worker)内完成; arm 解析时 onBaseline 已应用,
+    // artifactSnapshot 即为本轮基线 (#19/#23 的等待语义由此保证)。
+    await observer.arm({ root, extraRoots })
     if (closed || generation !== watcherGeneration) return  // 扫描期间已被关闭或被更新的 watcher 取代
-    artifactSnapshot = snapshot
     const watchRoots = [root, ...extraRoots]
     const watchers = []
     for (const watchRoot of watchRoots) {
@@ -175,10 +180,11 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
             ? normalizeWebPath(raw.replace(/\\/g, '/'))
             : normalizeWebPath(path.join(watchRoot, raw))
           if (isIgnoredRelativePath(openPath)) return
+          observer.invalidateTree()
           const extension = path.extname(raw).toLowerCase()
           if (WATCHED_EXTENSIONS.has(extension)) {
             // 文档类变更由 scheduleArtifact 确认内容后统一广播 change + artifact,
-            // 保证 fs.watch 与轮询兜底两条路径走同一出口。
+            // 保证 fs.watch 与恢复兜底两条路径走同一出口。
             scheduleArtifact(openPath)
             return
           }
@@ -205,11 +211,18 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         for (const handle of watchers) handle.close()
       }
     }
-    pollingTimer = setInterval(() => pollArtifactSnapshot(), 3000)
     onProfile?.('viewer-watcher-ready', `duration=${(performance.now() - snapshotStart).toFixed(1)}ms`)
   }
 
   function scheduleArtifact(relativePath) {
+    if (!artifactTimers.has(relativePath) && artifactTimers.size >= MAX_PENDING_ARTIFACT_PATHS) {
+      // 突发溢出路径直接丢弃, 由恢复扫描兜底覆盖并在仅首次记录画像。
+      if (!burstOverflowed) {
+        burstOverflowed = true
+        onProfile?.('viewer-artifact-overflow', `pending=${MAX_PENDING_ARTIFACT_PATHS}`)
+      }
+      return
+    }
     clearTimeout(artifactTimers.get(relativePath))
     artifactTimers.set(relativePath, setTimeout(async () => {
       artifactTimers.delete(relativePath)
@@ -219,12 +232,14 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         ? await readArtifactDocument(artifactRoot, relativePath)
         : null
       if (sameArtifactDocument(previous, current)) {
-        // 内容未变时仍刷新 mtime 基线, 否则轮询兜底会因 mtime 差异每 3s 重复调度
+        // 内容未变时仍刷新 mtime 基线, 否则恢复兜底会因 mtime 差异重复调度
         if (previous && current) artifactSnapshot.set(relativePath, current)
+        adoptedMtimes.delete(relativePath)
         return
       }
       if (current) artifactSnapshot.set(relativePath, current)
       else artifactSnapshot.delete(relativePath)
+      adoptedMtimes.delete(relativePath)
       const type = !previous ? 'created' : (!current ? 'deleted' : 'modified')
       const diff = createLineDiff(previous?.content || '', current?.content || '')
       const artifact = {
@@ -246,9 +261,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
         afterContent: current?.content || ''
       })
       // 先广播 change 驱动文件树/预览刷新, 再广播 artifact 驱动本轮产物;
-      // 轮询兜底路径也经由此处, 两条链路对前端表现一致。
+      // 恢复兜底路径也经由此处, 两条链路对前端表现一致。
       broadcast({ type: 'change', file: relativePath, kind: 'document' })
       broadcast({ type: 'artifact', artifact, session: publicArtifactSession() })
+      observer.invalidateTree()
     }, 350))
   }
 
@@ -261,7 +277,6 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       label: context.label,
       root
     })
-    artifactSnapshot = await snapshotAllDocuments(root, extraRoots)
     const sessionState = await timeMachine.setContext({
       id: artifactSession.id,
       label: artifactSession.label,
@@ -321,51 +336,69 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
   }
 
-  async function pollArtifactSnapshot() {
-    if (!root) return
-    const watchRoots = [root, ...extraRoots]
-    const seen = new Set()
-    let scanComplete = true
-    for (const watchRoot of watchRoots) {
-      try {
-        const scan = (dir, relDir = '') => {
-          if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) {
-            scanComplete = false
-            return
-          }
-          let entries = []
-          try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch {
-            scanComplete = false
-            return
-          }
-          for (const entry of entries) {
-            if (seen.size >= MAX_SNAPSHOT_DOCUMENTS) {
-              scanComplete = false
-              return
-            }
-            if (shouldIgnoreDirectoryEntry(entry)) continue
-            const abs = path.join(dir, entry.name)
-            const rel = relDir ? `${relDir}/${entry.name}` : entry.name
-            if (entry.isDirectory()) { scan(abs, rel); continue }
-            const ext = path.extname(entry.name).toLowerCase()
-            if (!WATCHED_EXTENSIONS.has(ext)) continue
-            const isMain = path.normalize(watchRoot) === path.normalize(root)
-            const webPath = isMain ? normalizeWebPath(rel.replace(/\\/g, '/')) : normalizeWebPath(abs)
-            if (isIgnoredRelativePath(webPath)) continue
-            seen.add(webPath)
-            const prev = artifactSnapshot.get(webPath)
-            let mtime = 0
-            try { mtime = fs.statSync(abs).mtimeMs } catch {}
-            if (!prev || prev.mtime !== mtime) scheduleArtifact(webPath)
-          }
-        }
-        scan(watchRoot)
-      } catch { /* polling root silent */ }
+  // 观察运行时(worker)完成一次 arm 的基线后应用: 代际/latest-token 守卫由
+  // observer 保证, 这里只挡关闭态; 画像时长从当前 arm 的起点算起。
+  function applyBaseline({ documents, stats }) {
+    if (closed) return
+    artifactSnapshot = documents
+    onProfile?.(
+      'viewer-snapshot-ready',
+      `duration=${(performance.now() - currentArmStart).toFixed(1)}ms entries=${stats.entries} documents=${stats.documents} bytes=${stats.bytes}`
+    )
+    const truncated = stats.truncated || {}
+    if (truncated.entries || truncated.documents || truncated.bytes) {
+      const caps = []
+      if (truncated.entries) caps.push('entries')
+      if (truncated.documents) caps.push('documents')
+      if (truncated.bytes) caps.push('bytes')
+      onProfile?.('viewer-baseline-truncated', `caps=${caps.join(',')}`)
     }
-    if (!scanComplete) return
-    for (const previousPath of artifactSnapshot.keys()) {
-      if (!seen.has(previousPath) && rootForPath(previousPath)) scheduleArtifact(previousPath)
+  }
+
+  // 恢复扫描分片结果。已知集合 = 基线快照 ∪ 静默纳入表:
+  // - 已知路径 mtime 变化 → 调度确认 (补抓漏掉的 modify);
+  // - 未知路径且 birthtime 晚于本次 arm → 漏抓的 create, 调度确认;
+  // - 未知路径但先于 arm 存在 → 截断基线没盖到的既有文件, 静默纳入,
+  //   绝不能按 created 上报, 否则宽工作区下恢复扫描会泛洪幻影产物 (K1-D1 实测)。
+  // 删除检测只在完整未截断扫描结束时进行: 基线路径缺失 → 调度确认;
+  // 纳入路径缺失 → 静默移除 (它从未成为产物, 删除也不构成产物事件)。
+  function handleRecoveryBatch({ batch, sweepComplete, scanComplete, seen, stats }) {
+    if (!root || closed) return
+    let scheduled = 0
+    for (const [webPath, stat] of batch) {
+      const prev = artifactSnapshot.get(webPath)
+      if (prev) {
+        if (prev.mtime !== stat.mtime) { scheduleArtifact(webPath); scheduled += 1 }
+        continue
+      }
+      const adopted = adoptedMtimes.get(webPath)
+      if (adopted) {
+        if (adopted.mtime !== stat.mtime) { scheduleArtifact(webPath); scheduled += 1 }
+        continue
+      }
+      if (stat.birthtime && stat.birthtime > currentArmWallClock) {
+        scheduleArtifact(webPath)
+        scheduled += 1
+      } else if (adoptedMtimes.size < MAX_ADOPTED_PATHS) {
+        adoptedMtimes.set(webPath, { mtime: stat.mtime, size: stat.size })
+      }
     }
+    if (sweepComplete && scanComplete && seen) {
+      const seenSet = new Set(seen)
+      for (const previousPath of artifactSnapshot.keys()) {
+        if (!seenSet.has(previousPath) && rootForPath(previousPath)) { scheduleArtifact(previousPath); scheduled += 1 }
+      }
+      for (const adoptedPath of adoptedMtimes.keys()) {
+        if (!seenSet.has(adoptedPath)) adoptedMtimes.delete(adoptedPath)
+      }
+    }
+    if (stats && (stats.budgetHit || sweepComplete || stats.durationMs > 500)) {
+      onProfile?.(
+        'viewer-recovery-slice',
+        `duration=${stats.durationMs}ms entries=${stats.entries} budgetHit=${stats.budgetHit || 'none'} sweepComplete=${sweepComplete}`
+      )
+    }
+    if (scheduled > 0) observer.invalidateTree()
   }
 
   function rootForPath(relativePath) {
@@ -418,7 +451,12 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       if (!root) return sendJson(response, 200, { root: '', tree: emptyTree() })
       try {
         const includeAll = url.searchParams.get('mode') === 'dev'
-        const tree = await scanAllRoots(root, extraRoots, includeAll)
+        const treeStart = performance.now()
+        const { tree } = await observer.requestTree({ root, extraRoots, includeAll })
+        const treeDuration = performance.now() - treeStart
+        if (treeDuration > 500) {
+          onProfile?.('viewer-tree-build', `duration=${treeDuration.toFixed(1)}ms`)
+        }
         return sendJson(response, 200, { root, extraRoots, mode: includeAll ? 'dev' : 'run', tree })
       } catch (error) {
         return sendJson(response, 500, { error: error.message })
@@ -664,8 +702,8 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
           closed = true
           watcher?.close()
           clearTimeout(debounceTimer)
-          clearInterval(pollingTimer)
           for (const timer of artifactTimers.values()) clearTimeout(timer)
+          await observer.close()
           await timeMachine.close()
           for (const client of clients) client.end()
           clients.clear()
@@ -699,98 +737,6 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   }
 }
 
-function isTextFileExtension(ext) {
-  return WATCHED_EXTENSIONS.has(ext) || CODE_EXTENSIONS.has(ext)
-}
-
-function classifyFileKind(ext) {
-  if (WATCHED_EXTENSIONS.has(ext)) return 'doc'
-  if (CODE_EXTENSIONS.has(ext)) return 'code'
-  if (IMAGE_EXTENSIONS.has(ext)) return 'image'
-  return 'binary'
-}
-
-async function scanTree(directory, relativePath, budget = { entries: 0 }, includeAll = false) {
-  const node = {
-    name: path.basename(directory),
-    path: relativePath,
-    type: 'dir',
-    children: []
-  }
-  for (const entry of await fs.promises.readdir(directory, { withFileTypes: true })) {
-    if (budget.entries >= MAX_SCANNED_ENTRIES) {
-      node.truncated = true
-      break
-    }
-    budget.entries += 1
-    if (shouldIgnoreDirectoryEntry(entry)) continue
-    const childRelativePath = relativePath
-      ? `${relativePath}/${entry.name}`
-      : entry.name
-    const absolutePath = path.join(directory, entry.name)
-    if (entry.isDirectory()) {
-      try {
-        const child = await scanTree(absolutePath, childRelativePath, budget, includeAll)
-        if (child.children.length) node.children.push(child)
-      } catch {
-        // Skip folders that cannot be read.
-      }
-    } else {
-      const ext = path.extname(entry.name).toLowerCase()
-      if (!includeAll && !WATCHED_EXTENSIONS.has(ext)) continue
-      const kind = includeAll ? classifyFileKind(ext) : 'doc'
-      const stat = await fs.promises.stat(absolutePath)
-      node.children.push({
-        name: entry.name,
-        path: childRelativePath,
-        type: 'file',
-        ext,
-        kind,
-        size: stat.size,
-        mtime: stat.mtimeMs
-      })
-    }
-  }
-  node.children.sort((left, right) => {
-    if (left.type !== right.type) return left.type === 'dir' ? -1 : 1
-    return left.name.localeCompare(right.name, 'zh-CN')
-  })
-  return node
-}
-
-async function scanAllRoots(primaryRoot, extraRootList, includeAll = false) {
-  const budget = { entries: 0 }
-  const rootNode = await scanTree(primaryRoot, '', budget, includeAll)
-  for (const extraRoot of extraRootList) {
-    if (path.normalize(extraRoot) === path.normalize(primaryRoot)) continue
-    if (budget.entries >= MAX_SCANNED_ENTRIES) {
-      rootNode.truncated = true
-      break
-    }
-    const extraPrefix = normalizeWebPath(extraRoot)
-    const extraNode = await scanTree(extraRoot, '', budget, includeAll)
-    prefixTreePaths(extraNode, extraPrefix)
-    rootNode.children.push(extraNode)
-  }
-  rootNode.children.sort((left, right) => {
-    if (left.type !== right.type) return left.type === 'dir' ? -1 : 1
-    return left.name.localeCompare(right.name, 'zh-CN')
-  })
-  return rootNode
-}
-
-function prefixTreePaths(node, prefix) {
-  if (!node || typeof node !== 'object') return
-  if (node.type === 'file') {
-    node.path = node.path ? `${prefix}/${node.path}` : prefix
-    return
-  }
-  if (node.type === 'dir' && node.path !== prefix) {
-    node.path = node.path ? `${prefix}/${node.path}` : prefix
-  }
-  for (const child of node.children || []) prefixTreePaths(child, prefix)
-}
-
 function emptyTree() {
   return { name: '', path: '', type: 'dir', children: [] }
 }
@@ -805,102 +751,9 @@ function createArtifactSession({ id, label, root } = {}) {
   }
 }
 
-async function snapshotAllDocuments(primaryRoot, extraRootsParam = [], stats = null) {
-  const snapshot = new Map()
-  const allRoots = [primaryRoot, ...extraRootsParam]
-  if (!allRoots.length) return snapshot
-  for (const snapshotRoot of allRoots) {
-    await snapshotRootDocuments(snapshot, snapshotRoot, path.normalize(snapshotRoot) === path.normalize(primaryRoot), stats)
-  }
-  return snapshot
-}
-
-async function snapshotRootDocuments(snapshot, snapshotRoot, isPrimary, stats = null) {
-  const budget = { entries: 0, documents: 0, bytes: 0 }
-  const visit = async (directory, relativeDirectory = '') => {
-    let entries = []
-    try {
-      entries = await fs.promises.readdir(directory, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const entry of entries) {
-      if (budget.entries >= MAX_SCANNED_ENTRIES) return
-      budget.entries += 1
-      if (shouldIgnoreDirectoryEntry(entry)) continue
-      const relativePath = relativeDirectory
-        ? `${relativeDirectory}/${entry.name}`
-        : entry.name
-      const absolutePath = path.join(directory, entry.name)
-      if (entry.isDirectory()) await visit(absolutePath, relativePath)
-      else if (WATCHED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-        if (budget.documents >= MAX_SNAPSHOT_DOCUMENTS || budget.bytes >= MAX_SNAPSHOT_BYTES) return
-        const document = isPrimary
-          ? await readArtifactDocument(snapshotRoot, relativePath)
-          : await readArtifactDocument(snapshotRoot, absolutePath)
-        if (document && budget.bytes + document.size <= MAX_SNAPSHOT_BYTES) {
-          const pathKey = isPrimary ? relativePath : normalizeWebPath(absolutePath)
-          snapshot.set(pathKey, document)
-          budget.documents += 1
-          budget.bytes += document.size
-        }
-      }
-    }
-  }
-  await visit(snapshotRoot)
-  if (stats) stats.entries += budget.entries
-}
-
-async function readArtifactDocument(root, relativePath) {
-  try {
-    const absolutePath = path.isAbsolute(relativePath)
-      ? path.normalize(relativePath)
-      : path.resolve(root, relativePath)
-    if (!isInsidePath(root, absolutePath)) return null
-    const canonicalRoot = await fs.promises.realpath(root)
-    const canonicalPath = await fs.promises.realpath(absolutePath)
-    if (!isInsidePath(canonicalRoot, canonicalPath)) return null
-    const stat = await fs.promises.stat(canonicalPath)
-    if (!stat.isFile() || stat.size > MAX_ARTIFACT_CONTENT_BYTES) return null
-    return {
-      content: await fs.promises.readFile(canonicalPath, 'utf8'),
-      size: stat.size,
-      mtime: stat.mtimeMs
-    }
-  } catch {
-    return null
-  }
-}
-
 function sameArtifactDocument(left, right) {
   if (!left || !right) return left === right
   return left.content === right.content
-}
-
-function shouldIgnoreDirectoryEntry(entry) {
-  const name = entry.name.toLowerCase()
-  if (name.startsWith('.')) return true
-  if (entry.isDirectory()) {
-    return IGNORED_DIRECTORY_NAMES.has(name)
-      || TRANSIENT_DIR_PREFIXES.some(prefix => name.startsWith(prefix))
-  }
-  return isIgnoredPathSegment(name)
-}
-
-function isIgnoredRelativePath(relativePath) {
-  return normalizeWebPath(relativePath)
-    .split('/')
-    .some(segment => isIgnoredPathSegment(segment))
-}
-
-function isIgnoredPathSegment(segment) {
-  const lower = segment.toLowerCase()
-  if (lower.startsWith('.')) return true
-  if (IGNORED_DIRECTORY_NAMES.has(lower)) return true
-  if (TRANSIENT_DIR_PREFIXES.some(prefix => lower.startsWith(prefix))) return true
-  if (TRANSIENT_FILE_SUFFIXES.some(suffix => lower.endsWith(suffix))) return true
-  if (lower.endsWith('~')) return true
-  return false
 }
 
 function validDirectory(value) {
@@ -965,10 +818,6 @@ function safeTokenEqual(left, right) {
   const rightBuffer = Buffer.from(right)
   return leftBuffer.length === rightBuffer.length
     && crypto.timingSafeEqual(leftBuffer, rightBuffer)
-}
-
-function normalizeWebPath(value) {
-  return value === '.' ? '' : String(value).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
 }
 
 function encodePathSegments(value) {

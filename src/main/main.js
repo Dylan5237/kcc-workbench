@@ -245,7 +245,10 @@ app.whenReady().then(async () => {
   viewerServer = await startViewerServer({
     port: 0,
     configDir: app.getPath('userData'),
-    onProfile: startupMark
+    onProfile: (label, details) => {
+      startupMark(label, details)
+      if (label.startsWith('viewer-')) logViewerContext('viewer-runtime', { label, details })
+    }
   })
   startupMark('viewer-server-ready')
   viewerSessionArm = createViewerSessionArm({
