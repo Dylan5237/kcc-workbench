@@ -16,7 +16,7 @@ The goal is to preserve three project-level qualities at the same time:
 
 A feature is not architecturally acceptable merely because it works functionally. Runtime placement, ownership, scheduling, isolation, boundedness, and failure behavior are part of correctness.
 
-Issue #36 exposed the motivating failure class: background filesystem work could be functionally correct while still being placed on an interaction-critical Electron path and freeze unrelated UI surfaces. This gate exists to catch that class of defect before merge.
+Issue #36 exposed the motivating failure class: background filesystem work could be functionally correct while still being placed on an interaction-critical Electron path and freeze unrelated UI surfaces. The confirmed reproduction was workspace-sensitive: a small project remained responsive, while arming Viewer on a very wide but valid workspace (`C:\Users\howyo`) could make the entire shell unresponsive; once armed, background observation continued even after leaving Viewer. This gate exists to catch that class of defect before merge.
 
 ## 2. Governing principle
 
@@ -218,82 +218,3 @@ Runtime-relevant PRs must complete the `Execution Topology` and `Runtime Budget`
 The declaration is evidence input, not proof. The architecture reviewer must verify it against the diff and code paths.
 
 If not applicable, the author must explicitly state why.
-
-## 8. Verdict contract
-
-The automated architecture reviewer emits exactly one top-level verdict.
-
-### `PASS`
-
-No architecture blocker is found.
-
-Non-blocking notes are allowed but must not contradict PASS.
-
-### `REQUEST_CHANGES`
-
-Concrete architecture defects exist and can be corrected within the current task scope.
-
-Every blocker must include:
-
-- file/path or subsystem;
-- violated rule;
-- concrete failure mode;
-- minimum acceptable correction;
-- evidence required for re-review.
-
-### `ESCALATE_TO_ARCH`
-
-Escalate only when a real decision is required from the human owner + Chief Architect, including:
-
-- product contract change;
-- architecture boundary change;
-- intentional exception to a hard rule;
-- meaningful performance/functionality trade-off;
-- scope expansion;
-- conflict between normative project documents;
-- a fix requiring upstream fork/patch or destructive user-state behavior.
-
-Do not escalate merely because code is complicated.
-
-## 9. Pre-existing issues
-
-The reviewer must distinguish new defects from existing debt.
-
-- Do not block a PR for an unrelated pre-existing defect it does not worsen or depend on.
-- Do block a PR that expands, relies on, or makes an existing unsafe pattern harder to remove.
-- Record relevant pre-existing debt as a non-blocking note with a pointer when useful.
-
-## 10. Evidence expectations
-
-Architecture-sensitive changes should provide evidence proportional to risk, for example:
-
-- focused unit/integration tests;
-- `npm test`;
-- `npm run build` when runtime/packaging behavior is affected;
-- benchmark or timing evidence for performance-sensitive work;
-- real Windows Electron acceptance when the defect depends on Electron/runtime behavior;
-- process/worker lifecycle evidence when ownership changes;
-- large-workspace or stress fixture where data-size sensitivity matters.
-
-Passing tests do not override an architecture blocker.
-
-## 11. Operating flow
-
-Normal flow:
-
-`Implementation Agent -> tests/build/runtime evidence -> SpaceAI Grokbot architecture review -> PASS -> merge/release gate`
-
-Only `ESCALATE_TO_ARCH` or a disputed `REQUEST_CHANGES` returns to the human owner + ChatGPT Chief Architect.
-
-## 12. Non-goals of this gate
-
-This gate is not responsible for:
-
-- product prioritization;
-- UX/visual review;
-- rewriting the implementation;
-- general code-style review;
-- naming/formatting preferences without architecture impact;
-- inventing new requirements not present in the task or project contract.
-
-Its job is narrow: prevent runtime architecture, scheduling, ownership, isolation, and performance mistakes from reaching the product.
