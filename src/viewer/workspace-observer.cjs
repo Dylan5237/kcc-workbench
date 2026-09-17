@@ -53,7 +53,7 @@ function createWorkspaceObserver(options = {}) {
   let degraded = false
   let recoveryTimer = null
   let sliceInFlight = false
-  let armInFlight = false
+  let armPromise = null
   let armReject = null
   let closed = false
   let closePromise = null
@@ -153,7 +153,7 @@ function createWorkspaceObserver(options = {}) {
   }
 
   async function tickRecovery() {
-    if (closed || !armed || armInFlight || sliceInFlight || degraded) return
+    if (closed || !armed || armPromise || sliceInFlight || degraded) return
     sliceInFlight = true
     const myToken = token
     try {
@@ -172,32 +172,39 @@ function createWorkspaceObserver(options = {}) {
   function arm({ root, extraRoots = [] } = {}) {
     if (!root) return Promise.resolve()
     const extras = Array.isArray(extraRoots) ? extraRoots : []
-    token += 1
-    const myToken = token
-    if (!degraded && adapter && lastCompletedKey === keyFor(root, extras)) {
+    const requestedKey = keyFor(root, extras)
+    const armedKey = armed ? keyFor(armed.root, armed.extraRoots) : null
+    // 同键在途: 共享在途 promise, 不重启基线 (同逻辑根/会话不重复重建)。
+    // 两个空转判定都先于 token 递增, 否则无谓作废在途基线;
+    // A→B→A 竞态下 armed 指向 B, 对 A 的 arm 必须走完整流程。
+    if (!degraded && armedKey === requestedKey && armPromise) return armPromise
+    if (!degraded && adapter && armedKey === requestedKey && lastCompletedKey === requestedKey) {
       return Promise.resolve()
     }
+    token += 1
+    const myToken = token
     degraded = false
     restartsThisToken = 0
     armed = { root, extraRoots: extras }
-    armInFlight = true
     startRecoveryTimer()
-    return new Promise((resolve, reject) => {
+    const promise = new Promise((resolve, reject) => {
       armReject = reject
       executeWithPolicy(() => performArmSteps(root, extras, myToken), myToken)
         .then(
           value => {
-            armInFlight = false
+            if (armPromise === promise) armPromise = null
             if (armReject === reject) armReject = null
             resolve(value)
           },
           err => {
-            armInFlight = false
+            if (armPromise === promise) armPromise = null
             if (armReject === reject) armReject = null
             reject(err)
           }
         )
     })
+    armPromise = promise
+    return promise
   }
 
   async function runTreeRequest(key, root, extras, includeAll, retries) {

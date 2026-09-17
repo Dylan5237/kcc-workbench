@@ -81,6 +81,41 @@ test('re-arming the same root is a no-op resolve; a different root re-baselines'
   await observer.close()
 })
 
+test('same-key in-flight arm shares the promise; A->B->A race fully re-arms A', async () => {
+  const pending = []
+  const adapter = makeFakeAdapter({
+    baseline: () => { const d = deferred(); pending.push(d); return d.promise }
+  })
+  const appliedKeys = []
+  const observer = createWorkspaceObserver({
+    adapterFactory: () => adapter,
+    timers: fakeTimers(),
+    onBaseline: ({ documents }) => appliedKeys.push([...documents.keys()])
+  })
+
+  const armA1 = observer.arm({ root: 'dir-a' })
+  const armA2 = observer.arm({ root: 'dir-a' })
+  assert.strictEqual(armA1, armA2)
+  await flush()
+  assert.equal(adapter.calls.baseline, 1)
+  pending.shift().resolve(baselineResult([['a.md', { content: '', size: 0, mtime: 1 }]]))
+  await armA1
+
+  const armB = observer.arm({ root: 'dir-b' })
+  await flush()
+  assert.equal(adapter.calls.baseline, 2)
+  const armA3 = observer.arm({ root: 'dir-a' })
+  await flush()
+  assert.equal(adapter.calls.configure, 3)
+  assert.equal(adapter.calls.baseline, 3)
+  pending.shift().resolve(baselineResult([['b.md', { content: '', size: 0, mtime: 1 }]]))
+  await flush()
+  pending.shift().resolve(baselineResult([['a2.md', { content: '', size: 0, mtime: 1 }]]))
+  await Promise.all([armB, armA3])
+  assert.deepEqual(appliedKeys, [['a.md'], ['a2.md']])
+  await observer.close()
+})
+
 test('recovery tick forwards slice budget, never overlaps slices, and skips while busy', async () => {
   const adapter = makeFakeAdapter()
   const ft = fakeTimers()
