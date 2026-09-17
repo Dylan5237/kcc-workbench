@@ -201,8 +201,9 @@ test('A→B 切换: 过期 arm 被代际守卫丢弃, 恢复路径按当前根�
   t.after(sse.close)
 
   // 伪造 A 独有的恢复批次: 'a-only.md' 不在 B 的基线快照里。
-  // 服务端隔离机制: 相对键经 rootForPath 解析到当前根 B, B 下不存在该文件,
-  // scheduleArtifact 读到 previous=null/current=null 按"同文档"早退, 不产生产物。
+  // 服务端隔离机制: 批次条目无 birthtime(先于 arm), 被静默纳入而非上报;
+  // 即便进入确认, 相对键经 rootForPath 解析到当前根 B, B 下不存在该文件,
+  // previous=null/current=null 按"同文档"早退, 也不产生产物。
   // (基于 token 的过期批次丢弃发生在观察运行时内, 由 observer 套件覆盖。)
   state.handlers.onRecovery({
     batch: [['a-only.md', { mtime: 1, size: 1 }]],
@@ -266,11 +267,11 @@ test('恢复分片批次驱动 created→modified→deleted 产物语义 (#40)',
   t.after(sse.close)
   const notePath = path.join(projectDir, 'note.md')
 
-  // created: 基线为空, 落盘文件经恢复批次上报
+  // created: 基线为空, 落盘文件经恢复批次上报; birthtime 晚于 arm 被判为真实新建
   await fs.writeFile(notePath, '# v1\n')
   let stat = await fs.stat(notePath)
   state.handlers.onRecovery({
-    batch: [['note.md', { mtime: stat.mtimeMs, size: stat.size }]],
+    batch: [['note.md', { mtime: stat.mtimeMs, size: stat.size, birthtime: stat.birthtimeMs }]],
     sweepComplete: false,
     scanComplete: true,
     seen: null
@@ -447,4 +448,121 @@ test('observer arm 失败被隔离, 服务器控制面保持可用 (#40)', async
   assert.equal(treeBody.tree.name, 'fake', '树委托不受 arm 失败影响')
 
   assert.equal(state.closed, 0, '失败不应提前关闭 observer')
+})
+
+
+test('截断基线下的既有文件被静默纳入, 不产生幻影 created (#40 K1-D1 实测)', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-rt-adopt-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  // 既有文件: 先于 arm 落盘, 再回写 birthtime/mtime 到过去, 模拟宽工作区里
+  // 截断基线没盖到的预存文档
+  const oldPath = path.join(projectDir, 'pre-existing.md')
+  await fs.writeFile(oldPath, '# old\n')
+  const past = new Date(Date.now() - 3_600_000)
+  await fs.utimes(oldPath, past, past)
+
+  const { state, createObserver } = makeFakeObserver()
+  state.armImpl = async () => {
+    // 截断基线: entries 顶到上限, 文档集合为空
+    state.handlers.onBaseline({
+      documents: new Map(),
+      stats: { entries: 20000, documents: 0, bytes: 0, truncated: { entries: true } }
+    })
+  }
+  let server
+  await withForcedWatchFailure(async () => {
+    server = await startServer({ port: 0, configDir, defaultRoot: projectDir, createObserver })
+    await server.setConversationContext({ id: 's-adopt', label: '纳入会话', root: projectDir })
+  })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  const sse = connectSse(server)
+  t.after(sse.close)
+  const stat = await fs.stat(oldPath)
+  assert.ok(stat.birthtimeMs < Date.now(), '探针文件必须先于 arm 存在')
+  state.handlers.onRecovery({
+    batch: [['pre-existing.md', { mtime: stat.mtimeMs, size: stat.size, birthtime: stat.birthtimeMs }]],
+    sweepComplete: false,
+    scanComplete: true,
+    seen: null
+  })
+  await new Promise(resolve => setTimeout(resolve, 700))
+  const session = await viewerFetch(server, '/api/artifacts').then(response => response.json())
+  assert.equal(session.changes.length, 0, '先于 arm 存在的未基线文件绝不得按 created 上报')
+  assert.ok(
+    !sse.events.some(e => e.type === 'artifact' && e.artifact.path === 'pre-existing.md'),
+    '静默纳入不得广播 artifact 事件'
+  )
+
+  // 纳入之后: 同一文件 mtime 变化必须被恢复扫描捕获(纳入提供了比对基线)
+  await fs.writeFile(oldPath, '# old\n\nchanged\n')
+  const bumped = new Date(Date.now() + 3000)
+  await fs.utimes(oldPath, bumped, bumped)
+  const changed = await fs.stat(oldPath)
+  state.handlers.onRecovery({
+    batch: [['pre-existing.md', { mtime: changed.mtimeMs, size: changed.size, birthtime: changed.birthtimeMs }]],
+    sweepComplete: false,
+    scanComplete: true,
+    seen: null
+  })
+  // 该文件此前无内容基线, 首次确认以 created 呈现(有界模式语义, 已在 PR 声明)
+  const artifact = await sse.waitFor(
+    e => e.type === 'artifact' && e.artifact.path === 'pre-existing.md' && e.artifact.type === 'created'
+  )
+  assert.ok(artifact.artifact.stats.added > 0)
+})
+
+test('完整扫描移除已纳入路径, 不为未基线文件补记 deleted (#40)', async t => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'kimi-viewer-rt-adoptdel-'))
+  const configDir = path.join(tempRoot, 'config')
+  const projectDir = path.join(tempRoot, 'project')
+  await fs.mkdir(projectDir, { recursive: true })
+  const oldPath = path.join(projectDir, 'adopted-then-gone.md')
+  await fs.writeFile(oldPath, '# old\n')
+  const past = new Date(Date.now() - 3_600_000)
+  await fs.utimes(oldPath, past, past)
+
+  const { state, createObserver } = makeFakeObserver()
+  state.armImpl = async () => {
+    state.handlers.onBaseline({
+      documents: new Map(),
+      stats: { entries: 20000, documents: 0, bytes: 0, truncated: { entries: true } }
+    })
+  }
+  let server
+  await withForcedWatchFailure(async () => {
+    server = await startServer({ port: 0, configDir, defaultRoot: projectDir, createObserver })
+    await server.setConversationContext({ id: 's-adopt-del', label: '纳入删除会话', root: projectDir })
+  })
+  t.after(async () => {
+    await server.close()
+    await fs.rm(tempRoot, { recursive: true, force: true })
+  })
+
+  const sse = connectSse(server)
+  t.after(sse.close)
+  const stat = await fs.stat(oldPath)
+  state.handlers.onRecovery({
+    batch: [['adopted-then-gone.md', { mtime: stat.mtimeMs, size: stat.size, birthtime: stat.birthtimeMs }]],
+    sweepComplete: false,
+    scanComplete: true,
+    seen: null
+  })
+  await new Promise(resolve => setTimeout(resolve, 300))
+
+  await fs.rm(oldPath)
+  // 完整未截断扫描, seen 为空: 基线路径删除检测(无) + 纳入路径静默移除
+  state.handlers.onRecovery({ batch: [], sweepComplete: true, scanComplete: true, seen: [] })
+  await new Promise(resolve => setTimeout(resolve, 700))
+  const session = await viewerFetch(server, '/api/artifacts').then(response => response.json())
+  assert.equal(session.changes.length, 0, '未成为产物的纳入文件被删不得补记 deleted')
+  assert.ok(
+    !sse.events.some(e => e.type === 'artifact'),
+    '整个流程不得出现任何 artifact 事件'
+  )
 })

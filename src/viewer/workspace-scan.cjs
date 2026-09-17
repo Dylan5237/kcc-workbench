@@ -310,14 +310,16 @@ async function scanRecoverySlice(state, { maxEntries, deadlineMs, now = () => pe
       state.seen.add(webPath)
       let mtime = 0
       let size = 0
+      let birthtime = 0
       try {
         const stat = await fs.promises.stat(absolutePath)
         mtime = stat.mtimeMs
         size = stat.size
+        birthtime = stat.birthtimeMs
       } catch {
         // deleted between readdir and stat: report mtime 0 like the old poll
       }
-      batch.push([webPath, { mtime, size }])
+      batch.push([webPath, { mtime, size, birthtime }])
     }
     state.head += 1
   }

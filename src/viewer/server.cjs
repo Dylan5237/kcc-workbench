@@ -22,6 +22,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024
 const MAX_ASSET_BYTES = 20 * 1024 * 1024
 const MAX_ARTIFACTS = 100
 const MAX_PENDING_ARTIFACT_PATHS = 1000
+const MAX_ADOPTED_PATHS = 20_000
 const RESTRICTED_BROWSER_PORTS = new Set([
   1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
   87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
@@ -90,6 +91,10 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
   let artifactSession = createArtifactSession({ root })
   let burstOverflowed = false
   let currentArmStart = 0
+  let currentArmWallClock = 0
+  // 恢复扫描的静默纳入表: 截断基线未覆盖的既有文件只存 mtime/size,
+  // 使"已知集合"不再等同于"基线内容集合", !prev 不再被误判为 created。
+  const adoptedMtimes = new Map()
   // 工作区级遍历(基线/恢复/树)全部委托观察运行时: 生产为 worker 线程适配,
   // 测试可经 createObserver 注入假实现并捕获下列 handlers 驱动回调。
   const observerHandlers = {
@@ -154,9 +159,11 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     for (const timer of artifactTimers.values()) clearTimeout(timer)
     artifactTimers.clear()
     burstOverflowed = false
+    adoptedMtimes.clear()
     if (!root) return
     const snapshotStart = performance.now()
     currentArmStart = snapshotStart
+    currentArmWallClock = Date.now()
     // 基线全量遍历在观察运行时(worker)内完成; arm 解析时 onBaseline 已应用,
     // artifactSnapshot 即为本轮基线 (#19/#23 的等待语义由此保证)。
     await observer.arm({ root, extraRoots })
@@ -227,10 +234,12 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
       if (sameArtifactDocument(previous, current)) {
         // 内容未变时仍刷新 mtime 基线, 否则恢复兜底会因 mtime 差异重复调度
         if (previous && current) artifactSnapshot.set(relativePath, current)
+        adoptedMtimes.delete(relativePath)
         return
       }
       if (current) artifactSnapshot.set(relativePath, current)
       else artifactSnapshot.delete(relativePath)
+      adoptedMtimes.delete(relativePath)
       const type = !previous ? 'created' : (!current ? 'deleted' : 'modified')
       const diff = createLineDiff(previous?.content || '', current?.content || '')
       const artifact = {
@@ -346,19 +355,41 @@ function startServer({ port = 0, configDir, defaultRoot = '', authToken = crypto
     }
   }
 
-  // 恢复扫描分片结果: mtime 比对调度确认; 仅完整未截断的扫描才做删除检测;
-  // 有实际调度时作废树缓存, 交给 scheduleArtifact 统一出口广播。
+  // 恢复扫描分片结果。已知集合 = 基线快照 ∪ 静默纳入表:
+  // - 已知路径 mtime 变化 → 调度确认 (补抓漏掉的 modify);
+  // - 未知路径且 birthtime 晚于本次 arm → 漏抓的 create, 调度确认;
+  // - 未知路径但先于 arm 存在 → 截断基线没盖到的既有文件, 静默纳入,
+  //   绝不能按 created 上报, 否则宽工作区下恢复扫描会泛洪幻影产物 (K1-D1 实测)。
+  // 删除检测只在完整未截断扫描结束时进行: 基线路径缺失 → 调度确认;
+  // 纳入路径缺失 → 静默移除 (它从未成为产物, 删除也不构成产物事件)。
   function handleRecoveryBatch({ batch, sweepComplete, scanComplete, seen, stats }) {
     if (!root || closed) return
     let scheduled = 0
     for (const [webPath, stat] of batch) {
       const prev = artifactSnapshot.get(webPath)
-      if (!prev || prev.mtime !== stat.mtime) { scheduleArtifact(webPath); scheduled += 1 }
+      if (prev) {
+        if (prev.mtime !== stat.mtime) { scheduleArtifact(webPath); scheduled += 1 }
+        continue
+      }
+      const adopted = adoptedMtimes.get(webPath)
+      if (adopted) {
+        if (adopted.mtime !== stat.mtime) { scheduleArtifact(webPath); scheduled += 1 }
+        continue
+      }
+      if (stat.birthtime && stat.birthtime > currentArmWallClock) {
+        scheduleArtifact(webPath)
+        scheduled += 1
+      } else if (adoptedMtimes.size < MAX_ADOPTED_PATHS) {
+        adoptedMtimes.set(webPath, { mtime: stat.mtime, size: stat.size })
+      }
     }
     if (sweepComplete && scanComplete && seen) {
       const seenSet = new Set(seen)
       for (const previousPath of artifactSnapshot.keys()) {
         if (!seenSet.has(previousPath) && rootForPath(previousPath)) { scheduleArtifact(previousPath); scheduled += 1 }
+      }
+      for (const adoptedPath of adoptedMtimes.keys()) {
+        if (!seenSet.has(adoptedPath)) adoptedMtimes.delete(adoptedPath)
       }
     }
     if (stats && (stats.budgetHit || sweepComplete || stats.durationMs > 500)) {
