@@ -267,7 +267,12 @@ function createWorkspaceObserver(options = {}) {
       const reject = armReject
       queueMicrotask(() => reject(closedError()))
     }
-    closePromise = disposeAdapter().then(() => undefined)
+    // 关闭可能赶在适配器创建在途(adapterPromise 未落定)时: 先等创建完成,
+    // 使工厂回调把 adapter 挂上, 再统一回收, 否则新创建的工作线程会被泄漏。
+    closePromise = Promise.resolve(adapterPromise)
+      .catch(() => {})
+      .then(() => disposeAdapter())
+      .then(() => undefined)
     return closePromise
   }
 
