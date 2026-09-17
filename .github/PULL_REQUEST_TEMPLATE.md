@@ -49,6 +49,7 @@ Closes #（填写 Issue 编号）
 - [ ] `npm test` 通过
 - [ ] 影响打包或运行时行为时 `npm run build` 通过
 - [ ] 性能敏感改动已提供与风险相匹配的 benchmark / timing / 大 workspace / 实机证据，或说明为何不适用
+- [ ] 对 workspace-size 敏感的改动已验证“小项目 + 宽 workspace”两档，且 Viewer 隐藏后的后台路径也保持响应性；不适用时已说明
 - [ ] 未改回 portable exe 或 `asarUnpack: node_modules/**`
 - [ ] 未包含无关重构、格式化或行尾清理
 
